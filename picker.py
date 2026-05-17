@@ -228,6 +228,28 @@ def fetch_prices(tickers, years=7):
     return data
 
 
+def get_ohlcv(price_df, ticker):
+    """Return (close, volume) Series for ticker.
+
+    Handles both layouts that yf.download produces: a MultiIndex
+    (ticker, field) when multiple tickers are requested, and flat
+    columns ("Close", "Volume", ...) for a single ticker.
+    Returns (None, None) if the ticker isn't present.
+    """
+    try:
+        if isinstance(price_df.columns, pd.MultiIndex):
+            close = price_df[(ticker, "Close")].dropna()
+            volume = (price_df[(ticker, "Volume")].dropna()
+                      if (ticker, "Volume") in price_df.columns else None)
+        else:
+            close = price_df["Close"].dropna()
+            volume = (price_df["Volume"].dropna()
+                      if "Volume" in price_df.columns else None)
+        return close, volume
+    except (KeyError, TypeError):
+        return None, None
+
+
 def fetch_macro(years=7):
     """Download macro indicator time series."""
     tickers = list(MACRO_TICKERS.values())
@@ -300,45 +322,26 @@ def apply_constraints(candidates, fundamentals_df, price_df, mode="pick",
         if ticker == "XIU.TO":
             continue  # benchmark only
 
-        # Price-based checks (always available)
-        if ticker in price_df.columns if isinstance(price_df.columns, pd.Index) else False:
-            prices = price_df[ticker].dropna() if ticker in price_df else pd.Series(dtype=float)
-        else:
-            # Handle multi-level columns from yf.download
-            try:
-                prices = price_df[(ticker, "Close")].dropna()
-            except (KeyError, TypeError):
-                try:
-                    prices = price_df[ticker]["Close"].dropna()
-                except (KeyError, TypeError):
-                    continue
-
-        if len(prices) < C["min_listing_days"]:
+        prices, vol = get_ohlcv(price_df, ticker)
+        if prices is None or len(prices) < C["min_listing_days"]:
             continue
 
         last_price = prices.iloc[-1]
         if last_price < C["min_price_cad"] or last_price > C["max_price_cad"]:
             continue
 
-        # Volume check
-        try:
-            vol = price_df[(ticker, "Volume")].dropna() if (ticker, "Volume") in price_df.columns else price_df[ticker]["Volume"].dropna()
+        if vol is not None:
             adv = (vol.tail(20) * prices.tail(20)).mean()
             if adv < C["min_adv_cad"]:
                 continue
-        except (KeyError, TypeError):
-            pass
 
-        # Volume spike detection
-        try:
             vol_series = vol.tail(60)
             vol_mean = vol_series.mean()
             vol_std = vol_series.std()
-            spike_days = (vol_series > vol_mean + C["vol_spike_sigma"] * vol_std).sum()
-            if spike_days >= C["vol_spike_min_days"]:
-                continue
-        except Exception:
-            pass
+            if vol_std > 0:
+                spike_days = (vol_series > vol_mean + C["vol_spike_sigma"] * vol_std).sum()
+                if spike_days >= C["vol_spike_min_days"]:
+                    continue
 
         # Fundamental checks (pick mode only)
         if mode == "pick" and ticker in fundamentals_df.index:
@@ -431,30 +434,14 @@ def compute_time_decay_weights(n_samples, half_life_months=12):
 
 def compute_monthly_features(price_df, ticker):
     """Compute monthly technical features for a single ticker."""
-    try:
-        close = price_df[(ticker, "Close")].dropna()
-    except (KeyError, TypeError):
-        try:
-            close = price_df[ticker]["Close"].dropna()
-        except (KeyError, TypeError):
-            return None
-
-    if len(close) < 252:
+    close, vol = get_ohlcv(price_df, ticker)
+    if close is None or len(close) < 252:
         return None
 
     # Resample to month-end
     monthly = close.resample("ME").last().dropna()
     if len(monthly) < 13:
         return None
-
-    vol = None
-    try:
-        vol = price_df[(ticker, "Volume")].dropna()
-    except (KeyError, TypeError):
-        try:
-            vol = price_df[ticker]["Volume"].dropna()
-        except (KeyError, TypeError):
-            pass
 
     feats = pd.DataFrame(index=monthly.index)
 
@@ -866,14 +853,10 @@ def risk_parity_weights(tickers, price_df, lookback=60):
     """Inverse-volatility weighting."""
     vols = {}
     for t in tickers:
-        try:
-            close = price_df[(t, "Close")].dropna()
-        except (KeyError, TypeError):
-            try:
-                close = price_df[t]["Close"].dropna()
-            except (KeyError, TypeError):
-                vols[t] = 0.20  # default 20% vol
-                continue
+        close, _ = get_ohlcv(price_df, t)
+        if close is None:
+            vols[t] = 0.20  # default 20% vol
+            continue
         daily_ret = close.pct_change().tail(lookback)
         vols[t] = daily_ret.std() * np.sqrt(252) if len(daily_ret) > 20 else 0.20
 
