@@ -30,6 +30,10 @@ try:
 except ImportError:
     CURRENT_HOLDINGS = []
 
+# When True, replace mom_{1,3,6,12}m features with 2 PCA components.
+# Set False to keep the raw momentum features (the original baseline).
+USE_MOMENTUM_PCA = True
+
 # ══════════════════════════════════════════════════════════════════
 # UNIVERSE
 # ══════════════════════════════════════════════════════════════════
@@ -200,6 +204,7 @@ CONSTRAINTS = {
 
 FEATURE_COLS = [
     "mom_1m", "mom_3m", "mom_6m", "mom_12m",
+    "mom_pc1", "mom_pc2",  # only present when USE_MOMENTUM_PCA is True
     "vol_20d", "vol_60d", "vol_ratio",
     "rsi_14", "bb_zscore", "high_52w_ratio",
     "adv_20d_rank",
@@ -209,6 +214,12 @@ FEATURE_COLS = [
     "ev_ebitda", "debt_equity",
     "sector_code",
 ]
+
+# Raw momentum features get dropped from the model's feature list when
+# PCA is enabled (the PCs replace them). The DML stage still needs a
+# momentum treatment though, so picker.py routes that through mom_pc1
+# in PCA mode and mom_1m otherwise.
+_RAW_MOMENTUM = ["mom_1m", "mom_3m", "mom_6m", "mom_12m"]
 
 # ══════════════════════════════════════════════════════════════════
 # DATA ACQUISITION (yfinance only)
@@ -669,6 +680,37 @@ def smart_impute(panel, feature_cols):
     return panel
 
 
+def apply_momentum_pca(panel, n_components=2):
+    """Replace correlated momentum features with PCA components.
+
+    Adds mom_pc1..mom_pcN columns to panel via PCA fit on the full
+    panel's mom_{1,3,6,12}m columns. Originals stay in place because
+    fwd_ret derives from mom_1m and the DML stage still needs a
+    momentum signal — they just get filtered out of the model's
+    feature list by main().
+
+    The full-panel fit introduces a tiny look-ahead (a row's PC
+    coordinates depend on the panel's overall covariance, including
+    rows after that date). For a feature-space rotation rather than
+    target leakage, this is a standard compromise; refit-per-window
+    PCA would be more rigorous but adds significant complexity in
+    walk_forward.
+    """
+    from sklearn.decomposition import PCA
+
+    mom_cols = ["mom_1m", "mom_3m", "mom_6m", "mom_12m"]
+    available = [c for c in mom_cols if c in panel.columns]
+    if len(available) < n_components:
+        return panel
+
+    X = panel[available].fillna(0).values
+    pca = PCA(n_components=n_components)
+    pcs = pca.fit_transform(X)
+    for i in range(n_components):
+        panel[f"mom_pc{i+1}"] = pcs[:, i]
+    return panel
+
+
 def cross_sectional_normalize(panel, feature_cols, suffix="_norm"):
     """Add cross-sectional rank-normalized columns (per month) to panel.
 
@@ -1009,13 +1051,19 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24):
         picks = apply_rebalancing_band(top_tickers, top_scores, holdings)
 
         # DML adjustments: collect causal alphas from multiple treatments.
-        # Momentum uses the _norm version (matches the feature set);
-        # earnings_surprise is raw % and sits outside the feature set as
-        # a pure treatment.
-        mom_1m_col = "mom_1m_norm" if "mom_1m_norm" in feature_cols else "mom_1m"
+        # Momentum treatment routes through whichever momentum column is
+        # actually in the feature set (mom_pc1_norm under PCA mode,
+        # mom_1m_norm otherwise). Earnings_surprise is raw % and sits
+        # outside the feature set as a pure treatment.
+        if "mom_pc1_norm" in feature_cols:
+            mom_treatment = "mom_pc1_norm"
+        elif "mom_1m_norm" in feature_cols:
+            mom_treatment = "mom_1m_norm"
+        else:
+            mom_treatment = None
         candidate_treatments = []
-        if mom_1m_col in feature_cols:
-            candidate_treatments.append(mom_1m_col)
+        if mom_treatment is not None:
+            candidate_treatments.append(mom_treatment)
         if "earnings_surprise" in train_df.columns:
             candidate_treatments.append("earnings_surprise")
 
@@ -1092,15 +1140,20 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     latest_df = latest_df.copy()
     latest_df["score"] = scores
 
-    # DML adjustment. Momentum treatments use _norm to match the feature
-    # set; earnings_surprise is a raw % outside the feature set.
+    # DML adjustment. Momentum treatments route through whichever momentum
+    # columns are in the feature set (mom_pc{1,2}_norm under PCA mode,
+    # mom_{1,3}m_norm otherwise). Earnings_surprise sits outside the
+    # feature set as a pure treatment.
+    if "mom_pc1_norm" in feature_cols:
+        mom_treatments = [c for c in ("mom_pc1_norm", "mom_pc2_norm") if c in feature_cols]
+    else:
+        mom_treatments = [c for c in ("mom_1m_norm", "mom_3m_norm") if c in feature_cols]
+
     dml_thetas = {}
-    for base in ["mom_1m", "mom_3m"]:
-        treatment = f"{base}_norm" if f"{base}_norm" in feature_cols else base
-        if treatment in feature_cols:
-            theta = estimate_dml_alpha(train_df, feature_cols, treatment)
-            if abs(theta) > 0.01:
-                dml_thetas[treatment] = theta
+    for treatment in mom_treatments:
+        theta = estimate_dml_alpha(train_df, feature_cols, treatment)
+        if abs(theta) > 0.01:
+            dml_thetas[treatment] = theta
     if "earnings_surprise" in train_df.columns:
         theta = estimate_dml_alpha(train_df, feature_cols, "earnings_surprise")
         if abs(theta) > 0.01:
@@ -1256,6 +1309,19 @@ def main():
     available_features = [c for c in FEATURE_COLS if c in panel.columns]
     panel = smart_impute(panel, available_features)
     panel = add_labels(panel)
+
+    if USE_MOMENTUM_PCA:
+        panel = apply_momentum_pca(panel)
+        # PCs replace the raw momentum features in the model's feature
+        # list. Raw mom_*m columns stay on the panel (still needed by
+        # fwd_ret and DML treatment routing).
+        available_features = [c for c in FEATURE_COLS
+                              if c in panel.columns and c not in _RAW_MOMENTUM]
+        print("  Momentum: PCA mode (mom_pc1, mom_pc2 replace raw mom_*)")
+    else:
+        available_features = [c for c in available_features
+                              if c not in ("mom_pc1", "mom_pc2")]
+
     panel, model_features = cross_sectional_normalize(panel, available_features)
     print(f"  Panel: {len(panel)} rows, {panel['ticker'].nunique()} tickers, "
           f"{panel['date'].nunique()} months")

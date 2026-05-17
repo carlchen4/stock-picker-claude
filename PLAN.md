@@ -98,9 +98,7 @@ python picker.py both        # Both
 
 ## Potential Enhancements
 
-| Enhancement | Description | Priority |
-|-------------|-------------|----------|
-| Collinearity reduction | PCA on correlated momentum features | Low |
+_All planned enhancements complete. See "Tried and Rejected" below for items that didn't survive measurement._
 
 ### Tried and Rejected
 
