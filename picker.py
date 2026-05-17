@@ -43,54 +43,25 @@ USE_MOMENTUM_PCA = True
 
 TSX_UNIVERSE = [
     "XIU.TO",  # TSX 60 ETF (benchmark)
-    # Financials
-    "RY.TO", "TD.TO", "BNS.TO", "BMO.TO", "CM.TO", "NA.TO",
-    "MFC.TO", "SLF.TO", "GWO.TO", "POW.TO", "IFC.TO", "FFH.TO",
-    "IGM.TO", "IAG.TO", "EQB.TO",
-    # Energy
-    "CNQ.TO", "SU.TO", "ENB.TO", "TRP.TO", "CVE.TO", "IMO.TO",
-    "PPL.TO", "ARX.TO", "WCP.TO", "TVE.TO", "BIR.TO", "PSK.TO",
-    "KEL.TO", "PEY.TO", "FRU.TO",
-    # (ERF.TO removed: Enerplus acquired by Chord Energy in 2024.)
-    # Materials — Gold
-    "ABX.TO", "FNV.TO", "WPM.TO", "AEM.TO", "K.TO", "AGI.TO",
-    "CG.TO", "OR.TO", "ELD.TO", "BTO.TO",
-    # (SSL.TO removed: Sandstorm Gold delisted from TSX, NYSE-only as SAND.)
-    # Materials — Base metals / Diversified
-    "FM.TO", "IVN.TO", "LUN.TO", "TECK-B.TO", "HBM.TO", "CS.TO",
-    "CCL-B.TO", "WFG.TO",
-    # Industrials
-    "CNR.TO", "CP.TO", "WSP.TO", "TIH.TO", "CAE.TO", "STN.TO",
-    "TFII.TO", "ATS.TO", "GFL.TO", "RBA.TO",
-    # (AND.TO removed: Andlauer Healthcare acquired/delisted.)
-    # Consumer Discretionary
-    "DOL.TO", "ATZ.TO", "QSR.TO", "MG.TO", "LNR.TO",
-    "BYD.TO", "PBH.TO",
-    # Consumer Staples
-    "SAP.TO", "ATD.TO", "L.TO", "MFI.TO", "EMP-A.TO",
-    "WN.TO", "NWC.TO",
-    # Technology
-    "SHOP.TO", "CSU.TO", "OTEX.TO", "ENGH.TO", "DSG.TO",
-    "KXS.TO", "GIB-A.TO", "LSPD.TO",
-    # Communication Services
-    "BCE.TO", "T.TO", "RCI-B.TO",
-    # Utilities
-    "FTS.TO", "EMA.TO", "AQN.TO", "CU.TO", "H.TO",
-    # REITs
-    "REI-UN.TO", "HR-UN.TO", "CAR-UN.TO", "AP-UN.TO",
-    "GRT-UN.TO", "DIR-UN.TO",
-    # Healthcare
-    "WELL.TO", "CTC-A.TO",
+    # Financials (12) — includes NA.TO and EQB.TO (held but were missing)
+    "RY.TO", "TD.TO", "BMO.TO", "CM.TO", "BNS.TO",
+    "NA.TO", "EQB.TO",
+    "MFC.TO", "SLF.TO", "FFH.TO", "BAM.TO", "BN.TO",
+    # Energy (8)
+    "CNQ.TO", "SU.TO", "CVE.TO", "ARX.TO", "TOU.TO",
+    "ENB.TO", "TRP.TO", "IMO.TO",
+    # Industrials (6)
+    "CNR.TO", "CP.TO", "WSP.TO", "TRI.TO", "WCN.TO", "CLS.TO",
+    # Utilities (4)
+    "FTS.TO", "H.TO", "EMA.TO", "AQN.TO",
 ]
 
-# Merge in the auto-generated TSX Composite extension (one-shot output
-# of expand_universe.py). Regenerate that script when the Composite
-# rebalances. Profiles default to style='core', sub_type='other' so
-# they share concentration buckets with the curated set above.
+# Focused 4-sector universe; the TSX Composite extension is NOT merged
+# in. STOCK_PROFILE still pulls from tsx_extended for any of the
+# extended tickers that are in the curated list (BAM, BN, TOU, TRI,
+# WCN, CLS), so concentration limits work correctly.
 try:
-    from tsx_extended import EXTENDED_UNIVERSE, EXTENDED_PROFILES
-    TSX_UNIVERSE = TSX_UNIVERSE + [t for t in EXTENDED_UNIVERSE
-                                    if t not in TSX_UNIVERSE]
+    from tsx_extended import EXTENDED_PROFILES
 except ImportError:
     EXTENDED_PROFILES = {}
 
@@ -195,10 +166,13 @@ CONSTRAINTS = {
     "max_roe": 2.0,
     # History
     "min_listing_days": 252,
-    # Concentration
-    "max_per_gics": 4,
+    # Concentration. Caps raised to 7 to accommodate a Big-6-banks
+    # holding set (RY/TD/BNS/BMO/CM/NA + EQB): max_per_gics=7 for the
+    # Financials sector, max_per_type=7 for the "bank" sub_type which
+    # is what all 7 share.
+    "max_per_gics": 7,
     "max_per_style": 4,
-    "max_per_type": 5,
+    "max_per_type": 7,
     "max_single_alloc": 0.25,
     "max_gold_mining": 2,
     "max_base_metals": 1,
