@@ -611,14 +611,30 @@ def smart_impute(panel, feature_cols):
     return panel
 
 
-def cross_sectional_normalize(panel, feature_cols):
-    """Cross-sectional rank normalization to [-1, +1] per month."""
+def cross_sectional_normalize(panel, feature_cols, suffix="_norm"):
+    """Add cross-sectional rank-normalized columns (per month) to panel.
+
+    Writes new columns named `<col>{suffix}` rather than mutating the
+    originals so downstream code (e.g. add_labels deriving fwd_ret from
+    mom_1m) can still see raw values. sector_code passes through
+    unchanged because it's a categorical, not a feature to normalize.
+
+    Returns (panel, model_feature_cols), where model_feature_cols is the
+    list of column names to feed the model.
+    """
+    model_cols = []
     for col in feature_cols:
-        if col in panel.columns and col != "sector_code":
-            panel[col] = panel.groupby("date")[col].transform(
-                lambda x: (x.rank(pct=True) - 0.5) * 2
-            )
-    return panel
+        if col not in panel.columns:
+            continue
+        if col == "sector_code":
+            model_cols.append(col)
+            continue
+        new_col = f"{col}{suffix}"
+        panel[new_col] = panel.groupby("date")[col].transform(
+            lambda x: (x.rank(pct=True) - 0.5) * 2
+        )
+        model_cols.append(new_col)
+    return panel, model_cols
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -934,15 +950,17 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24):
         top_scores = test_df["score"].tolist()
         picks = apply_rebalancing_band(top_tickers, top_scores, holdings)
 
-        # DML adjustment (use momentum as treatment example)
-        if "mom_1m" in feature_cols and len(train_df) > 200:
-            theta = estimate_dml_alpha(train_df, feature_cols, "mom_1m")
+        # DML adjustment (use momentum as treatment example). feature_cols
+        # now holds the _norm versions, so the treatment name must match.
+        mom_1m_col = "mom_1m_norm" if "mom_1m_norm" in feature_cols else "mom_1m"
+        if mom_1m_col in feature_cols and len(train_df) > 200:
+            theta = estimate_dml_alpha(train_df, feature_cols, mom_1m_col)
             if abs(theta) > 0.01:
                 pick_mask = test_df["ticker"].isin(picks)
                 dml_adj = apply_dml_adjustment(
                     test_df.loc[pick_mask, "score"].values,
                     test_df.loc[pick_mask],
-                    {"mom_1m": theta}
+                    {mom_1m_col: theta}
                 )
                 # Re-rank after DML
                 pick_df = test_df.loc[pick_mask].copy()
@@ -1004,9 +1022,11 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     latest_df = latest_df.copy()
     latest_df["score"] = scores
 
-    # DML adjustment
+    # DML adjustment. feature_cols holds the _norm versions, so the
+    # treatment names must match.
     dml_thetas = {}
-    for treatment in ["mom_1m", "mom_3m"]:
+    for base in ["mom_1m", "mom_3m"]:
+        treatment = f"{base}_norm" if f"{base}_norm" in feature_cols else base
         if treatment in feature_cols:
             theta = estimate_dml_alpha(train_df, feature_cols, treatment)
             if abs(theta) > 0.01:
@@ -1156,26 +1176,24 @@ def main():
         print("  ERROR: No data available.")
         return
 
-    # Impute, then build fwd_ret from RAW mom_1m before normalization
-    # rewrites mom_1m to a [-1, +1] rank. Order matters: add_labels must
-    # come before cross_sectional_normalize, otherwise fwd_ret (both the
-    # regression target and the backtest's realized-return source) ends
-    # up holding rank values instead of true returns.
+    # Impute raw features, derive fwd_ret from raw mom_1m, then add
+    # rank-normalized companion columns (_norm) for the model to consume.
+    # Originals stay untouched so fwd_ret keeps real return units.
     available_features = [c for c in FEATURE_COLS if c in panel.columns]
     panel = smart_impute(panel, available_features)
     panel = add_labels(panel)
-    panel = cross_sectional_normalize(panel, available_features)
+    panel, model_features = cross_sectional_normalize(panel, available_features)
     print(f"  Panel: {len(panel)} rows, {panel['ticker'].nunique()} tickers, "
           f"{panel['date'].nunique()} months")
 
     if mode in ("backtest", "both"):
         print("\n  [4/5] Running walk-forward backtest...")
-        results = walk_forward(panel, available_features)
+        results = walk_forward(panel, model_features)
         print_backtest(results)
 
     if mode in ("pick", "both"):
         print("\n  [5/5] Generating current picks...")
-        result = predict_now(panel, available_features, price_df, macro_df)
+        result = predict_now(panel, model_features, price_df, macro_df)
         if result:
             picks, weights, latest_df, top_features, regime = result
             print_picks(picks, weights, latest_df, top_features, regime)
