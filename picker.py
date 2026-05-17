@@ -149,6 +149,12 @@ STOCK_PROFILE = {
 for _t, _p in EXTENDED_PROFILES.items():
     STOCK_PROFILE.setdefault(_t, _p)
 
+# Per-user overrides for sector classification. yfinance/Wikipedia
+# classify CLS.TO (Celestica) under Information Technology, but the
+# user includes it in their Industrials bucket — honor that here so
+# the required_sectors / per-sector caps see it as Industrials.
+STOCK_PROFILE["CLS.TO"] = ("Industrials", "core", "other")
+
 # ══════════════════════════════════════════════════════════════════
 # CONSTRAINTS
 # ══════════════════════════════════════════════════════════════════
@@ -166,13 +172,13 @@ CONSTRAINTS = {
     "max_roe": 2.0,
     # History
     "min_listing_days": 252,
-    # Concentration. Caps raised to 7 to accommodate a Big-6-banks
-    # holding set (RY/TD/BNS/BMO/CM/NA + EQB): max_per_gics=7 for the
-    # Financials sector, max_per_type=7 for the "bank" sub_type which
-    # is what all 7 share.
-    "max_per_gics": 7,
+    # Concentration. User rule: picks restricted to the 4 sectors
+    # below, with at least 1 and at most 2 from each. top_n=8 covers
+    # the 2-per-sector maximum (4 sectors x 2).
+    "max_per_gics": 2,
     "max_per_style": 4,
-    "max_per_type": 7,
+    "max_per_type": 5,
+    "required_sectors": ["Financials", "Energy", "Industrials", "Utilities"],
     "max_single_alloc": 0.25,
     "max_gold_mining": 2,
     "max_base_metals": 1,
@@ -905,12 +911,15 @@ def detect_regime(macro_df):
     tsx_ma200 = tsx.rolling(200).mean().iloc[-1]
     tsx_current = tsx.iloc[-1]
 
+    # Regime modulates only top_n; max_per_gics stays at 2 per the
+    # user's 1-2-per-sector rule. BEAR shrinks to 4 (1 per sector);
+    # BULL allows the full 8 (2 per sector). NEUTRAL = default top_n.
     if current_vix > 25 and tsx_current < tsx_ma200:
         regime = "BEAR"
-        adjustments = {"max_per_gics": 3, "top_n": 6, "min_confidence": 0.20}
+        adjustments = {"top_n": 4, "min_confidence": 0.20}
     elif current_vix < 15 and tsx_current > tsx_ma200:
         regime = "BULL"
-        adjustments = {"max_per_gics": 5, "top_n": 10, "min_confidence": 0.10}
+        adjustments = {"top_n": 8, "min_confidence": 0.10}
     else:
         regime = "NEUTRAL"
         adjustments = {}
@@ -923,46 +932,73 @@ def detect_regime(macro_df):
 # ══════════════════════════════════════════════════════════════════
 
 def apply_rebalancing_band(new_picks, new_scores, current_holdings, constraints=None):
-    """
-    Dual-buffer rebalancing: keep existing holdings if they're still
-    within rank_buffer and score_tolerance of top picks.
-    Reduces unnecessary turnover.
+    """Pick top stocks under sector min/max constraints.
+
+    Rules enforced (in order):
+      1. Every sector in `required_sectors` gets at least 1 pick
+         (highest-scoring candidate from that sector, holdings boosted
+         by hold_bonus).
+      2. Remaining slots filled by score, capped at `max_per_gics` per
+         sector.
+      3. Total picks <= `top_n`.
+
+    Holdings get a hold_bonus added to their score, biasing them
+    toward selection without breaking the sector caps. With 7 bank
+    holdings and max_per_gics=2 for Financials, only the 2 highest-
+    scored banks survive — the other 5 become implicit "trim"
+    recommendations.
+
+    Falls back to plain top_n if `required_sectors` is empty (legacy).
     """
     C = constraints or CONSTRAINTS
-    if not current_holdings:
-        return new_picks[:C["top_n"]]
+    if not new_picks:
+        return []
 
     top_n = C["top_n"]
-    rank_buf = C["rank_buffer"]
-    score_tol = C["score_tolerance"]
+    max_per_gics = C["max_per_gics"]
+    required_sectors = C.get("required_sectors") or []
     hold_bonus = C["hold_bonus"]
 
-    # Score dict
     score_dict = dict(zip(new_picks, new_scores))
-
-    # Boost current holdings
-    for h in current_holdings:
+    for h in (current_holdings or []):
         if h in score_dict:
             score_dict[h] += hold_bonus
 
-    # Re-rank with boosted scores
     ranked = sorted(score_dict.items(), key=lambda x: -x[1])
-    ranked_tickers = [t for t, s in ranked]
 
-    # Keep holdings if within buffer
+    def sector_of(t):
+        return STOCK_PROFILE.get(t, ("Unknown",))[0]
+
+    if not required_sectors:
+        # Legacy: no sector requirements — return top_n by score
+        return [t for t, _ in ranked[:top_n]]
+
     final = []
-    for t in current_holdings:
-        if t in ranked_tickers:
-            rank = ranked_tickers.index(t)
-            if rank < rank_buf:
-                final.append(t)
+    sector_count = {}
 
-    # Fill remaining slots from top picks
-    for t, s in ranked:
+    # Phase 1: guarantee 1 per required sector (highest-scoring there)
+    for sector in required_sectors:
+        for t, _ in ranked:
+            if t in final:
+                continue
+            if sector_of(t) == sector:
+                final.append(t)
+                sector_count[sector] = 1
+                break
+
+    # Phase 2: fill remaining slots by score, capping each sector
+    for t, _ in ranked:
         if len(final) >= top_n:
             break
-        if t not in final:
-            final.append(t)
+        if t in final:
+            continue
+        sec = sector_of(t)
+        if sec not in required_sectors:
+            continue  # universe should already exclude these, defensive
+        if sector_count.get(sec, 0) >= max_per_gics:
+            continue
+        final.append(t)
+        sector_count[sec] = sector_count.get(sec, 0) + 1
 
     return final[:top_n]
 
