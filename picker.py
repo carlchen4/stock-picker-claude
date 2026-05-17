@@ -37,6 +37,73 @@ except ImportError:
 # Set False to keep the raw momentum features (the original baseline).
 USE_MOMENTUM_PCA = True
 
+# When True, train one XGBoost+DML per required sector (Financials,
+# Energy, Industrials, Utilities), each on its curated feature subset
+# from SECTOR_FEATURES below. Set False to use a single global model
+# trained on all stocks with the full feature set.
+USE_SECTOR_MODELS = True
+
+# Mirrors encode_sector's sector_map; lifted to module scope so the
+# per-sector functions can look up codes from sector names.
+SECTOR_NAME_TO_CODE = {
+    "Financials": 1, "Energy": 2, "Materials": 3, "Industrials": 4,
+    "ConsumerDisc": 5, "ConsumerStaples": 6, "Technology": 7,
+    "Communication": 8, "Utilities": 9, "RealEstate": 10, "HealthCare": 11,
+}
+
+# Per-sector feature subsets (the X for each sector's model). Listed
+# as BASE names — the resolver picks the _norm counterpart at run-time
+# where cross_sectional_normalize has produced one. Each sector gets
+# the broad momentum/technical/volume features plus its curated set
+# of macro control variables from the per-sector spec.
+_BASE_SECTOR_FEATURES = [
+    "mom_pc1", "mom_pc2",
+    "vol_20d", "vol_60d", "vol_ratio",
+    "rsi_14", "bb_zscore", "high_52w_ratio",
+    "adv_20d_rank",
+]
+
+SECTOR_FEATURES = {
+    "Financials": _BASE_SECTOR_FEATURES + [
+        "rate_chg_3m",       # BOC rate proxy (via US 10Y)
+        "cad_bond_mom_1m",   # XBB.TO — Canadian bond ETF, BOC sensitivity
+        "vix_level",         # market volatility
+        "cad_mom_1m",        # CAD/USD
+        "tsx_mom_1m",        # equity market beta
+        "tips_mom_1m",       # CPI proxy
+        "roe", "pe_ratio", "div_yield", "debt_equity",
+        "sector_code",
+    ],
+    "Energy": _BASE_SECTOR_FEATURES + [
+        "oil_mom_1m",        # WTI
+        "natgas_mom_1m",     # Henry Hub
+        "carbon_mom_1m",     # KRBN
+        "cad_mom_1m",        # CAD/USD
+        "rate_chg_3m",       # 10Y
+        "tsx_mom_1m",        # sector beta proxy
+        "div_growth_yoy",    # for pipelines (ENB, TRP)
+        "roe", "pe_ratio", "div_yield", "debt_equity",
+        "sector_code",
+    ],
+    "Industrials": _BASE_SECTOR_FEATURES + [
+        "transport_mom_1m",  # IYT — freight / PMI proxy
+        "cad_mom_1m",        # CAD/USD
+        "rate_chg_3m",       # rates
+        "rev_growth_yoy",    # for services / AI infra (WSP, TRI, CLS)
+        "roe", "pe_ratio", "debt_equity",
+        "sector_code",
+    ],
+    "Utilities": _BASE_SECTOR_FEATURES + [
+        "rate_chg_3m",       # 10Y
+        "cad_bond_mom_1m",   # BOC proxy
+        "util_mom_1m",       # XLU — electricity demand proxy
+        "tips_mom_1m",       # CPI proxy
+        "div_growth_yoy",    # for regulated (H.TO)
+        "roe", "pe_ratio", "div_yield", "debt_equity",
+        "sector_code",
+    ],
+}
+
 # ══════════════════════════════════════════════════════════════════
 # UNIVERSE
 # ══════════════════════════════════════════════════════════════════
@@ -915,6 +982,78 @@ def ensemble_predict(reg, clf, X):
     return 0.5 * rank_reg + 0.5 * rank_cls
 
 
+def _resolve_sector_features(base_features, panel_columns):
+    """Map base feature names to their normalized counterparts.
+
+    `cross_sectional_normalize` writes <name>_norm columns; for
+    non-normalized columns (sector_code, fundamentals, growth signals
+    that aren't in FEATURE_COLS) the base name passes through.
+    """
+    resolved = []
+    for f in base_features:
+        norm = f + "_norm"
+        if norm in panel_columns:
+            resolved.append(norm)
+        elif f in panel_columns:
+            resolved.append(f)
+    return resolved
+
+
+def fit_sector_models(train_df, sample_weights=None, min_samples=50):
+    """Train one XGBoost ensemble per sector using SECTOR_FEATURES.
+
+    Returns dict[sector_name] = (regressor, classifier, feature_cols).
+    Sectors with fewer than `min_samples` training rows are skipped;
+    `predict_sector_models` returns NaN for tickers in skipped sectors
+    and the caller decides the fallback (0 score / drop).
+    """
+    models = {}
+    for sector_name, base_features in SECTOR_FEATURES.items():
+        code = SECTOR_NAME_TO_CODE.get(sector_name)
+        if code is None:
+            continue
+        sec_mask = (train_df["sector_code"] == code).values
+        sec_df = train_df.loc[sec_mask]
+        if len(sec_df) < min_samples:
+            continue
+        feats = _resolve_sector_features(base_features, train_df.columns)
+        if not feats:
+            continue
+        X = sec_df[feats].values
+        y = sec_df["fwd_ret"].values
+        w = sample_weights[sec_mask] if sample_weights is not None else None
+        try:
+            reg, clf = fit_models(
+                pd.DataFrame(X, columns=feats),
+                pd.Series(y),
+                sample_weights=w,
+            )
+            models[sector_name] = (reg, clf, feats)
+        except Exception:
+            continue
+    return models
+
+
+def predict_sector_models(test_df, sector_models):
+    """Score test_df rows via each row's sector model.
+
+    Returns np.ndarray of scores positionally aligned to test_df. Rows
+    whose sector lacks a trained model get NaN — the caller can either
+    drop them or fill with 0 (excluded from picks via rebalancing band).
+    """
+    scores = np.full(len(test_df), np.nan)
+    for sector_name, (reg, clf, feats) in sector_models.items():
+        code = SECTOR_NAME_TO_CODE.get(sector_name)
+        if code is None:
+            continue
+        mask = (test_df["sector_code"] == code).values
+        if not mask.any():
+            continue
+        X = test_df.loc[mask, feats].values
+        scores[mask] = ensemble_predict(reg, clf, X)
+    return scores
+
+
 # ══════════════════════════════════════════════════════════════════
 # DOUBLE MACHINE LEARNING (Chernozhukov 2018)
 # ══════════════════════════════════════════════════════════════════
@@ -1161,24 +1300,23 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24):
         if len(train_df) < min_train * 5 or len(test_df) < 3:
             continue
 
-        # Prepare features
-        X_train = train_df[feature_cols].values
-        y_train = train_df["fwd_ret"].values
-
-        X_test = test_df[feature_cols].values
-
         # Time decay weights
-        n = len(X_train)
+        n = len(train_df)
         weights = compute_time_decay_weights(n)
 
-        # Fit and predict
+        # Fit and predict — per-sector or global depending on the flag
         try:
-            reg, clf = fit_models(
-                pd.DataFrame(X_train, columns=feature_cols),
-                pd.Series(y_train),
-                sample_weights=weights
-            )
-            scores = ensemble_predict(reg, clf, X_test)
+            if USE_SECTOR_MODELS:
+                sec_models = fit_sector_models(train_df, sample_weights=weights)
+                scores = predict_sector_models(test_df, sec_models)
+                scores = np.nan_to_num(scores, nan=0.0)
+            else:
+                reg, clf = fit_models(
+                    pd.DataFrame(train_df[feature_cols].values, columns=feature_cols),
+                    pd.Series(train_df["fwd_ret"].values),
+                    sample_weights=weights
+                )
+                scores = ensemble_predict(reg, clf, test_df[feature_cols].values)
         except Exception:
             continue
 
@@ -1263,22 +1401,21 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
         print("  ERROR: Insufficient data for prediction")
         return []
 
-    X_train = train_df[feature_cols].values
-    y_train = train_df["fwd_ret"].values
-    X_latest = latest_df[feature_cols].values
+    weights = compute_time_decay_weights(len(train_df))
 
-    # Time decay
-    weights = compute_time_decay_weights(len(X_train))
+    if USE_SECTOR_MODELS:
+        sec_models = fit_sector_models(train_df, sample_weights=weights)
+        scores = predict_sector_models(latest_df, sec_models)
+        scores = np.nan_to_num(scores, nan=0.0)
+        print(f"  Sector models trained: {sorted(sec_models.keys())}")
+    else:
+        reg, clf = fit_models(
+            pd.DataFrame(train_df[feature_cols].values, columns=feature_cols),
+            pd.Series(train_df["fwd_ret"].values),
+            sample_weights=weights
+        )
+        scores = ensemble_predict(reg, clf, latest_df[feature_cols].values)
 
-    # Fit
-    reg, clf = fit_models(
-        pd.DataFrame(X_train, columns=feature_cols),
-        pd.Series(y_train),
-        sample_weights=weights
-    )
-
-    # Predict
-    scores = ensemble_predict(reg, clf, X_latest)
     latest_df = latest_df.copy()
     latest_df["score"] = scores
 
@@ -1337,8 +1474,19 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     # Position sizing
     weights = risk_parity_weights(final_picks, price_df)
 
-    # Feature importance
-    importance = dict(zip(feature_cols, reg.feature_importances_))
+    # Feature importance. Under sector models, average importance across
+    # all trained sector regressors so the user still gets a single top-10
+    # view; under the global model, use the single regressor directly.
+    importance = {}
+    if USE_SECTOR_MODELS:
+        for sector_name, (sec_reg, _clf, feats) in sec_models.items():
+            for f, imp in zip(feats, sec_reg.feature_importances_):
+                importance[f] = importance.get(f, 0.0) + float(imp)
+        # Normalize so the sums are comparable to single-model output
+        n_models = max(len(sec_models), 1)
+        importance = {f: v / n_models for f, v in importance.items()}
+    else:
+        importance = dict(zip(feature_cols, reg.feature_importances_))
     top_features = sorted(importance.items(), key=lambda x: -x[1])[:10]
 
     return final_picks, weights, latest_df, top_features, regime
