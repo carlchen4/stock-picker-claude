@@ -951,20 +951,19 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24):
 
         holdings = picks
 
-        # Record actual returns
-        next_date = dates[i + 1] if i + 1 < len(dates) else None
-        if next_date:
-            next_df = panel[panel["date"] == next_date]
-            pick_rets = next_df[next_df["ticker"].isin(picks)]["mom_1m"]
-            bench_ret = next_df[next_df["ticker"] == "XIU.TO"]["mom_1m"]
+        # Record actual returns. fwd_ret was computed from raw monthly
+        # returns BEFORE cross_sectional_normalize rewrote mom_1m to a rank,
+        # so it's the only column that still holds true forward returns.
+        pick_rets = test_df[test_df["ticker"].isin(picks)]["fwd_ret"]
+        bench_row = test_df[test_df["ticker"] == "XIU.TO"]["fwd_ret"]
 
-            results.append({
-                "date": test_date,
-                "picks": picks,
-                "port_ret": pick_rets.mean() if len(pick_rets) > 0 else 0,
-                "bench_ret": bench_ret.iloc[0] if len(bench_ret) > 0 else 0,
-                "n_picks": len(picks),
-            })
+        results.append({
+            "date": test_date,
+            "picks": picks,
+            "port_ret": pick_rets.mean() if len(pick_rets) > 0 else 0,
+            "bench_ret": bench_row.iloc[0] if len(bench_row) > 0 else 0,
+            "n_picks": len(picks),
+        })
 
     return pd.DataFrame(results)
 
@@ -1157,13 +1156,15 @@ def main():
         print("  ERROR: No data available.")
         return
 
-    # Impute and normalize
+    # Impute, then build fwd_ret from RAW mom_1m before normalization
+    # rewrites mom_1m to a [-1, +1] rank. Order matters: add_labels must
+    # come before cross_sectional_normalize, otherwise fwd_ret (both the
+    # regression target and the backtest's realized-return source) ends
+    # up holding rank values instead of true returns.
     available_features = [c for c in FEATURE_COLS if c in panel.columns]
     panel = smart_impute(panel, available_features)
-    panel = cross_sectional_normalize(panel, available_features)
-
-    # Add labels
     panel = add_labels(panel)
+    panel = cross_sectional_normalize(panel, available_features)
     print(f"  Panel: {len(panel)} rows, {panel['ticker'].nunique()} tickers, "
           f"{panel['date'].nunique()} months")
 
