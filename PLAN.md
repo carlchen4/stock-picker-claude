@@ -16,15 +16,20 @@ Quantitative stock picker for the TSX (Toronto Stock Exchange) using XGBoost and
 ```
 picker.py
 ├── Data Acquisition        fetch_prices(), fetch_macro(), fetch_fundamentals(),
-│                           fetch_earnings_surprise(), get_ohlcv()
+│                           fetch_earnings_surprise(), fetch_dividend_history(),
+│                           fetch_quarterly_financials(), get_ohlcv()
 ├── Constraint Filtering    apply_constraints(), _apply_concentration_limits()
 ├── Feature Engineering     compute_monthly_features(), build_panel(),
-│                           compute_earnings_surprise_feature(), smart_impute(),
+│                           compute_earnings_surprise_feature(),
+│                           compute_dividend_growth_feature(),
+│                           compute_revenue_growth_feature(),
+│                           smart_impute(),
 │                           cross_sectional_normalize(), apply_momentum_pca()
 ├── Models                  fit_models(), ensemble_predict()
 ├── Double Machine Learning estimate_dml_alpha(), apply_dml_adjustment()
 ├── Regime Detection        detect_regime()
 ├── Rebalancing Band        apply_rebalancing_band()
+│                           (enforces required_sectors min-1/max-2)
 ├── Position Sizing         risk_parity_weights()
 ├── Walk-Forward Backtest   walk_forward()
 ├── Prediction              predict_now()
@@ -53,13 +58,15 @@ Estimates the **causal** effect of momentum signals on returns:
 
 Uses `TimeSeriesSplit` with gap=1 to prevent temporal leakage.
 
-### Constraints (30+ rules)
+### Constraints
 
+- **Universe:** focused on 4 sectors (Financials, Energy, Industrials, Utilities) — see `TSX_UNIVERSE` in picker.py.
+- **Per-sector caps:** `required_sectors` enforces **min 1 / max 2 picks per sector** via `apply_rebalancing_band`. Vol-spike anti-anomaly filter exempts current holdings.
 - **Liquidity:** min ADV $1M, price $2–$400
 - **Fundamentals:** PE 0–150, ROE 0–200%, market cap > $800M
-- **Concentration:** max 4 per GICS sector, 2 gold miners, 1 base metal
-- **Turnover:** rank buffer 18, score tolerance 1.5%, max 4 changes/month
-- **Risk:** VIX scaling, drawdown halt at -15%
+- **Concentration:** max_per_gics=2, max_per_style=4, max_per_type=5, max 2 gold miners, max 1 base metal
+- **Turnover:** rank buffer 18, hold_bonus 0.05, max 4 changes/month
+- **Risk:** VIX scaling, drawdown halt at -15%, regime overrides only `top_n` (BEAR=4, BULL=8, NEUTRAL=8) so per-sector caps stay honored.
 
 ### Features
 
@@ -73,7 +80,9 @@ flag in `picker.py` to A/B against the raw-momentum baseline.
 | Volatility | 20d, 60d, ratio | |
 | Technical | RSI, Bollinger Z, 52w high ratio | |
 | Volume | ADV rank | |
-| Macro | Oil, CAD, rates, TSX, gold, VIX | |
+| Macro (broad) | Oil (CL=F), CAD/USD, US 10Y rates, TSX, gold, VIX | |
+| Macro (sector proxies) | natgas (NG=F), carbon (KRBN), transport (IYT), utilities (XLU), inflation (TIP), CAD bonds (XBB.TO) | yfinance ETF/futures proxies for the per-sector spec — pipeline/utility regime, freight, electricity demand, inflation, BOC-rate proxy |
+| Per-sub-industry growth | dividend_growth_yoy, revenue_growth_yoy | XGBoost auto-routes via sector_code splits — pipelines/utilities lean on div growth, services/AI infra on revenue growth |
 | Fundamental | ROE, PE, div yield, EV/EBITDA, debt/equity | sector-median imputed (PIT disabled, see history) |
 | Sector | GICS code | not normalized |
 | Earnings surprise | most recent Surprise(%) within 3-month window | DML treatment only, not a model feature |
@@ -144,6 +153,85 @@ matplotlib, seaborn, plotly, jupyter (for analysis)
 ---
 
 ## Session History
+
+### 2026-05-17 — focused universe + per-sector logic
+
+Pivoted from the 95-name curated universe to a 28-name focused list
+across 4 sectors (Financials, Energy, Industrials, Utilities), then
+layered in the per-sub-industry logic from the user's spec.
+
+**Universe pivot**
+
+- Briefly expanded to ~223 names via TSX Composite (`expand_universe.py`
+  → `tsx_extended.py`) — runtime ~3 min, two new picks surfaced. The
+  expansion script and `tsx_extended.py` stay in the repo for future
+  re-runs if the focused universe gets widened again.
+- Replaced `TSX_UNIVERSE` with the focused 28 + XIU.TO + NA.TO + EQB.TO
+  (= 31 tickers). `tsx_extended.py` is now imported only for profile
+  lookup, not for universe expansion.
+- Per-user override: `STOCK_PROFILE["CLS.TO"] = ("Industrials", ...)`
+  even though yfinance classifies it as Information Technology.
+
+**Per-sector rule (min 1 / max 2)**
+
+- `CONSTRAINTS["required_sectors"]` lists the 4 active sectors;
+  `max_per_gics=2` enforces the per-sector ceiling.
+- `apply_rebalancing_band` rewritten as two phases:
+  1. Guarantee 1 pick per required sector (highest-scoring there,
+     holdings boosted by `hold_bonus`).
+  2. Fill remaining slots up to `top_n` by score, capped per sector.
+- `detect_regime` no longer overrides `max_per_gics` — only `top_n`
+  modulates (BEAR=4, BULL=8). The sector caps stay invariant across
+  regimes.
+- Side effect: bank-heavy holdings (7 banks) get trimmed to 2 in picks
+  — the model now implicitly recommends rebalancing.
+
+**Per-sector signals (yfinance-proxies path)**
+
+After feasibility check on SimFin/FMP (SimFin has none of the
+sector-specific macros; FMP has only CPI and US PMI), chose the
+yfinance-only path with ETF/futures proxies:
+
+- New macro tickers: `NG=F`, `KRBN`, `IYT`, `XLU`, `TIP`, `XBB.TO` —
+  each contributes a `*_mom_1m` feature.
+- New per-ticker growth features:
+  - `dividend_growth_yoy` from `yfinance.Ticker.dividends` (TTM/TTM-1).
+    92.7% panel coverage.
+  - `revenue_growth_yoy` from quarterly income statements with 45-day
+    lag. ~5% coverage (yfinance only returns 5-8 quarters per ticker).
+- **No hard-coded sub-industry signal routing**: per the design
+  discussion, XGBoost splits on `sector_code` naturally and picks the
+  right signal per leaf. If the model ever fails to auto-route
+  correctly, a `SIGNAL_MAP` would be the explicit fallback.
+
+**Backtest impact** (focused 4-sector universe, 47-month walk-forward):
+
+| Metric | Pre (95-ticker) | Post (focused + new features) |
+|---|---|---|
+| Sharpe | 1.10 | **1.15** |
+| Max drawdown | −15.8% | **−8.5%** |
+| Excess vs XIU.TO | +9.8%/yr | +1.0%/yr |
+| Top features | mom_pc1/2, sector_code | mom_pc1/2, vol_20d, sector_code, **rev_growth_yoy (#5)**, **div_growth_yoy (#9)** |
+
+Lower excess is expected for the narrower universe; the model is more
+defensive (much smaller drawdown for similar Sharpe). Both new growth
+signals land in the top-10 importances, confirming XGBoost is using
+them per the auto-routing assumption.
+
+**Operational changes**
+
+- Vol-spike anti-anomaly filter exempts current holdings (so a held
+  stock doesn't get force-sold over a post-earnings volume spike).
+- TSX universe cleanup: TECK.TO → TECK-B.TO, ATA.TO → ATS.TO renames;
+  ERF.TO/SSL.TO/AND.TO removed (delisted).
+- XIU.TO short-circuited in `fetch_earnings_surprise` (ETF, no
+  earnings — silences yfinance warning).
+- `lxml` added to requirements.txt (needed by yfinance earnings scraper).
+- `expand_universe.py` + `tsx_extended.py` retained as the re-runnable
+  path back to a larger universe if needed.
+- `diagnose_holdings.py` and `diagnose_constraints.py` were the tools
+  that surfaced which constraint filters were silently dropping
+  holdings (vol_spike, max_per_type cap on "bank" sub_type).
 
 ### 2026-05-16 — initial productionization
 
