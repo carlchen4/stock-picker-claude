@@ -100,7 +100,6 @@ python picker.py both        # Both
 
 | Enhancement | Description | Priority |
 |-------------|-------------|----------|
-| Remove picker_ca.py | Delete legacy file from repo | High |
 | Earnings surprise | Add earnings beat/miss signal as DML treatment | Medium |
 | Portfolio config | `portfolio_config.py` for current holdings tracking | Medium |
 | PIT fundamentals | Enrich yfinance quarterly data with better lag handling | Low |
