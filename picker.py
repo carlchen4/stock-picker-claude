@@ -50,16 +50,19 @@ TSX_UNIVERSE = [
     # Energy
     "CNQ.TO", "SU.TO", "ENB.TO", "TRP.TO", "CVE.TO", "IMO.TO",
     "PPL.TO", "ARX.TO", "WCP.TO", "TVE.TO", "BIR.TO", "PSK.TO",
-    "KEL.TO", "PEY.TO", "FRU.TO", "ERF.TO",
+    "KEL.TO", "PEY.TO", "FRU.TO",
+    # (ERF.TO removed: Enerplus acquired by Chord Energy in 2024.)
     # Materials — Gold
     "ABX.TO", "FNV.TO", "WPM.TO", "AEM.TO", "K.TO", "AGI.TO",
-    "CG.TO", "OR.TO", "SSL.TO", "ELD.TO", "BTO.TO",
+    "CG.TO", "OR.TO", "ELD.TO", "BTO.TO",
+    # (SSL.TO removed: Sandstorm Gold delisted from TSX, NYSE-only as SAND.)
     # Materials — Base metals / Diversified
-    "FM.TO", "IVN.TO", "LUN.TO", "TECK.TO", "HBM.TO", "CS.TO",
+    "FM.TO", "IVN.TO", "LUN.TO", "TECK-B.TO", "HBM.TO", "CS.TO",
     "CCL-B.TO", "WFG.TO",
     # Industrials
     "CNR.TO", "CP.TO", "WSP.TO", "TIH.TO", "CAE.TO", "STN.TO",
-    "TFII.TO", "ATA.TO", "GFL.TO", "AND.TO", "RBA.TO",
+    "TFII.TO", "ATS.TO", "GFL.TO", "RBA.TO",
+    # (AND.TO removed: Andlauer Healthcare acquired/delisted.)
     # Consumer Discretionary
     "DOL.TO", "ATZ.TO", "QSR.TO", "MG.TO", "LNR.TO",
     "BYD.TO", "PBH.TO",
@@ -109,26 +112,25 @@ STOCK_PROFILE = {
     "WCP.TO": ("Energy", "growth", "oil_gas"), "TVE.TO": ("Energy", "value", "oil_gas"),
     "BIR.TO": ("Energy", "value", "oil_gas"), "PSK.TO": ("Energy", "value", "royalty"),
     "KEL.TO": ("Energy", "growth", "oil_gas"), "PEY.TO": ("Energy", "value", "oil_gas"),
-    "FRU.TO": ("Energy", "value", "royalty"), "ERF.TO": ("Energy", "value", "oil_gas"),
+    "FRU.TO": ("Energy", "value", "royalty"),
     # Materials — Gold
     "ABX.TO": ("Materials", "core", "gold"), "FNV.TO": ("Materials", "growth", "gold_royalty"),
     "WPM.TO": ("Materials", "growth", "gold_royalty"), "AEM.TO": ("Materials", "core", "gold"),
     "K.TO": ("Materials", "core", "gold"), "AGI.TO": ("Materials", "growth", "gold"),
     "CG.TO": ("Materials", "growth", "gold"), "OR.TO": ("Materials", "growth", "gold_royalty"),
-    "SSL.TO": ("Materials", "value", "gold"), "ELD.TO": ("Materials", "value", "gold"),
+    "ELD.TO": ("Materials", "value", "gold"),
     "BTO.TO": ("Materials", "growth", "gold"),
     # Materials — Base
     "FM.TO": ("Materials", "core", "base_metal"), "IVN.TO": ("Materials", "growth", "base_metal"),
-    "LUN.TO": ("Materials", "core", "base_metal"), "TECK.TO": ("Materials", "core", "diversified"),
+    "LUN.TO": ("Materials", "core", "base_metal"), "TECK-B.TO": ("Materials", "core", "diversified"),
     "HBM.TO": ("Materials", "growth", "base_metal"), "CS.TO": ("Materials", "value", "base_metal"),
     "CCL-B.TO": ("Materials", "core", "packaging"), "WFG.TO": ("Materials", "core", "forestry"),
     # Industrials
     "CNR.TO": ("Industrials", "core", "rail"), "CP.TO": ("Industrials", "core", "rail"),
     "WSP.TO": ("Industrials", "growth", "engineering"), "TIH.TO": ("Industrials", "growth", "industrial"),
     "CAE.TO": ("Industrials", "growth", "aerospace"), "STN.TO": ("Industrials", "growth", "engineering"),
-    "TFII.TO": ("Industrials", "growth", "transport"), "ATA.TO": ("Industrials", "value", "industrial"),
-    "GFL.TO": ("Industrials", "growth", "waste"), "AND.TO": ("Industrials", "growth", "industrial"),
-    "RBA.TO": ("Industrials", "growth", "auction"),
+    "TFII.TO": ("Industrials", "growth", "transport"), "ATS.TO": ("Industrials", "value", "industrial"),
+    "GFL.TO": ("Industrials", "growth", "waste"), "RBA.TO": ("Industrials", "growth", "auction"),
     # Consumer Discretionary
     "DOL.TO": ("ConsumerDisc", "core", "retail"), "ATZ.TO": ("ConsumerDisc", "growth", "retail"),
     "QSR.TO": ("ConsumerDisc", "core", "restaurant"), "MG.TO": ("ConsumerDisc", "value", "auto"),
