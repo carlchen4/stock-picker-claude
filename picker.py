@@ -73,6 +73,13 @@ MACRO_TICKERS = {
     "tsx": "^GSPTSE",
     "gold": "GC=F",
     "vix": "^VIX",
+    # Sector-relevant yfinance proxies (per the per-sector spec):
+    "natgas": "NG=F",        # Henry Hub futures — gas / pipeline relevance
+    "carbon": "KRBN",        # KraneShares Global Carbon ETF
+    "transport": "IYT",      # iShares Transportation ETF — freight proxy / PMI lag
+    "utilities_etf": "XLU",  # XLU — utility-sector sentiment, electricity demand
+    "inflation": "TIP",      # TIPS ETF — market-implied inflation
+    "cad_bonds": "XBB.TO",   # Canadian aggregate bond ETF — BOC rate proxy
 }
 
 # Stock sector/style classification
@@ -211,6 +218,11 @@ FEATURE_COLS = [
     "adv_20d_rank",
     "oil_mom_1m", "cad_mom_1m", "rate_chg_3m",
     "tsx_mom_1m", "gold_mom_1m", "vix_level",
+    # Sector-relevant macro proxies (yfinance ETFs / futures)
+    "natgas_mom_1m", "carbon_mom_1m", "transport_mom_1m",
+    "util_mom_1m", "tips_mom_1m", "cad_bond_mom_1m",
+    # Per-sub-industry growth signals
+    "div_growth_yoy", "rev_growth_yoy",
     "roe", "pe_ratio", "div_yield",
     "ev_ebitda", "debt_equity",
     "sector_code",
@@ -343,6 +355,75 @@ def compute_earnings_surprise_feature(ticker, monthly_dates, window_months=3):
         if not recent.empty:
             result.loc[dt] = float(recent.iloc[-1])
     return result
+
+
+def fetch_dividend_history(ticker):
+    """Fetch the dividend payment history from yfinance.
+
+    Returns a Series of date -> dividend amount. Empty Series on
+    failure or for non-paying tickers.
+    """
+    try:
+        divs = yf.Ticker(ticker).dividends
+        if divs is None or divs.empty:
+            return pd.Series(dtype=float)
+        divs.index = pd.to_datetime(divs.index).tz_localize(None)
+        return divs.sort_index()
+    except Exception:
+        return pd.Series(dtype=float)
+
+
+def compute_dividend_growth_feature(ticker, monthly_dates):
+    """Year-over-year trailing-12-month dividend growth, aligned monthly.
+
+    For each month-end t:
+      TTM_t   = sum of dividends paid in (t-12mo, t]
+      TTM_t-1 = sum of dividends paid in (t-24mo, t-12mo]
+      growth  = TTM_t / TTM_t-1 - 1
+
+    Returns a Series indexed by monthly_dates, 0.0 where no prior
+    TTM exists (non-payer or insufficient history). Used as a feature
+    so XGBoost can route by sub-industry (e.g., pipelines like ENB
+    where the dividend signal dominates).
+    """
+    divs = fetch_dividend_history(ticker)
+    result = pd.Series(0.0, index=monthly_dates)
+    if divs.empty:
+        return result
+    year = pd.Timedelta(days=365)
+    for dt in monthly_dates:
+        ttm = divs[(divs.index > dt - year) & (divs.index <= dt)].sum()
+        prior = divs[(divs.index > dt - 2 * year) & (divs.index <= dt - year)].sum()
+        if prior > 0:
+            result.loc[dt] = float(ttm / prior - 1.0)
+    return result
+
+
+def compute_revenue_growth_feature(ticker, monthly_dates):
+    """Year-over-year quarterly revenue growth, aligned monthly.
+
+    Pulls quarterly revenue from yfinance, applies a 45-day reporting
+    lag (only data published by date t can be used), and forwards the
+    most recent YoY growth rate at each monthly date.
+
+    Returns 0.0 where no prior-year quarter is available.
+    """
+    qf = fetch_quarterly_financials(ticker)
+    result = pd.Series(0.0, index=monthly_dates)
+    if qf is None or qf.empty or "revenue" not in qf.columns:
+        return result
+    rev = qf["revenue"].dropna().sort_index()
+    if len(rev) < 5:
+        return result
+    # Apply reporting lag so each monthly date only sees revenue that
+    # was actually published by then.
+    rev.index = rev.index + timedelta(days=45)
+    yoy = rev / rev.shift(4) - 1.0
+    yoy = yoy.dropna()
+    if yoy.empty:
+        return result
+    aligned = yoy.reindex(monthly_dates, method="ffill")
+    return aligned.fillna(0.0)
 
 
 def fetch_quarterly_financials(ticker):
@@ -553,6 +634,13 @@ def compute_monthly_features(price_df, ticker):
     # ensemble as a feature).
     feats["earnings_surprise"] = compute_earnings_surprise_feature(ticker, monthly.index)
 
+    # Per-sub-industry signals: dividend growth (pipelines, regulated
+    # utilities) and revenue growth (professional services, AI infra).
+    # Added as features so XGBoost can route them per sub_type via
+    # tree splits — no hard-coded routing needed.
+    feats["div_growth_yoy"] = compute_dividend_growth_feature(ticker, monthly.index)
+    feats["rev_growth_yoy"] = compute_revenue_growth_feature(ticker, monthly.index)
+
     feats["ticker"] = ticker
     return feats
 
@@ -578,6 +666,18 @@ def get_macro_features(macro_df, dates):
                 result["gold_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
             elif name == "vix":
                 result["vix_level"] = monthly.reindex(dates, method="ffill")
+            elif name == "natgas":
+                result["natgas_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+            elif name == "carbon":
+                result["carbon_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+            elif name == "transport":
+                result["transport_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+            elif name == "utilities_etf":
+                result["util_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+            elif name == "inflation":
+                result["tips_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+            elif name == "cad_bonds":
+                result["cad_bond_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
         except (KeyError, TypeError):
             pass
 

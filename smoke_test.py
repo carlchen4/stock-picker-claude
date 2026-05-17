@@ -55,6 +55,19 @@ def main():
     # least some non-zero entries across the panel.
     nonzero_share = (panel["earnings_surprise"].abs() > 0.01).mean()
     check(nonzero_share > 0.0, f"earnings_surprise has non-zero entries ({nonzero_share:.1%})")
+    # New per-sub-industry growth signals
+    check("div_growth_yoy" in panel.columns, "div_growth_yoy column present")
+    check("rev_growth_yoy" in panel.columns, "rev_growth_yoy column present")
+    div_pct = (panel["div_growth_yoy"].abs() > 0.001).mean()
+    rev_pct = (panel["rev_growth_yoy"].abs() > 0.001).mean()
+    check(div_pct > 0.1, f"div_growth_yoy populated ({div_pct:.1%})")
+    # rev_growth_yoy is intrinsically sparse — yfinance only returns
+    # 5-8 quarters per ticker, so monthly-aligned coverage stays in the
+    # 3-8% range. Backtest decides whether it's net useful or noise.
+    check(rev_pct > 0.02, f"rev_growth_yoy populated ({rev_pct:.1%})")
+    # New macro proxies
+    for col in ["natgas_mom_1m", "carbon_mom_1m", "transport_mom_1m"]:
+        check(col in panel.columns, f"{col} macro feature present")
 
     print("\n[3] Pipeline (impute -> labels -> normalize)...")
     available = [c for c in picker.FEATURE_COLS if c in panel.columns]
