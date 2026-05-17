@@ -83,6 +83,17 @@ TSX_UNIVERSE = [
     "WELL.TO", "CTC-A.TO",
 ]
 
+# Merge in the auto-generated TSX Composite extension (one-shot output
+# of expand_universe.py). Regenerate that script when the Composite
+# rebalances. Profiles default to style='core', sub_type='other' so
+# they share concentration buckets with the curated set above.
+try:
+    from tsx_extended import EXTENDED_UNIVERSE, EXTENDED_PROFILES
+    TSX_UNIVERSE = TSX_UNIVERSE + [t for t in EXTENDED_UNIVERSE
+                                    if t not in TSX_UNIVERSE]
+except ImportError:
+    EXTENDED_PROFILES = {}
+
 # Macro proxy tickers (all via yfinance)
 MACRO_TICKERS = {
     "oil": "CL=F",
@@ -161,6 +172,11 @@ STOCK_PROFILE = {
     "WELL.TO": ("HealthCare", "growth", "health_services"),
     "CTC-A.TO": ("ConsumerDisc", "core", "retail"),
 }
+
+# Merge in the auto-generated extension profiles. Curated entries above
+# take precedence (dict.update only fills missing keys via this pattern).
+for _t, _p in EXTENDED_PROFILES.items():
+    STOCK_PROFILE.setdefault(_t, _p)
 
 # ══════════════════════════════════════════════════════════════════
 # CONSTRAINTS
