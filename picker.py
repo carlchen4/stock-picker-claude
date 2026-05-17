@@ -281,6 +281,48 @@ def fetch_fundamentals(tickers):
     return pd.DataFrame(results).T
 
 
+def fetch_earnings_surprise(ticker):
+    """Fetch historical earnings surprises (%) from yfinance.
+
+    Returns a Series indexed by announcement date with the Surprise(%)
+    value. Empty Series on any failure (delisted ticker, API error,
+    missing column). Used as a Double ML treatment to test whether
+    earnings beats/misses have causal alpha beyond what the feature set
+    already explains (the post-earnings-announcement drift effect).
+    """
+    try:
+        df = yf.Ticker(ticker).get_earnings_dates()
+        if df is None or df.empty or "Surprise(%)" not in df.columns:
+            return pd.Series(dtype=float)
+        s = df["Surprise(%)"].dropna()
+        if s.empty:
+            return pd.Series(dtype=float)
+        s.index = pd.to_datetime(s.index).tz_localize(None)
+        return s.sort_index()
+    except Exception:
+        return pd.Series(dtype=float)
+
+
+def compute_earnings_surprise_feature(ticker, monthly_dates, window_months=3):
+    """Align earnings surprises onto monthly_dates.
+
+    For each month-end, returns the most recent earnings surprise within
+    the past `window_months` months, or 0.0 if none. Zero represents
+    "no recent surprise to react to" — keeps the column dense so DML's
+    dropna doesn't shrink the training set when earnings data is sparse.
+    """
+    surprises = fetch_earnings_surprise(ticker)
+    result = pd.Series(0.0, index=monthly_dates)
+    if surprises.empty:
+        return result
+    window = pd.Timedelta(days=31 * window_months)
+    for dt in monthly_dates:
+        recent = surprises[(surprises.index <= dt) & (surprises.index > dt - window)]
+        if not recent.empty:
+            result.loc[dt] = float(recent.iloc[-1])
+    return result
+
+
 def fetch_quarterly_financials(ticker):
     """Fetch quarterly financials from yfinance for PIT fundamental features."""
     try:
@@ -477,6 +519,11 @@ def compute_monthly_features(price_df, ticker):
         feats["adv_20d_rank"] = adv_20.resample("ME").last()
     else:
         feats["adv_20d_rank"] = np.nan
+
+    # Earnings surprise (DML treatment, not in FEATURE_COLS — used by
+    # estimate_dml_alpha as a causal signal but never fed to the
+    # ensemble as a feature).
+    feats["earnings_surprise"] = compute_earnings_surprise_feature(ticker, monthly.index)
 
     feats["ticker"] = ticker
     return feats
@@ -950,22 +997,34 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24):
         top_scores = test_df["score"].tolist()
         picks = apply_rebalancing_band(top_tickers, top_scores, holdings)
 
-        # DML adjustment (use momentum as treatment example). feature_cols
-        # now holds the _norm versions, so the treatment name must match.
+        # DML adjustments: collect causal alphas from multiple treatments.
+        # Momentum uses the _norm version (matches the feature set);
+        # earnings_surprise is raw % and sits outside the feature set as
+        # a pure treatment.
         mom_1m_col = "mom_1m_norm" if "mom_1m_norm" in feature_cols else "mom_1m"
-        if mom_1m_col in feature_cols and len(train_df) > 200:
-            theta = estimate_dml_alpha(train_df, feature_cols, mom_1m_col)
-            if abs(theta) > 0.01:
-                pick_mask = test_df["ticker"].isin(picks)
-                dml_adj = apply_dml_adjustment(
-                    test_df.loc[pick_mask, "score"].values,
-                    test_df.loc[pick_mask],
-                    {mom_1m_col: theta}
-                )
-                # Re-rank after DML
-                pick_df = test_df.loc[pick_mask].copy()
-                pick_df["adj_score"] = dml_adj
-                picks = pick_df.sort_values("adj_score", ascending=False)["ticker"].tolist()[:CONSTRAINTS["top_n"]]
+        candidate_treatments = []
+        if mom_1m_col in feature_cols:
+            candidate_treatments.append(mom_1m_col)
+        if "earnings_surprise" in train_df.columns:
+            candidate_treatments.append("earnings_surprise")
+
+        dml_thetas = {}
+        if len(train_df) > 200:
+            for t in candidate_treatments:
+                theta = estimate_dml_alpha(train_df, feature_cols, t)
+                if abs(theta) > 0.01:
+                    dml_thetas[t] = theta
+
+        if dml_thetas:
+            pick_mask = test_df["ticker"].isin(picks)
+            dml_adj = apply_dml_adjustment(
+                test_df.loc[pick_mask, "score"].values,
+                test_df.loc[pick_mask],
+                dml_thetas
+            )
+            pick_df = test_df.loc[pick_mask].copy()
+            pick_df["adj_score"] = dml_adj
+            picks = pick_df.sort_values("adj_score", ascending=False)["ticker"].tolist()[:CONSTRAINTS["top_n"]]
 
         holdings = picks
 
@@ -1022,8 +1081,8 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     latest_df = latest_df.copy()
     latest_df["score"] = scores
 
-    # DML adjustment. feature_cols holds the _norm versions, so the
-    # treatment names must match.
+    # DML adjustment. Momentum treatments use _norm to match the feature
+    # set; earnings_surprise is a raw % outside the feature set.
     dml_thetas = {}
     for base in ["mom_1m", "mom_3m"]:
         treatment = f"{base}_norm" if f"{base}_norm" in feature_cols else base
@@ -1031,6 +1090,10 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
             theta = estimate_dml_alpha(train_df, feature_cols, treatment)
             if abs(theta) > 0.01:
                 dml_thetas[treatment] = theta
+    if "earnings_surprise" in train_df.columns:
+        theta = estimate_dml_alpha(train_df, feature_cols, "earnings_surprise")
+        if abs(theta) > 0.01:
+            dml_thetas["earnings_surprise"] = theta
 
     if dml_thetas:
         latest_df["score"] = apply_dml_adjustment(

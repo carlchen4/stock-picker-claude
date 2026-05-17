@@ -12,6 +12,7 @@ lightgbm>=4.0
 
 # Stock market data
 yfinance>=0.2.30
+lxml>=5.0  # required by yfinance.get_earnings_dates HTML scraper
 
 # Technical analysis indicators
 ta>=0.11

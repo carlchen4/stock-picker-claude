@@ -49,6 +49,12 @@ def main():
     panel = picker.build_panel(price_df, price_df, SMOKE_UNIVERSE)
     check(len(panel) > 0, f"panel has rows ({len(panel)})")
     check("mom_1m" in panel.columns, "mom_1m feature present")
+    check("earnings_surprise" in panel.columns, "earnings_surprise column present")
+    # earnings_surprise is 0-filled where no recent earnings, so absolute
+    # values can be 0; but the column must be numeric and contain at
+    # least some non-zero entries across the panel.
+    nonzero_share = (panel["earnings_surprise"].abs() > 0.01).mean()
+    check(nonzero_share > 0.0, f"earnings_surprise has non-zero entries ({nonzero_share:.1%})")
 
     print("\n[3] Pipeline (impute -> labels -> normalize)...")
     available = [c for c in picker.FEATURE_COLS if c in panel.columns]

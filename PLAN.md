@@ -100,10 +100,8 @@ python picker.py both        # Both
 
 | Enhancement | Description | Priority |
 |-------------|-------------|----------|
-| Earnings surprise | Add earnings beat/miss signal as DML treatment | Medium |
 | Portfolio config | `portfolio_config.py` for current holdings tracking | Medium |
 | PIT fundamentals | Enrich yfinance quarterly data with better lag handling | Low |
-| Smoke test | End-to-end validation script | Low |
 | Collinearity reduction | PCA on correlated momentum features | Low |
 
 ---
