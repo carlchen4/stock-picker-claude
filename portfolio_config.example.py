@@ -11,6 +11,12 @@ without any incumbency bias.
 
 Use yfinance tickers (e.g. "RY.TO", "ENB.TO"). The benchmark XIU.TO
 should NOT appear here.
+
+Setup:
+    cp portfolio_config.example.py portfolio_config.py
+    # then edit portfolio_config.py with your real holdings
+
+portfolio_config.py is gitignored so your holdings stay local.
 """
 
 CURRENT_HOLDINGS = [

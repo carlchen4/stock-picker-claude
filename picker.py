@@ -26,6 +26,9 @@ from scipy.stats import spearmanr
 import sys
 
 try:
+    # portfolio_config.py is gitignored; copy from portfolio_config.example.py
+    # and edit to declare your real holdings. Falls back to no holdings
+    # so a fresh clone still runs.
     from portfolio_config import CURRENT_HOLDINGS
 except ImportError:
     CURRENT_HOLDINGS = []
@@ -393,13 +396,19 @@ def apply_constraints(candidates, fundamentals_df, price_df, mode="pick",
             if adv < C["min_adv_cad"]:
                 continue
 
-            vol_series = vol.tail(60)
-            vol_mean = vol_series.mean()
-            vol_std = vol_series.std()
-            if vol_std > 0:
-                spike_days = (vol_series > vol_mean + C["vol_spike_sigma"] * vol_std).sum()
-                if spike_days >= C["vol_spike_min_days"]:
-                    continue
+            # Volume-spike anti-anomaly filter only applies to new picks.
+            # If we already own the ticker, recent earnings or news that
+            # produced a spike isn't a reason to forcibly sell — the band
+            # gets to decide based on score instead.
+            is_holding = current_holdings and ticker in current_holdings
+            if not is_holding:
+                vol_series = vol.tail(60)
+                vol_mean = vol_series.mean()
+                vol_std = vol_series.std()
+                if vol_std > 0:
+                    spike_days = (vol_series > vol_mean + C["vol_spike_sigma"] * vol_std).sum()
+                    if spike_days >= C["vol_spike_min_days"]:
+                        continue
 
         # Fundamental checks (pick mode only)
         if mode == "pick" and ticker in fundamentals_df.index:

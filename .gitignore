@@ -7,3 +7,6 @@ __pycache__/
 dist/
 build/
 .DS_Store
+
+# Personal: real holdings stay local; commit only portfolio_config.example.py
+portfolio_config.py
