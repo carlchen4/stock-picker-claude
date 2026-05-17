@@ -310,7 +310,12 @@ def fetch_earnings_surprise(ticker):
     missing column). Used as a Double ML treatment to test whether
     earnings beats/misses have causal alpha beyond what the feature set
     already explains (the post-earnings-announcement drift effect).
+
+    ETFs don't have earnings — skip XIU.TO (the benchmark) explicitly
+    so yfinance doesn't print "No earnings dates found" noise.
     """
+    if ticker == "XIU.TO":
+        return pd.Series(dtype=float)
     try:
         df = yf.Ticker(ticker).get_earnings_dates()
         if df is None or df.empty or "Surprise(%)" not in df.columns:
