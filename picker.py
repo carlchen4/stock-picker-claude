@@ -25,6 +25,11 @@ from sklearn.preprocessing import StandardScaler
 from scipy.stats import spearmanr
 import sys
 
+try:
+    from portfolio_config import CURRENT_HOLDINGS
+except ImportError:
+    CURRENT_HOLDINGS = []
+
 # ══════════════════════════════════════════════════════════════════
 # UNIVERSE
 # ══════════════════════════════════════════════════════════════════
@@ -1256,7 +1261,10 @@ def main():
 
     if mode in ("pick", "both"):
         print("\n  [5/5] Generating current picks...")
-        result = predict_now(panel, model_features, price_df, macro_df)
+        if CURRENT_HOLDINGS:
+            print(f"  Current holdings from portfolio_config: {len(CURRENT_HOLDINGS)} tickers")
+        result = predict_now(panel, model_features, price_df, macro_df,
+                             current_holdings=CURRENT_HOLDINGS)
         if result:
             picks, weights, latest_df, top_features, regime = result
             print_picks(picks, weights, latest_df, top_features, regime)

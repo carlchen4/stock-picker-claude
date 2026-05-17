@@ -100,7 +100,6 @@ python picker.py both        # Both
 
 | Enhancement | Description | Priority |
 |-------------|-------------|----------|
-| Portfolio config | `portfolio_config.py` for current holdings tracking | Medium |
 | PIT fundamentals | Enrich yfinance quarterly data with better lag handling | Low |
 | Collinearity reduction | PCA on correlated momentum features | Low |
 
