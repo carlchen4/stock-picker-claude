@@ -635,7 +635,13 @@ def build_panel(price_df, macro_df, tickers):
     # Sector code
     panel["sector_code"] = panel["ticker"].map(encode_sector)
 
-    # Fundamental placeholders (filled with PIT data where available)
+    # Fundamental placeholders. compute_pit_fundamentals is intentionally
+    # NOT wired up here: yfinance only returns 5-8 quarters of history
+    # per ticker, so PIT data would only populate the last ~12-15 months
+    # of each training window. That mixed-coverage signal hurt backtest
+    # results (-3pp annualized) versus uniform sector-median imputation.
+    # The function stays defined for future use if a deeper fundamentals
+    # source becomes available.
     for col in ["roe", "pe_ratio", "div_yield", "ev_ebitda", "debt_equity"]:
         if col not in panel.columns:
             panel[col] = np.nan

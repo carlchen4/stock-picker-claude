@@ -100,8 +100,11 @@ python picker.py both        # Both
 
 | Enhancement | Description | Priority |
 |-------------|-------------|----------|
-| PIT fundamentals | Enrich yfinance quarterly data with better lag handling | Low |
 | Collinearity reduction | PCA on correlated momentum features | Low |
+
+### Tried and Rejected
+
+- **PIT fundamentals (2026-05-16)**: Wiring `compute_pit_fundamentals` into `build_panel` regressed the backtest by ~3pp annualized (Sharpe 0.83 → 0.76). yfinance's 5-8-quarter limit means PIT data only covers the last ~12-15 months of each training window; the resulting mixed-coverage signal trained worse than uniform sector-median imputation. The function is preserved in `picker.py` for future use with a deeper fundamentals source.
 
 ---
 
