@@ -65,8 +65,9 @@ _BASE_SECTOR_FEATURES = [
 
 SECTOR_FEATURES = {
     "Financials": _BASE_SECTOR_FEATURES + [
-        "rate_chg_3m",       # BOC rate proxy (via US 10Y)
+        "rate_chg_3m",       # US 10Y change
         "cad_bond_mom_1m",   # XBB.TO — Canadian bond ETF, BOC sensitivity
+        "boc_rate_chg_3m",   # REAL Bank of Canada overnight rate (3mo change)
         "vix_level",         # market volatility
         "cad_mom_1m",        # CAD/USD
         "tsx_mom_1m",        # equity market beta
@@ -94,8 +95,9 @@ SECTOR_FEATURES = {
         "sector_code",
     ],
     "Utilities": _BASE_SECTOR_FEATURES + [
-        "rate_chg_3m",       # 10Y
-        "cad_bond_mom_1m",   # BOC proxy
+        "rate_chg_3m",       # US 10Y
+        "cad_bond_mom_1m",   # XBB Canadian bond proxy
+        "boc_rate_chg_3m",   # REAL BOC overnight rate (3mo change)
         "util_mom_1m",       # XLU — electricity demand proxy
         "tips_mom_1m",       # CPI proxy
         "div_growth_yoy",    # for regulated (H.TO)
@@ -294,6 +296,8 @@ FEATURE_COLS = [
     # Sector-relevant macro proxies (yfinance ETFs / futures)
     "natgas_mom_1m", "carbon_mom_1m", "transport_mom_1m",
     "util_mom_1m", "tips_mom_1m", "cad_bond_mom_1m",
+    # External macro (BOC Valet API): real BOC overnight rate change
+    "boc_rate_chg_3m",
     # Per-sub-industry growth signals
     "div_growth_yoy", "rev_growth_yoy",
     "roe", "pe_ratio", "div_yield",
@@ -498,6 +502,61 @@ def compute_revenue_growth_feature(ticker, monthly_dates):
         return result
     aligned = yoy.reindex(monthly_dates, method="ffill")
     return aligned.fillna(0.0)
+
+
+def fetch_boc_overnight_rate(years=7):
+    """Fetch the Bank of Canada overnight money market rate.
+
+    Pulls from the BOC Valet API (free, no key). Returns a daily Series
+    indexed by date. Empty Series on any failure (network, parse, missing
+    observations).
+
+    The overnight rate is BOC's primary policy lever — a cleaner signal
+    for Canadian monetary policy than the XBB.TO bond-ETF proxy, since
+    XBB moves with the whole curve (and inversely to rate changes).
+    """
+    import requests
+    start = (datetime.now() - timedelta(days=years * 365)).strftime("%Y-%m-%d")
+    series_id = "V39079"  # Overnight money market financing rate
+    url = (f"https://www.bankofcanada.ca/valet/observations/"
+           f"{series_id}/json?start_date={start}")
+    try:
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        observations = resp.json().get("observations", [])
+        records = []
+        for obs in observations:
+            d = obs.get("d")
+            v = obs.get(series_id, {}).get("v")
+            if d and v:
+                try:
+                    records.append((pd.to_datetime(d), float(v)))
+                except ValueError:
+                    continue
+        if not records:
+            return pd.Series(dtype=float)
+        df = pd.DataFrame(records, columns=["date", "rate"])
+        return df.set_index("date")["rate"].sort_index()
+    except Exception:
+        return pd.Series(dtype=float)
+
+
+def get_boc_features(dates):
+    """Compute monthly BOC overnight rate features aligned to dates.
+
+    Returns a DataFrame with `boc_rate_chg_3m` (3-month change in the
+    monthly-average overnight rate). Mirrors the shape of the existing
+    `rate_chg_3m` US-10Y feature. Empty frame on fetch failure — the
+    column ends up NaN and `smart_impute` fills it cross-sectionally.
+    """
+    rate = fetch_boc_overnight_rate()
+    result = pd.DataFrame(index=dates)
+    if rate.empty:
+        result["boc_rate_chg_3m"] = np.nan
+        return result
+    monthly = rate.resample("ME").last()
+    result["boc_rate_chg_3m"] = monthly.diff(3).reindex(dates, method="ffill")
+    return result
 
 
 def fetch_quarterly_financials(ticker):
@@ -828,6 +887,11 @@ def build_panel(price_df, macro_df, tickers):
     all_dates = panel["date"].unique()
     macro_feat = get_macro_features(macro_df, pd.DatetimeIndex(all_dates))
     panel = panel.merge(macro_feat, left_on="date", right_index=True, how="left")
+
+    # External macro: real BOC overnight rate (from BOC Valet API). Fetched
+    # once; falls through to NaN -> sector-median if the API is down.
+    boc_feat = get_boc_features(pd.DatetimeIndex(all_dates))
+    panel = panel.merge(boc_feat, left_on="date", right_index=True, how="left")
 
     # Sector code
     panel["sector_code"] = panel["ticker"].map(encode_sector)
