@@ -147,6 +147,12 @@ MACRO_TICKERS = {
     "utilities_etf": "XLU",  # XLU — utility-sector sentiment, electricity demand
     "inflation": "TIP",      # TIPS ETF — market-implied inflation
     "cad_bonds": "XBB.TO",   # Canadian aggregate bond ETF — BOC rate proxy
+    # Tried-and-rejected (kept commented for the record): ^TYX, ^IRX,
+    # HYG, LQD, RB=F, ^GSPC, ^IXIC, XLK plus P/B per-ticker. Adding
+    # yield-curve-slope, credit-spread, refining-margin, sp500/nasdaq
+    # beta, and P/B regressed backtest from Sharpe 1.65 to 1.54 even
+    # in the selective-keep variant — more features = noisier
+    # per-sector models at this sample size.
 }
 
 # Stock sector/style classification
@@ -369,6 +375,7 @@ def fetch_fundamentals(tickers):
                 "div_yield": safe_float(info.get("dividendYield", 0)),
                 "debt_equity": safe_float(info.get("debtToEquity")),
                 "ev_ebitda": safe_float(info.get("enterpriseToEbitda")),
+                "pb": safe_float(info.get("priceToBook")),
                 "sector": info.get("sector", ""),
                 "name": info.get("shortName", t),
             }
