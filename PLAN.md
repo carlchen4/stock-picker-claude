@@ -156,6 +156,138 @@ matplotlib, seaborn, plotly, jupyter (for analysis)
 
 ## Session History
 
+### 2026-05-19 — companion-file analysis (financials_dml_picker-2.py + monthly_rank.py)
+
+User wrote two standalone scripts and asked for a comparison against
+`picker.py` to identify what to port back. Both files are
+Financials-focused (one 23-stock multi-category, one 6-bank tight) and
+implement DML-PLR with different formulations. The strengths are
+genuinely useful and worth integrating; the weaknesses are documented
+so the integration avoids the pitfalls.
+
+**`financials_dml_picker-2.py` (614 lines, 23 Canadian financials)**
+
+*Strengths:*
+- **ETF-baseline DML**: ZEB.TO dropped from ticker dummies → each
+  stock's α is measured *relative to the sector ETF*. Much cleaner
+  causal interpretation than picker.py's momentum-as-treatment.
+- **HC3 robust standard errors** via `statsmodels.OLS` → per-stock
+  t-stats and p-values, enabling "significant α" filtering.
+- **Real macro data**: BOC Valet (V39079 rates, V122538 group for
+  2y/10y bond yields), FRED (`CPALCY01CAM661N` Canadian CPI YoY,
+  `BAMLC0A0CM` US IG OAS). All three are gaps `picker.py` only has
+  proxies for.
+- **Rolling 24m β to both XIC and ACWI** as per-stock features —
+  captures time-varying market sensitivity.
+- **Excess returns** as target (`fwd_ret − rf_monthly`) — standard
+  alpha analysis framing.
+- **HTML report output** with category badges, p < 0.05 highlights,
+  final score bars. Operational nicety for sharing.
+- **5-category profile** (Big Bank / Insurance / Alt Asset / Asset
+  Mgr / Alt Fin) finer than picker.py's bank/insurance/holding
+  sub_types.
+
+*Weaknesses:*
+- **No walk-forward backtest** — one-shot fit on all history,
+  predicts only the latest month. The "0.60·DML + 0.40·XGB"
+  weighting is unjustified without historical measurement.
+- **Look-ahead in rolling β during cross-fit** — β is computed on
+  full history, then cross-fitting partitions the panel. Training
+  folds see β values that incorporate test-period observations.
+  Subtle but real time-series leakage.
+- **No liquidity/quality filters** — universe lets in everything
+  that downloads. `SII.TO`, `LB.TO` etc. trade thin; picker.py's
+  `min_adv`, `vol_spike`, and fundamental-band filters would catch
+  these.
+- **MultiOutputRegressor with one-hot ticker dummies** for the D
+  residualization — 22 sparse one-hot columns × XGBoost is hard to
+  fit; could overfit with this many output dimensions on ~120
+  monthly observations.
+- **No position sizing** — picks are output as a list, equal-weight
+  implicit. No risk parity.
+
+**`monthly_rank.py` (927 lines, 6 Canadian Big Banks)**
+
+*Strengths:*
+- **DML-PLR with sector factor**: cleaner formulation than
+  `financials_dml_picker-2.py`. D = sector return (scalar),
+  X = macros, residualize both via cross-fit, closed-form
+  θ̂ = (D̃′Ỹ) / (D̃′D̃). Score-based standard error gives
+  significance test for the sector-β estimate itself.
+- **3-model ensemble** (LightGBM 40% + XGBoost 40% + ElasticNet
+  20%). EN doubles as a feature-selection gate — only features with
+  non-zero EN coefficients enter the tree models.
+- **Cross-sectional z-score normalization** per date (preserves
+  magnitude info that picker.py's percentile-rank normalization
+  drops).
+- **Quarterly fundamentals computed PIT** with 7-day parquet cache
+  (`.cache_fundamentals.parquet`): ROE, NIM proxy
+  (NII/total_assets), efficiency (opex/revenue), asset growth,
+  equity growth. All lagged by 1 quarter (91 days) to prevent
+  forward-looking bias.
+- **PIT P/B**: `price / (equity / shares_outstanding)` using
+  historical balance sheet — better than picker.py's current
+  snapshot from `yfinance.Ticker.info`.
+- **5-test health check** at predict time: model agreement
+  (LGB vs XGB Spearman), signal strength (max |α_z|), feature
+  normality (within training 95% percentile), DML significance
+  (p < 0.10), data completeness. Failing 2+ tests = "建议观望".
+- **Walk-forward validation metrics**: IC mean, ICIR, win rate,
+  L/S Sharpe, max drawdown. Sparkline ASCII chart for cumulative
+  L/S returns.
+- **Rank history tracking** in `rank_history.csv` with month-over-
+  month delta (↑ / ↓ / →) printed in the ranking output.
+- **Embargo** of 6 months between train and test in walk-forward.
+
+*Weaknesses:*
+- **CRITICAL BUG**: `dml_strip()` uses `np.random.permutation(n)` for
+  cross-fitting fold assignment (line ~386). On time-series data this
+  randomly mixes future observations into training folds — a real
+  leakage. Should use `TimeSeriesSplit` or `KFold` over sorted dates.
+- **Missing imports**: `lgb`, `norm`, `spearmanr` are referenced but
+  never imported — the file as-shipped doesn't actually execute.
+  Must add `import lightgbm as lgb`, `from scipy.stats import norm,
+  spearmanr` before running.
+- **Rolling β with `for i in range(window, len(...))` is past-only**
+  for the live signal, but the walk-forward validation re-uses the
+  same β series — meaning a train period at date t sees β values
+  that depended on returns ≤ t but were *constructed* on the full
+  panel. Minor but worth tightening.
+- **Static train/test split** `TRAIN_END = "2022-12-31"` for the
+  single-pass `train_and_rank()` — only the explicit `--validate`
+  flag runs walk-forward.
+- **EN gate fixes `l1_ratio` to [0.3, 0.5, 0.7, 0.9]** but doesn't
+  grid-search `alpha`. Default `alphas=None` does an internal path,
+  but the sparsity level chosen depends entirely on CV and may not
+  be optimal.
+- **Universe = 6 banks** — too tight to generalize. Insurance,
+  asset managers, alt finance need their own treatment.
+- **No earnings_surprise** or other DML treatment beyond sector
+  factor.
+
+**Integration plan into picker.py** (ranked by ROI):
+
+1. **ETF-baseline DML-PLR per sector** (highest value): ZEB/XFN for
+   Financials, XEG for Energy, ZIN for Industrials, XUT for Utilities
+   as sector-factor treatments. Closed-form θ̂ per sector via
+   `TimeSeriesSplit` cross-fitting. Use as `alpha_target = fwd_ret
+   − θ̂·sector_etf_ret` for the per-sector XGBoost target.
+2. **3-model ensemble (LGB + XGB + EN)** with EN doubling as feature
+   gate — reduces single-model noise.
+3. **Rolling 24m β** (strict past-only): equity_β, sector_β,
+   cad_β as per-ticker time-varying features.
+4. **Quarterly fundamentals + parquet cache**: revisit PIT
+   fundamentals with `monthly_rank.py`-style ROE/NIM/efficiency. The
+   prior PIT attempt regressed; caching + cleaner derivation may flip
+   the result.
+5. **5-test health check** at `predict_now` output.
+6. **IC / ICIR / win-rate / L/S Sharpe** in `walk_forward` results.
+7. **HC3 standard errors** for per-stock alpha significance gating.
+8. **Rank history file** for month-over-month change reporting.
+
+User picked **Step 1 (ETF-baseline DML + health checks) first** — work
+in progress as of this commit.
+
 ### 2026-05-17 — focused universe + per-sector logic
 
 Pivoted from the 95-name curated universe to a 28-name focused list
