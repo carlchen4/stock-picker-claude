@@ -1281,16 +1281,22 @@ def fit_sector_models(train_df, sample_weights=None, min_samples=50):
     return models, dml_stats
 
 
-def health_check(latest_df, sec_models, sec_dml_stats, dml_p_threshold=0.10):
+def health_check(latest_df, train_df, sec_models, sec_dml_stats, dml_p_threshold=0.10):
     """Diagnose this month's prediction reliability.
 
-    Four tests, mirroring monthly_rank.py's health-check pattern but
-    specialized for Step 1 (per-sector XGBoost + ETF-baseline DML, no
-    LGB ensemble yet):
+    Five tests, mirroring monthly_rank.py's health-check pattern:
       1. Sector coverage: every required_sector has a trained model
       2. Signal strength: max |z-score within sector| >= 0.5
       3. DML significance: at least 2 sectors have p < threshold
       4. Data completeness: every candidate has a non-NaN score
+      5. Feature drift: this month's RAW feature values stay within the
+         training distribution (|z| <= train 95th pct x 1.5)
+
+    Test 5 deliberately uses the raw feature columns, not the _norm
+    ones: cross_sectional_normalize produces per-month rank values that
+    are bounded in [-1, 1] by construction and so can never "drift". The
+    raw columns (vol_20d, mom_1m, ...) carry real units and reveal when
+    the current month is in a market state the models never trained on.
 
     Returns list of (label, ok, detail) tuples for display.
     """
@@ -1328,6 +1334,36 @@ def health_check(latest_df, sec_models, sec_dml_stats, dml_p_threshold=0.10):
     n_ok = int(latest_df["score"].notna().sum()) if "score" in latest_df.columns else 0
     checks.append(("Data completeness", n_ok == n_total and n_total > 0,
                    f"{n_ok}/{n_total} candidates have scores"))
+
+    # Feature drift: for each RAW (non-_norm, non-categorical) feature
+    # the sector models consume, compare THIS MONTH's cross-sectional
+    # mean against the distribution of monthly cross-sectional means in
+    # the training period. Using the monthly mean (not a single stock's
+    # max) keeps one outlier name from tripping the alarm — it flags a
+    # genuine market-regime shift (e.g. a market-wide vol spike) the
+    # models never trained on. |z| > 3 (~99.7%) keeps it to real shifts.
+    base_feats = set()
+    for _reg, _clf, feats in sec_models.values():
+        for f in feats:
+            base = f[:-5] if f.endswith("_norm") else f
+            if base != "sector_code":
+                base_feats.add(base)
+    drift = []
+    for f in sorted(base_feats):
+        if f not in train_df.columns or f not in latest_df.columns:
+            continue
+        tr_means = train_df.groupby("date")[f].mean()
+        tr_means = tr_means[np.isfinite(tr_means)]
+        latest_mean = latest_df[f].mean()
+        if len(tr_means) < 24 or tr_means.std() <= 0 or not np.isfinite(latest_mean):
+            continue
+        z = abs((latest_mean - tr_means.mean()) / tr_means.std())
+        if z > 3.0:
+            drift.append(f"{f}(z={z:.1f})")
+    detail = f"{len(drift)} features show regime shift (|z|>3)"
+    if drift:
+        detail += f": {drift}"
+    checks.append(("Feature drift", len(drift) == 0, detail))
 
     return checks
 
@@ -1741,7 +1777,7 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     latest_df["score"] = scores
 
     if USE_SECTOR_MODELS:
-        checks = health_check(latest_df, sec_models, sec_dml_stats)
+        checks = health_check(latest_df, train_df, sec_models, sec_dml_stats)
         print_health_check(checks)
 
     # DML adjustment. Momentum treatments route through whichever momentum

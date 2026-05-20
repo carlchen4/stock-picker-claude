@@ -166,12 +166,21 @@ rough ROI order (#1 now landed, #2-4 still open):
    Sharpe-first discipline consistent (same reason the LGB ensemble was
    dropped). Could revisit as a *separate* `mom_12_1` feature alongside
    `mom_12m` rather than replacing it.
-3. **Feature-drift health check** (`monthly_rank.py:570-583`):
-   flag this month as unreliable when any feature exceeds the training
-   set's 95th percentile × 1.5. `picker.py`'s health_check has only 4
-   tests (sector coverage / signal strength / DML significance / data
-   completeness) — this is the concrete implementation for the
-   still-open integration-plan Step 5.
+3. ✅ **Feature-drift health check** — **landed 2026-05-20**. Added as
+   `health_check`'s 5th test (sector coverage / signal strength / DML
+   significance / data completeness / **feature drift**). Adapted, not
+   copied, from `monthly_rank.py:570-583`: that one flags a feature if
+   *any single stock* exceeds the train 95th pct × 1.5, which on
+   picker.py's 31-name universe with right-tailed raw features (ADV,
+   vol, growth) fired on 8/13 features — pure noise. Instead picker.py
+   compares **this month's cross-sectional mean** of each *raw* feature
+   (not the `_norm` rank columns, which are bounded [-1,1] and can't
+   drift) against the distribution of monthly cross-sectional means in
+   training, flagging |z| > 3 (~99.7%). This is robust to a single
+   outlier name and fires only on genuine market-regime shifts. Live
+   run flags exactly one: `rev_growth_yoy` (z=7.6), correctly surfacing
+   that low-coverage feature's instability. Closes integration-plan
+   Step 5.
 4. **Data hygiene — `ffill(limit=3)`** (`monthly_rank.py:44,891`):
    cap forward-fill at 3 months when aligning prices/macro to the
    monthly index, so a stale value can't be carried indefinitely.
@@ -332,9 +341,9 @@ so the integration avoids the pitfalls.
    the result. **Do not** copy `monthly_rank.py`'s PIT P/B as-is — it
    uses current `sharesOutstanding` over all history (look-ahead, see
    caveat above); use historical shares or skip P/B.
-5. **5-test health check** at `predict_now` output — add the
-   feature-drift test (this-month feature > train 95th pct × 1.5) that
-   `picker.py`'s current 4-test check is missing.
+5. ✅ **5-test health check** at `predict_now` output — **done
+   2026-05-20**. Feature-drift test added (regime-shift variant, see
+   "Candidate features" #3 above); health_check now runs all 5 tests.
 6. **IC / ICIR / win-rate / L/S Sharpe** in `walk_forward` results.
 7. **HC3 standard errors** for per-stock alpha significance gating.
 8. **Rank history file** for month-over-month change reporting.
