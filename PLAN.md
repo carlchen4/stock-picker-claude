@@ -188,6 +188,8 @@ rough ROI order (#1 now landed, #2-4 still open):
 
 ### Tried and Rejected
 
+- **Rolling 24m betas — Step 3 (2026-05-20)**: Added three per-ticker, strictly past-only rolling betas (`equity_beta` vs ^GSPTSE, `sector_beta` vs the sector ETF, `cad_beta` vs CADUSD=X) via `compute_rolling_betas`, wired into `_BASE_SECTOR_FEATURES`. The implementation was correct — betas computed with right-aligned `rolling(24)` so each (ticker, month) value uses only data ≤ that month (avoiding the full-panel look-ahead the companion scripts have), validated by equity_beta mean ≈0.98 / sector_beta ≈0.88. But it regressed **all five metrics** vs the rev_1m baseline: Sharpe 1.92 → 1.83, annualized +28.0% → +26.4%, excess +12.1% → +10.6%, max drawdown −7.6% → −8.8%, hit rate 66.0% → 57.4%. Same lesson as the spec-coverage and LGB experiments — at ~31 tickers × 84 months across 4 sector models, adding 3 features × 4 models (one of them, `cad_beta`, very noisy at range [−6, +10]) overfits faster than the betas inform. A feature-budget problem, not a bug. Reverted entirely.
+
 - **LGB ensemble — Step 2 (2026-05-20)**: Added LightGBM as a second tree model, blending XGB+LGB 50/50 on rank-normalized predictions per sector (`fit_sector_ensemble`/`predict_sector_ensemble`). Also tried an ElasticNet feature gate inside the blend, which dropped features XGB found useful (Sharpe 1.91 → 1.52), so EN was backed out and the blend reduced to 2-model. Even the clean 2-model blend regressed everything vs the single-XGB-per-sector baseline (same 47-month walk-forward): Sharpe **1.92 → 1.62**, annualized +28.0% → +22.9%, excess +12.1% → +7.1%, hit rate 63.8% → 55.3% (only max drawdown improved marginally, −8.2% → −7.1%). At ~31 tickers × 84 months split across 4 sector models, a correlated second tree learner adds variance faster than it diversifies error. Reverted entirely — `picker.py` keeps the single XGBoost regressor per sector. The companion `monthly_rank.py` LGB+XGB+EN ensemble does not port over at this sample size.
 
 - **PIT fundamentals (2026-05-16)**: Wiring `compute_pit_fundamentals` into `build_panel` regressed the backtest by ~3pp annualized (Sharpe 0.83 → 0.76). yfinance's 5-8-quarter limit means PIT data only covers the last ~12-15 months of each training window; the resulting mixed-coverage signal trained worse than uniform sector-median imputation. The function is preserved in `picker.py` for future use with a deeper fundamentals source.
@@ -333,8 +335,9 @@ so the integration avoids the pitfalls.
    − θ̂·sector_etf_ret` for the per-sector XGBoost target.
 2. **3-model ensemble (LGB + XGB + EN)** with EN doubling as feature
    gate — reduces single-model noise.
-3. **Rolling 24m β** (strict past-only): equity_β, sector_β,
-   cad_β as per-ticker time-varying features.
+3. ❌ **Rolling 24m β** (strict past-only): equity_β, sector_β,
+   cad_β as per-ticker time-varying features. **Tried, rejected
+   2026-05-20** — regressed all five metrics (see Tried and Rejected).
 4. **Quarterly fundamentals + parquet cache**: revisit PIT
    fundamentals with `monthly_rank.py`-style ROE/NIM/efficiency. The
    prior PIT attempt regressed; caching + cleaner derivation may flip
