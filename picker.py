@@ -69,6 +69,7 @@ SECTOR_ETF = {
 # of macro control variables from the per-sector spec.
 _BASE_SECTOR_FEATURES = [
     "mom_pc1", "mom_pc2",
+    "rev_1m",  # short-term reversal, independent of the momentum PCs
     "vol_20d", "vol_60d", "vol_ratio",
     "rsi_14", "bb_zscore", "high_52w_ratio",
     "adv_20d_rank",
@@ -304,6 +305,7 @@ CONSTRAINTS = {
 
 FEATURE_COLS = [
     "mom_1m", "mom_3m", "mom_6m", "mom_12m",
+    "rev_1m",  # short-term reversal (-mom_1m); independent of momentum PCA
     "mom_pc1", "mom_pc2",  # only present when USE_MOMENTUM_PCA is True
     "vol_20d", "vol_60d", "vol_ratio",
     "rsi_14", "bb_zscore", "high_52w_ratio",
@@ -751,6 +753,14 @@ def compute_monthly_features(price_df, ticker):
     feats["mom_3m"] = monthly.pct_change(3)
     feats["mom_6m"] = monthly.pct_change(6)
     feats["mom_12m"] = monthly.pct_change(12)
+
+    # Short-term reversal: negative of the most recent month's return.
+    # Kept OUT of _RAW_MOMENTUM so the momentum PCA does not absorb it —
+    # this gives each sector model a clean 1-month signal independent of
+    # the mom_pc1/pc2 mixture. (For the tree models rev_1m == -mom_1m is
+    # split-equivalent to mom_1m; the point is restoring 1m as its own
+    # dimension. Reversal naming kept for semantics / future linear use.)
+    feats["rev_1m"] = -feats["mom_1m"]
 
     # Volatility (annualized from daily returns)
     daily_ret = close.pct_change()

@@ -137,15 +137,23 @@ non-empty, the rebalancing band prefers keeping them across runs.
 
 A re-read of `financials_dml_picker-2.py` and `monthly_rank.py` (beyond
 the 8-step integration plan in the session history) surfaced four
-factor/construction ideas that `picker.py` does **not** currently have.
-None measured yet — listed in rough ROI order:
+factor/construction ideas that `picker.py` did **not** have. Listed in
+rough ROI order (#1 now landed, #2-4 still open):
 
-1. **Short-term reversal factor `rev_1m`** (`monthly_rank.py:258`,
-   `rev_1m = -ret.shift(1)`). `picker.py` has no reversal dimension at
-   all — `mom_1m` = `pct_change(1)` feeds the momentum PCA in the
-   opposite (continuation) direction. 1-month cross-sectional reversal
-   is a classic alpha source with low correlation to momentum;
-   highest-ROI new feature to try.
+1. ✅ **Short-term reversal factor `rev_1m`** — **landed 2026-05-20**.
+   Added `rev_1m = -mom_1m` as a standalone column kept OUT of
+   `_RAW_MOMENTUM` (so the momentum PCA does not absorb it) and added to
+   `_BASE_SECTOR_FEATURES`, giving every sector model a clean 1-month
+   signal independent of the `mom_pc1/pc2` mixture. Backtest (same
+   47-month walk-forward): Sharpe, annualized (+28.0%) and excess
+   (+12.1%) all **held flat**, but max drawdown improved −8.2% → −7.6%
+   and hit rate 63.8% → 66.0%. `rev_1m_norm` lands #8 in feature
+   importance (0.0557, above high_52w_ratio and adv_20d_rank), and the
+   per-year P&L shifted (2022 −3.9% → −0.0%, 2024 +34% → +43%),
+   confirming it changes selection rather than no-op'ing. Net: a mild
+   risk-side win with no return cost, so kept. (NB: for the pure tree
+   models `rev_1m == -mom_1m` is split-equivalent to `mom_1m`; the gain
+   is from restoring 1m as its own dimension outside the PCA.)
 2. **12−1 momentum (skip most recent month)** (`monthly_rank.py:256`,
    `(1+ret).rolling(12).prod().shift(1)`). `picker.py`'s `mom_12m` =
    `pct_change(12)` *includes* the last month, so short-term reversal
