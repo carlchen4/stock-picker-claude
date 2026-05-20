@@ -24,6 +24,7 @@ from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import spearmanr
 import sys
+import os
 
 try:
     # portfolio_config.py is gitignored; copy from portfolio_config.example.py
@@ -1737,6 +1738,66 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24):
 # PREDICTION (Current Month)
 # ══════════════════════════════════════════════════════════════════
 
+RANK_HISTORY_FILE = "rank_history.csv"
+
+
+def load_rank_history(path=RANK_HISTORY_FILE):
+    """Load saved monthly score rankings, or None if absent/unreadable."""
+    if not os.path.exists(path):
+        return None
+    try:
+        return pd.read_csv(path, parse_dates=["date"])
+    except Exception:
+        return None
+
+
+def compute_rank_deltas(ranked_tickers, as_of, path=RANK_HISTORY_FILE):
+    """Map each ticker to its rank change vs the most recent prior month.
+
+    `ranked_tickers` is this month's tickers in score order (rank 1 =
+    best). Returns {ticker: "↑2" / "↓1" / "→" / "NEW"}; empty dict if no
+    prior month exists yet. Compares against the latest history row whose
+    date is strictly before `as_of`, so re-running the same month still
+    diffs against last month (not itself).
+    """
+    hist = load_rank_history(path)
+    if hist is None:
+        return {}
+    as_of = pd.Timestamp(as_of).normalize()
+    prior = hist[hist["date"] < as_of]
+    if prior.empty:
+        return {}
+    last = prior[prior["date"] == prior["date"].max()].set_index("ticker")["rank"]
+    deltas = {}
+    for cur_rank, t in enumerate(ranked_tickers, 1):
+        if t not in last.index:
+            deltas[t] = "NEW"
+            continue
+        d = int(last[t]) - cur_rank   # positive = moved up the ranking
+        deltas[t] = f"↑{d}" if d > 0 else (f"↓{-d}" if d < 0 else "→")
+    return deltas
+
+
+def save_rank_history(ranked_tickers, scores, as_of, path=RANK_HISTORY_FILE):
+    """Append this month's (date, ticker, rank, score) ranking.
+
+    Idempotent: re-running the same month overwrites that month's rows
+    rather than duplicating them.
+    """
+    as_of = pd.Timestamp(as_of).normalize()
+    rows = pd.DataFrame({
+        "date": as_of,
+        "ticker": list(ranked_tickers),
+        "rank": range(1, len(ranked_tickers) + 1),
+        "score": list(scores),
+    })
+    hist = load_rank_history(path)
+    if hist is not None:
+        hist = hist[hist["date"] != as_of]
+        rows = pd.concat([hist, rows], ignore_index=True)
+    rows.to_csv(path, index=False)
+
+
 def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     """Generate current month stock picks."""
     panel = panel.sort_values("date")
@@ -1814,11 +1875,21 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     latest_df = latest_df.sort_values("score", ascending=False)
     candidates = latest_df["ticker"].tolist()
 
-    # ══ DEBUG: Print all stocks ranked by score ══
+    # Month-over-month rank changes vs the saved history (Step 8). Compute
+    # BEFORE saving this month so the diff is against last month.
+    as_of = dates[-1]
+    rank_deltas = compute_rank_deltas(candidates, as_of)
+
+    # ══ DEBUG: Print all stocks ranked by score (with vs-last-month Δ) ══
     print("\n  ═══ ALL STOCKS RANKED BY SCORE ═══")
     for i, (ticker, row) in enumerate(latest_df.iterrows(), 1):
         sector = STOCK_PROFILE.get(row["ticker"], ("Unknown",))[0]
-        print(f"    {i:2d}. {row['ticker']:<8} {sector:<14} Score: {row['score']:.3f}")
+        chg = rank_deltas.get(row["ticker"], "")
+        print(f"    {i:2d}. {row['ticker']:<8} {sector:<14} "
+              f"Score: {row['score']:.3f}  {chg}")
+
+    # Persist this month's full ranking so next run can show deltas.
+    save_rank_history(candidates, latest_df["score"].tolist(), as_of)
 
     # ══ DEBUG: Print all financials ══
     print("\n  ═══ FINANCIALS (Before Constraints) ═══")
@@ -1914,6 +1985,63 @@ def print_picks(picks, weights, panel_latest, top_features, regime):
     for feat, imp in top_features:
         print(f"    {feat:<20} {imp:.4f}")
     print("═" * 60)
+
+
+def build_report_text(picks, weights, panel_latest, top_features, regime):
+    """Plain-text monthly report (mirrors print_picks) for emailing."""
+    lines = [
+        f"TSX Stock Picks — {datetime.now().strftime('%Y-%m-%d')}",
+        f"Regime: {regime}",
+        "=" * 52,
+        "",
+        "Picks:",
+    ]
+    for i, ticker in enumerate(picks, 1):
+        w = weights.get(ticker, 0)
+        profile = STOCK_PROFILE.get(ticker, ("?", "?", "?"))
+        row = panel_latest[panel_latest["ticker"] == ticker]
+        score = row["score"].iloc[0] if len(row) > 0 else 0
+        lines.append(f"  {i}. {ticker:<10} {profile[0]:<14} {profile[1]:<8} "
+                     f"Score: {score:.3f}  Weight: {w:.1%}")
+    lines += ["", "Top Features:"]
+    for feat, imp in top_features:
+        lines.append(f"  {feat:<20} {imp:.4f}")
+    return "\n".join(lines)
+
+
+def send_report_email(body, subject=None):
+    """Email the report to the inbox configured in email_config.py.
+
+    email_config.py is gitignored (copy from email_config.example.py). If
+    it's absent or still has placeholder values, prints a notice and skips
+    — so a fresh clone still runs without credentials. Returns True if sent.
+    """
+    try:
+        import email_config as cfg
+        from_email, to_email, app_pw = (cfg.EMAIL_FROM, cfg.EMAIL_TO,
+                                         cfg.EMAIL_APP_PASSWORD)
+    except Exception:
+        print("  Email: no email_config.py — skipping send (report printed above).")
+        return False
+    if "your@" in from_email or "your_gmail" in app_pw:
+        print("  Email: email_config.py still has placeholder values — skipping send.")
+        return False
+
+    import smtplib
+    from email.mime.text import MIMEText
+    if subject is None:
+        subject = f"TSX Stock Picks — {datetime.now().strftime('%Y-%m-%d')}"
+    msg = MIMEText(body, "plain", "utf-8")
+    msg["Subject"], msg["From"], msg["To"] = subject, from_email, to_email
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(from_email, app_pw)
+            server.sendmail(from_email, to_email, msg.as_string())
+        print(f"  Email: report sent to {to_email}")
+        return True
+    except Exception as e:
+        print(f"  Email: send failed ({e}).")
+        return False
 
 
 def print_backtest(results_df):
@@ -2029,6 +2157,8 @@ def main():
         if result:
             picks, weights, latest_df, top_features, regime = result
             print_picks(picks, weights, latest_df, top_features, regime)
+            report = build_report_text(picks, weights, latest_df, top_features, regime)
+            send_report_email(report)
 
 
 if __name__ == "__main__":

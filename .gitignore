@@ -10,3 +10,12 @@ build/
 
 # Personal: real holdings stay local; commit only portfolio_config.example.py
 portfolio_config.py
+
+# Run artifact: monthly score-ranking history (Step 8)
+rank_history.csv
+
+# Secrets: email/SMTP credentials stay local; commit only email_config.example.py
+email_config.py
+# Generated report artifacts
+tsx_report_*.html
+tsx_report_*.pdf
