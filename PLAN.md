@@ -133,7 +133,35 @@ non-empty, the rebalancing band prefers keeping them across runs.
 
 ## Potential Enhancements
 
-_All planned enhancements complete. See "Tried and Rejected" below for items that didn't survive measurement._
+### Candidate features — companion-script second-pass scan (2026-05-20)
+
+A re-read of `financials_dml_picker-2.py` and `monthly_rank.py` (beyond
+the 8-step integration plan in the session history) surfaced four
+factor/construction ideas that `picker.py` does **not** currently have.
+None measured yet — listed in rough ROI order:
+
+1. **Short-term reversal factor `rev_1m`** (`monthly_rank.py:258`,
+   `rev_1m = -ret.shift(1)`). `picker.py` has no reversal dimension at
+   all — `mom_1m` = `pct_change(1)` feeds the momentum PCA in the
+   opposite (continuation) direction. 1-month cross-sectional reversal
+   is a classic alpha source with low correlation to momentum;
+   highest-ROI new feature to try.
+2. **12−1 momentum (skip most recent month)** (`monthly_rank.py:256`,
+   `(1+ret).rolling(12).prod().shift(1)`). `picker.py`'s `mom_12m` =
+   `pct_change(12)` *includes* the last month, so short-term reversal
+   contaminates the 12-month momentum signal. Switching to the
+   skip-a-month construction is the academic standard and a cheap
+   quality improvement to the momentum inputs.
+3. **Feature-drift health check** (`monthly_rank.py:570-583`):
+   flag this month as unreliable when any feature exceeds the training
+   set's 95th percentile × 1.5. `picker.py`'s health_check has only 4
+   tests (sector coverage / signal strength / DML significance / data
+   completeness) — this is the concrete implementation for the
+   still-open integration-plan Step 5.
+4. **Data hygiene — `ffill(limit=3)`** (`monthly_rank.py:44,891`):
+   cap forward-fill at 3 months when aligning prices/macro to the
+   monthly index, so a stale value can't be carried indefinitely.
+   Minor; fold into whatever touches the alignment next.
 
 ### Tried and Rejected
 
@@ -229,7 +257,13 @@ so the integration avoids the pitfalls.
   forward-looking bias.
 - **PIT P/B**: `price / (equity / shares_outstanding)` using
   historical balance sheet — better than picker.py's current
-  snapshot from `yfinance.Ticker.info`.
+  snapshot from `yfinance.Ticker.info`. ⚠️ **Caveat (2026-05-20
+  scan):** `monthly_rank.py:277-289` uses the *current*
+  `sharesOutstanding` applied across all of history. Buybacks/issuance
+  make historical share counts ≠ today's, so this P/B carries a hidden
+  look-ahead bias. The equity numerator is point-in-time but the share
+  denominator is not — when porting (Step 4), source historical shares
+  or drop P/B rather than copy this construction.
 - **5-test health check** at predict time: model agreement
   (LGB vs XGB Spearman), signal strength (max |α_z|), feature
   normality (within training 95% percentile), DML significance
@@ -281,8 +315,12 @@ so the integration avoids the pitfalls.
 4. **Quarterly fundamentals + parquet cache**: revisit PIT
    fundamentals with `monthly_rank.py`-style ROE/NIM/efficiency. The
    prior PIT attempt regressed; caching + cleaner derivation may flip
-   the result.
-5. **5-test health check** at `predict_now` output.
+   the result. **Do not** copy `monthly_rank.py`'s PIT P/B as-is — it
+   uses current `sharesOutstanding` over all history (look-ahead, see
+   caveat above); use historical shares or skip P/B.
+5. **5-test health check** at `predict_now` output — add the
+   feature-drift test (this-month feature > train 95th pct × 1.5) that
+   `picker.py`'s current 4-test check is missing.
 6. **IC / ICIR / win-rate / L/S Sharpe** in `walk_forward` results.
 7. **HC3 standard errors** for per-stock alpha significance gating.
 8. **Rank history file** for month-over-month change reporting.
