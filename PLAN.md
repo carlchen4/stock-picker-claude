@@ -154,12 +154,18 @@ rough ROI order (#1 now landed, #2-4 still open):
    risk-side win with no return cost, so kept. (NB: for the pure tree
    models `rev_1m == -mom_1m` is split-equivalent to `mom_1m`; the gain
    is from restoring 1m as its own dimension outside the PCA.)
-2. **12−1 momentum (skip most recent month)** (`monthly_rank.py:256`,
-   `(1+ret).rolling(12).prod().shift(1)`). `picker.py`'s `mom_12m` =
-   `pct_change(12)` *includes* the last month, so short-term reversal
-   contaminates the 12-month momentum signal. Switching to the
-   skip-a-month construction is the academic standard and a cheap
-   quality improvement to the momentum inputs.
+2. ❌ **12−1 momentum (skip most recent month)** — **tried, rejected
+   2026-05-20**. Changed `mom_12m` from `pct_change(12)` to
+   `monthly.shift(1).pct_change(12)` (= `price[t-1]/price[t-13]-1`, the
+   Jegadeesh-Titman skip-a-month construction; `monthly_rank.py:256`).
+   It raised raw return (+28.0% → +29.7% ann, excess +12.1% → +13.9%)
+   but **regressed every risk metric**: Sharpe 1.92 → 1.88, max drawdown
+   −7.6% → −8.1%, hit rate 66.0% → 63.8%. The skip-a-month signal tilts
+   selection toward higher-beta/more-volatile names — more return per
+   unit of nothing, worse return per unit of risk. Reverted to keep the
+   Sharpe-first discipline consistent (same reason the LGB ensemble was
+   dropped). Could revisit as a *separate* `mom_12_1` feature alongside
+   `mom_12m` rather than replacing it.
 3. **Feature-drift health check** (`monthly_rank.py:570-583`):
    flag this month as unreliable when any feature exceeds the training
    set's 95th percentile × 1.5. `picker.py`'s health_check has only 4
