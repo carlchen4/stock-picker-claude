@@ -51,6 +51,17 @@ SECTOR_NAME_TO_CODE = {
     "Communication": 8, "Utilities": 9, "RealEstate": 10, "HealthCare": 11,
 }
 
+# Sector ETFs used as DML-PLR treatments. Each sector's XGBoost model
+# is trained on alpha residuals (fwd_ret - theta * sector_etf_ret),
+# stripping out the sector beta and forcing the model to learn pure
+# idiosyncratic alpha.
+SECTOR_ETF = {
+    "Financials":  "XFN.TO",   # iShares S&P/TSX Capped Financials
+    "Energy":      "XEG.TO",   # iShares S&P/TSX Capped Energy
+    "Industrials": "ZIN.TO",   # BMO Equal Weight Industrials
+    "Utilities":   "XUT.TO",   # iShares S&P/TSX Capped Utilities
+}
+
 # Per-sector feature subsets (the X for each sector's model). Listed
 # as BASE names — the resolver picks the _norm counterpart at run-time
 # where cross_sectional_normalize has produced one. Each sector gets
@@ -149,6 +160,12 @@ MACRO_TICKERS = {
     "utilities_etf": "XLU",  # XLU — utility-sector sentiment, electricity demand
     "inflation": "TIP",      # TIPS ETF — market-implied inflation
     "cad_bonds": "XBB.TO",   # Canadian aggregate bond ETF — BOC rate proxy
+    # Sector ETFs for DML-PLR baseline (NOT used as model features —
+    # build_panel maps these to a per-row sector_etf_ret column).
+    "etf_fin": "XFN.TO",
+    "etf_eng": "XEG.TO",
+    "etf_ind": "ZIN.TO",
+    "etf_uti": "XUT.TO",
     # Tried-and-rejected (kept commented for the record): ^TYX, ^IRX,
     # HYG, LQD, RB=F, ^GSPC, ^IXIC, XLK plus P/B per-ticker. Adding
     # yield-curve-slope, credit-spread, refining-margin, sp500/nasdaq
@@ -863,6 +880,41 @@ def encode_sector(ticker):
     return sector_map.get(profile[0], 0)
 
 
+def _attach_sector_etf_forward_returns(panel, macro_df):
+    """Add `sector_etf_ret` column = ETF forward 1m return for the row's sector.
+
+    For each (date, ticker), looks up the ticker's sector, then the
+    forward 1-month return of that sector's ETF (XFN/XEG/ZIN/XUT).
+    Forward return aligns with `fwd_ret`: at month t, both represent
+    the realized return from t to t+1.
+    """
+    frames = []
+    for sector, etf in SECTOR_ETF.items():
+        code = SECTOR_NAME_TO_CODE.get(sector)
+        if code is None:
+            continue
+        try:
+            if isinstance(macro_df.columns, pd.MultiIndex):
+                close = macro_df[(etf, "Close")].dropna()
+            else:
+                close = macro_df[etf]["Close"].dropna()
+        except (KeyError, TypeError):
+            continue
+        monthly = close.resample("ME").last()
+        fwd_ret = monthly.pct_change().shift(-1).rename("sector_etf_ret")
+        f = fwd_ret.to_frame().reset_index().rename(columns={"index": "date", "Date": "date"})
+        f["sector_code"] = code
+        frames.append(f)
+
+    if not frames:
+        panel["sector_etf_ret"] = np.nan
+        return panel
+
+    etf_df = pd.concat(frames, ignore_index=True)
+    panel = panel.merge(etf_df, on=["date", "sector_code"], how="left")
+    return panel
+
+
 def build_panel(price_df, macro_df, tickers):
     """Build the full feature panel for all tickers and months."""
     print("  Building feature panel...")
@@ -895,6 +947,11 @@ def build_panel(price_df, macro_df, tickers):
 
     # Sector code
     panel["sector_code"] = panel["ticker"].map(encode_sector)
+
+    # Sector ETF FORWARD return per row (used as DML-PLR treatment).
+    # Aligned to fwd_ret horizon: at month t, sector_etf_ret = ETF return
+    # from t to t+1 (matching how add_labels constructs fwd_ret).
+    panel = _attach_sector_etf_forward_returns(panel, macro_df)
 
     # Fundamental placeholders. compute_pit_fundamentals is intentionally
     # NOT wired up here: yfinance only returns 5-8 quarters of history
@@ -1070,15 +1127,111 @@ def _resolve_sector_features(base_features, panel_columns):
     return resolved
 
 
+def estimate_sector_dml_theta(sec_df, features, treatment_col="sector_etf_ret",
+                                outcome_col="fwd_ret", n_splits=5):
+    """Closed-form DML-PLR estimate of sector beta theta.
+
+    Model: Y = theta * D + g(X) + epsilon
+      Y = fwd_ret (per-stock forward return)
+      D = sector ETF forward return (same horizon, scalar per date)
+      X = sector feature controls (the per-sector subset)
+
+    Steps:
+      1. Cross-fit g(X) and h(X) on TimeSeriesSplit-by-date folds
+      2. Residualize: Y_tilde = Y - g(X), D_tilde = D - h(X)
+      3. Closed form: theta_hat = (D_tilde . Y_tilde) / (D_tilde . D_tilde)
+      4. Score-based SE: var = mean(psi^2) / (J^2 * n), J = mean(D_tilde^2),
+         psi = D_tilde * (Y_tilde - theta * D_tilde)
+
+    Returns dict{theta, se, t_stat, p_value, n_obs} or None on failure
+    (insufficient samples, degenerate residuals).
+    """
+    from scipy.stats import norm
+    # Only require non-NaN outcome and treatment; XGBoost handles NaN
+    # features natively (the fundamentals columns roe/pe_ratio/etc.
+    # are intentionally all-NaN placeholders, so requiring them dense
+    # would empty the panel).
+    df = sec_df.dropna(subset=[outcome_col, treatment_col])
+    if len(df) < 50:
+        return None
+    # Drop feature columns that are entirely NaN within this sector —
+    # they add nothing and break XGBoost's column-pruning.
+    features = [f for f in features if df[f].notna().any()]
+    if not features:
+        return None
+
+    # Keep dates as a homogeneous datetime64 array so np.isin works
+    # between unique sorted dates and the per-row date column. Going
+    # through np.array(sorted(.unique())) downgraded to object/Timestamp
+    # and silently produced all-False masks.
+    dates = np.sort(df["date"].unique())
+    if len(dates) < 4:
+        return None
+    n_splits = max(2, min(n_splits, len(dates) - 2))
+
+    Y = df[outcome_col].values.astype(float)
+    D = df[treatment_col].values.astype(float)
+    X = df[features].values.astype(float)
+    df_dates = df["date"].values
+
+    Y_tilde = np.full(len(df), np.nan)
+    D_tilde = np.full(len(df), np.nan)
+
+    tscv = TimeSeriesSplit(n_splits=n_splits, gap=1)
+    for tr_di, te_di in tscv.split(dates):
+        tr_dates, te_dates = dates[tr_di], dates[te_di]
+        tr_mask = np.isin(df_dates, tr_dates)
+        te_mask = np.isin(df_dates, te_dates)
+        if not tr_mask.any() or not te_mask.any():
+            continue
+        try:
+            my = xgb.XGBRegressor(n_estimators=100, max_depth=3, learning_rate=0.05,
+                                  verbosity=0, n_jobs=-1, random_state=42)
+            my.fit(X[tr_mask], Y[tr_mask])
+            Y_tilde[te_mask] = Y[te_mask] - my.predict(X[te_mask])
+            md = xgb.XGBRegressor(n_estimators=100, max_depth=3, learning_rate=0.05,
+                                  verbosity=0, n_jobs=-1, random_state=42)
+            md.fit(X[tr_mask], D[tr_mask])
+            D_tilde[te_mask] = D[te_mask] - md.predict(X[te_mask])
+        except Exception:
+            continue
+
+    valid = ~(np.isnan(Y_tilde) | np.isnan(D_tilde))
+    if valid.sum() < 30 or np.var(D_tilde[valid]) < 1e-12:
+        return None
+
+    yt = Y_tilde[valid]
+    dt = D_tilde[valid]
+
+    theta = float(np.dot(dt, yt) / np.dot(dt, dt))
+    psi = dt * (yt - theta * dt)
+    J = float(np.mean(dt ** 2))
+    var = float(np.mean(psi ** 2)) / (J ** 2 * len(yt) + 1e-12)
+    se = float(np.sqrt(var))
+    t_stat = float(theta / (se + 1e-12))
+    p_value = float(2 * (1 - norm.cdf(abs(t_stat))))
+
+    return {"theta": theta, "se": se, "t_stat": t_stat,
+            "p_value": p_value, "n_obs": int(valid.sum())}
+
+
 def fit_sector_models(train_df, sample_weights=None, min_samples=50):
     """Train one XGBoost ensemble per sector using SECTOR_FEATURES.
 
-    Returns dict[sector_name] = (regressor, classifier, feature_cols).
-    Sectors with fewer than `min_samples` training rows are skipped;
-    `predict_sector_models` returns NaN for tickers in skipped sectors
-    and the caller decides the fallback (0 score / drop).
+    For each sector with a sector ETF mapping, first estimates theta via
+    DML-PLR (estimate_sector_dml_theta) and trains the XGBoost on alpha
+    residuals (fwd_ret - theta * sector_etf_ret) instead of raw fwd_ret.
+    The model learns pure idiosyncratic alpha; sector beta is stripped
+    upfront. If DML fails (too few samples, degenerate residuals), the
+    sector falls back to the raw fwd_ret target.
+
+    Returns (models, dml_stats) where:
+      models[sector_name] = (regressor, classifier, feature_cols)
+      dml_stats[sector_name] = {theta, se, t_stat, p_value, n_obs}
+        (only present for sectors where DML succeeded)
     """
     models = {}
+    dml_stats = {}
     for sector_name, base_features in SECTOR_FEATURES.items():
         code = SECTOR_NAME_TO_CODE.get(sector_name)
         if code is None:
@@ -1090,8 +1243,21 @@ def fit_sector_models(train_df, sample_weights=None, min_samples=50):
         feats = _resolve_sector_features(base_features, train_df.columns)
         if not feats:
             continue
+
+        # ETF-baseline DML for this sector (if the ETF column is available)
+        stats = None
+        if sector_name in SECTOR_ETF and "sector_etf_ret" in sec_df.columns:
+            stats = estimate_sector_dml_theta(sec_df, feats)
+
+        if stats is not None:
+            theta = stats["theta"]
+            etf_ret = sec_df["sector_etf_ret"].fillna(0.0).values
+            y = sec_df["fwd_ret"].values - theta * etf_ret
+            dml_stats[sector_name] = stats
+        else:
+            y = sec_df["fwd_ret"].values
+
         X = sec_df[feats].values
-        y = sec_df["fwd_ret"].values
         w = sample_weights[sec_mask] if sample_weights is not None else None
         try:
             reg, clf = fit_models(
@@ -1102,7 +1268,72 @@ def fit_sector_models(train_df, sample_weights=None, min_samples=50):
             models[sector_name] = (reg, clf, feats)
         except Exception:
             continue
-    return models
+    return models, dml_stats
+
+
+def health_check(latest_df, sec_models, sec_dml_stats, dml_p_threshold=0.10):
+    """Diagnose this month's prediction reliability.
+
+    Four tests, mirroring monthly_rank.py's health-check pattern but
+    specialized for Step 1 (per-sector XGBoost + ETF-baseline DML, no
+    LGB ensemble yet):
+      1. Sector coverage: every required_sector has a trained model
+      2. Signal strength: max |z-score within sector| >= 0.5
+      3. DML significance: at least 2 sectors have p < threshold
+      4. Data completeness: every candidate has a non-NaN score
+
+    Returns list of (label, ok, detail) tuples for display.
+    """
+    checks = []
+
+    expected = set(SECTOR_FEATURES.keys())
+    trained = set(sec_models.keys())
+    missing = expected - trained
+    detail = f"trained {len(trained)}/{len(expected)} sectors"
+    if missing:
+        detail += f" (missing: {sorted(missing)})"
+    checks.append(("Sector coverage", not missing, detail))
+
+    max_z = 0.0
+    if "score" in latest_df.columns:
+        for code in latest_df["sector_code"].unique():
+            mask = (latest_df["sector_code"] == code).values
+            scores = latest_df.loc[mask, "score"].dropna().values
+            if len(scores) < 2:
+                continue
+            std = scores.std()
+            if std > 0:
+                z = float(np.max(np.abs((scores - scores.mean()) / std)))
+                max_z = max(max_z, z)
+    checks.append(("Signal strength", max_z >= 0.5,
+                   f"max |z-score within sector| = {max_z:.2f} (>= 0.5)"))
+
+    n_sig = sum(1 for st in sec_dml_stats.values()
+                if st["p_value"] < dml_p_threshold)
+    checks.append(("DML significance", n_sig >= 2,
+                   f"{n_sig}/{len(sec_dml_stats)} sector betas significant "
+                   f"at p<{dml_p_threshold}"))
+
+    n_total = len(latest_df)
+    n_ok = int(latest_df["score"].notna().sum()) if "score" in latest_df.columns else 0
+    checks.append(("Data completeness", n_ok == n_total and n_total > 0,
+                   f"{n_ok}/{n_total} candidates have scores"))
+
+    return checks
+
+
+def print_health_check(checks):
+    print("\n  Health check:")
+    for label, ok, detail in checks:
+        marker = "OK" if ok else "!!"
+        print(f"    [{marker}] {label}: {detail}")
+    n_fail = sum(1 for _, ok, _ in checks if not ok)
+    if n_fail == 0:
+        print("    All checks passed.")
+    elif n_fail == 1:
+        print("    1 warning - proceed with caution.")
+    else:
+        print(f"    {n_fail} warnings - signal reliability low.")
 
 
 def predict_sector_models(test_df, sector_models):
@@ -1378,7 +1609,7 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24):
         # Fit and predict — per-sector or global depending on the flag
         try:
             if USE_SECTOR_MODELS:
-                sec_models = fit_sector_models(train_df, sample_weights=weights)
+                sec_models, _dml_stats = fit_sector_models(train_df, sample_weights=weights)
                 scores = predict_sector_models(test_df, sec_models)
                 scores = np.nan_to_num(scores, nan=0.0)
             else:
@@ -1426,6 +1657,7 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24):
                     dml_thetas[t] = theta
 
         if dml_thetas:
+            print(f"    {test_date.strftime('%Y-%m')}: DML alphas = {dml_thetas}")
             pick_mask = test_df["ticker"].isin(picks)
             dml_adj = apply_dml_adjustment(
                 test_df.loc[pick_mask, "score"].values,
@@ -1474,11 +1706,19 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
 
     weights = compute_time_decay_weights(len(train_df))
 
+    sec_dml_stats = {}
     if USE_SECTOR_MODELS:
-        sec_models = fit_sector_models(train_df, sample_weights=weights)
+        sec_models, sec_dml_stats = fit_sector_models(train_df, sample_weights=weights)
         scores = predict_sector_models(latest_df, sec_models)
         scores = np.nan_to_num(scores, nan=0.0)
         print(f"  Sector models trained: {sorted(sec_models.keys())}")
+        for s, st in sec_dml_stats.items():
+            sig = ("***" if st["p_value"] < 0.01 else
+                   "**"  if st["p_value"] < 0.05 else
+                   "*"   if st["p_value"] < 0.10 else "")
+            print(f"    DML {s:<12} θ={st['theta']:+.3f}  "
+                  f"t={st['t_stat']:+.2f}  p={st['p_value']:.3f}{sig}  "
+                  f"n={st['n_obs']}")
     else:
         reg, clf = fit_models(
             pd.DataFrame(train_df[feature_cols].values, columns=feature_cols),
@@ -1489,6 +1729,10 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
 
     latest_df = latest_df.copy()
     latest_df["score"] = scores
+
+    if USE_SECTOR_MODELS:
+        checks = health_check(latest_df, sec_models, sec_dml_stats)
+        print_health_check(checks)
 
     # DML adjustment. Momentum treatments route through whichever momentum
     # columns are in the feature set (mom_pc{1,2}_norm under PCA mode,
@@ -1524,6 +1768,19 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     latest_df = latest_df.sort_values("score", ascending=False)
     candidates = latest_df["ticker"].tolist()
 
+    # ══ DEBUG: Print all stocks ranked by score ══
+    print("\n  ═══ ALL STOCKS RANKED BY SCORE ═══")
+    for i, (ticker, row) in enumerate(latest_df.iterrows(), 1):
+        sector = STOCK_PROFILE.get(row["ticker"], ("Unknown",))[0]
+        print(f"    {i:2d}. {row['ticker']:<8} {sector:<14} Score: {row['score']:.3f}")
+
+    # ══ DEBUG: Print all financials ══
+    print("\n  ═══ FINANCIALS (Before Constraints) ═══")
+    fin_all = latest_df[latest_df["ticker"].isin([t for t in candidates if STOCK_PROFILE.get(t, ("Unknown",))[0] == "Financials"])]
+    for ticker, row in fin_all.iterrows():
+        style, subtype = STOCK_PROFILE.get(row["ticker"], ("?", "?", "?"))[1:3]
+        print(f"    {row['ticker']:<8} {style:<8} {subtype:<12} Score: {row['score']:.3f}")
+
     # Fetch fundamentals for constraint checking
     print("  Fetching fundamentals for constraint check...")
     fund_df = fetch_fundamentals(candidates[:30])  # Top 30 only
@@ -1534,6 +1791,22 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
         current_holdings=current_holdings, constraints=constraints
     )
 
+    # ══ DEBUG: Print financials after constraints ══
+    print("\n  ═══ FINANCIALS (After Constraints) ═══")
+    fin_filtered = [t for t in filtered if STOCK_PROFILE.get(t, ("Unknown",))[0] == "Financials"]
+    fin_scores = latest_df[latest_df["ticker"].isin(fin_filtered)].sort_values("score", ascending=False)
+    for ticker, row in fin_scores.iterrows():
+        style, subtype = STOCK_PROFILE.get(row["ticker"], ("?", "?", "?"))[1:3]
+        print(f"    {row['ticker']:<8} {style:<8} {subtype:<12} Score: {row['score']:.3f}")
+    print(f"    Total: {len(fin_filtered)} financials passed constraints")
+
+    # ══ DEBUG: Print all sectors after constraints ══
+    print("\n  ═══ ALL CANDIDATES (After Constraints) ═══")
+    for ticker in filtered:
+        sector = STOCK_PROFILE.get(ticker, ("Unknown",))[0]
+        score = latest_df[latest_df["ticker"] == ticker]["score"].iloc[0]
+        print(f"    {ticker:<8} {sector:<14} Score: {score:.3f}")
+
     # Rebalancing band
     final_picks = apply_rebalancing_band(
         filtered,
@@ -1541,6 +1814,15 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
         current_holdings or [],
         constraints=constraints
     )
+
+    # ══ DEBUG: Print rebalancing band result ══
+    print("\n  ═══ FINAL PICKS (Rebalancing Band) ═══")
+    for i, ticker in enumerate(final_picks, 1):
+        sector = STOCK_PROFILE.get(ticker, ("Unknown",))[0]
+        score = latest_df[latest_df["ticker"] == ticker]["score"].iloc[0]
+        style, subtype = STOCK_PROFILE.get(ticker, ("?", "?", "?"))[1:3]
+        fin_mark = " ⭐ FINANCIALS" if sector == "Financials" else ""
+        print(f"    {i}. {ticker:<8} {sector:<14} {style:<8} Score: {score:.3f}{fin_mark}")
 
     # Position sizing
     weights = risk_parity_weights(final_picks, price_df)
