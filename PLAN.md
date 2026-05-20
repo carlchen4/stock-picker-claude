@@ -137,6 +137,8 @@ _All planned enhancements complete. See "Tried and Rejected" below for items tha
 
 ### Tried and Rejected
 
+- **LGB ensemble — Step 2 (2026-05-20)**: Added LightGBM as a second tree model, blending XGB+LGB 50/50 on rank-normalized predictions per sector (`fit_sector_ensemble`/`predict_sector_ensemble`). Also tried an ElasticNet feature gate inside the blend, which dropped features XGB found useful (Sharpe 1.91 → 1.52), so EN was backed out and the blend reduced to 2-model. Even the clean 2-model blend regressed everything vs the single-XGB-per-sector baseline (same 47-month walk-forward): Sharpe **1.92 → 1.62**, annualized +28.0% → +22.9%, excess +12.1% → +7.1%, hit rate 63.8% → 55.3% (only max drawdown improved marginally, −8.2% → −7.1%). At ~31 tickers × 84 months split across 4 sector models, a correlated second tree learner adds variance faster than it diversifies error. Reverted entirely — `picker.py` keeps the single XGBoost regressor per sector. The companion `monthly_rank.py` LGB+XGB+EN ensemble does not port over at this sample size.
+
 - **PIT fundamentals (2026-05-16)**: Wiring `compute_pit_fundamentals` into `build_panel` regressed the backtest by ~3pp annualized (Sharpe 0.83 → 0.76). yfinance's 5-8-quarter limit means PIT data only covers the last ~12-15 months of each training window; the resulting mixed-coverage signal trained worse than uniform sector-median imputation. The function is preserved in `picker.py` for future use with a deeper fundamentals source.
 
 - **Spec-coverage feature additions (2026-05-17)**: Added yield-curve slope (`^TYX`/`^IRX`), credit-spread proxy (`HYG`/`LQD`), refining-margin (`RB=F` - `CL=F`), `^GSPC`/`^IXIC`/`XLK` equity-beta proxies, and per-ticker P/B to close gaps in the per-sector spec coverage. Regressed Sharpe from 1.65 to 1.56 (full additions) and 1.54 (selective keep that dropped only the 1-stock-only additions). Reverted — at the current sample size (~31 tickers × 84 months split across 4 sector models), more features add noise faster than signal. The tickers stay commented in `MACRO_TICKERS` as a record so the experiment isn't accidentally redone.
@@ -285,8 +287,15 @@ so the integration avoids the pitfalls.
 7. **HC3 standard errors** for per-stock alpha significance gating.
 8. **Rank history file** for month-over-month change reporting.
 
-User picked **Step 1 (ETF-baseline DML + health checks) first** — work
-in progress as of this commit.
+User picked **Step 1 (ETF-baseline DML + health checks) first** —
+landed in commit `4f7b0ef`.
+
+**Step 2 (LGB ensemble) — attempted then rejected (2026-05-20):** built
+the XGB+LGB blend (+ a tried-and-dropped ElasticNet gate), measured it
+against the single-XGB baseline, and it regressed across the board
+(Sharpe 1.92 → 1.62). Reverted; see "Tried and Rejected" above for the
+full numbers. Remaining integration-plan items (rolling β, quarterly
+fundamentals, IC/ICIR metrics, HC3 SEs, rank history) are still open.
 
 ### 2026-05-17 — focused universe + per-sector logic
 
