@@ -186,6 +186,56 @@ rough ROI order (#1 now landed, #2-4 still open):
    monthly index, so a stale value can't be carried indefinitely.
    Minor; fold into whatever touches the alignment next.
 
+### Candidate features — picker_ca.py scan (legacy predecessor, 2026-05-20)
+
+`picker_ca.py` is the pre-rewrite predecessor (6643 lines). Most of its
+extras were intentionally dropped (see "What Was Removed") or have since
+been disproven here (LGB). A scan for things that fit the current
+yfinance-only / functions-only design AND address this session's
+recurring lesson (adding features overfits the small sample) surfaced:
+
+1. **VIF collinearity diagnostic** (`compute_vif`, `picker_ca.py:4274`):
+   variance inflation factor per feature (>10 = severe collinearity).
+   Pure diagnostic, zero model risk. Turns "should I add this feature?"
+   from trial-and-error into a measurement — a new feature highly
+   collinear with existing ones (VIF flags it) is unlikely to help and
+   likely to overfit. Directly actionable given how many add-feature
+   experiments regressed this session. Needs `statsmodels`. (Note:
+   `apply_collinearity_reduction` in the same file also does mom/vol PCA
+   compression — picker.py already has the momentum PCA, so only the VIF
+   *reporting* part is new.)
+2. **Segmented evaluation** (`evaluate_segments`, `picker_ca.py:3306`):
+   per-year RankIC + per-sector RankIC + turnover stability. Answers
+   "is the model just riding a couple of lucky regime years?" and
+   "which sectors carry real signal vs noise?". A superset of the open
+   Step 6 (IC/ICIR) plus anti-overfit diagnostics. Highest ROI — pure
+   reporting in `walk_forward`, no model changes. Port note: picker_ca's
+   `STOCK_PROFILE` is a dict (`.get("gics")`); picker.py's is a tuple
+   (`[0]` = sector) — adapt the sector lookup.
+3. ✅ **Monthly email report to self** — **landed 2026-05-20**,
+   *user-requested*. After `pick` runs, `build_report_text` formats a
+   plain-text report (picks + weights + regime + top features) and
+   `send_report_email` sends it via `smtplib.SMTP_SSL("smtp.gmail.com",
+   465)` to **carlchenyiqing@gmail.com** (the user's preferred inbox —
+   NOT the `carl.chen@myyahoo.com` in the env userEmail context).
+   - Credentials live in **`email_config.py`** (gitignored, with
+     `email_config.example.py` as the committed template): `EMAIL_FROM`,
+     `EMAIL_TO`, `EMAIL_APP_PASSWORD` (Gmail app password). Absent or
+     placeholder values → send is skipped, so a fresh clone still runs.
+   - `.gitignore` also covers `tsx_report_*.html/.pdf` artifacts.
+   - Verified with a live test send. Plain text only — no HTML/PDF port
+     needed. ⚠️ The app password used was shared in chat; rotate it.
+
+### ETF-fallback dynamic threshold (picker_ca.py:2868), considered
+
+`calculate_etf_threshold` retreats to holding XIU.TO when the month's
+average ensemble score is below the historical 20th percentile — a
+data-driven "信号太弱就持基准" guard, complementary to the existing
+regime/drawdown-halt logic. Logged as a future option (not selected for
+write-up this round). PIT as-of constraints (`apply_constraints_asof`)
+were also reviewed but are limited by yfinance's shallow PIT data (same
+constraint that benched the PIT-fundamentals experiment).
+
 ### Tried and Rejected
 
 - **Rolling 24m betas — Step 3 (2026-05-20)**: Added three per-ticker, strictly past-only rolling betas (`equity_beta` vs ^GSPTSE, `sector_beta` vs the sector ETF, `cad_beta` vs CADUSD=X) via `compute_rolling_betas`, wired into `_BASE_SECTOR_FEATURES`. The implementation was correct — betas computed with right-aligned `rolling(24)` so each (ticker, month) value uses only data ≤ that month (avoiding the full-panel look-ahead the companion scripts have), validated by equity_beta mean ≈0.98 / sector_beta ≈0.88. But it regressed **all five metrics** vs the rev_1m baseline: Sharpe 1.92 → 1.83, annualized +28.0% → +26.4%, excess +12.1% → +10.6%, max drawdown −7.6% → −8.8%, hit rate 66.0% → 57.4%. Same lesson as the spec-coverage and LGB experiments — at ~31 tickers × 84 months across 4 sector models, adding 3 features × 4 models (one of them, `cad_beta`, very noisy at range [−6, +10]) overfits faster than the betas inform. A feature-budget problem, not a bug. Reverted entirely.
@@ -349,7 +399,13 @@ so the integration avoids the pitfalls.
    "Candidate features" #3 above); health_check now runs all 5 tests.
 6. **IC / ICIR / win-rate / L/S Sharpe** in `walk_forward` results.
 7. **HC3 standard errors** for per-stock alpha significance gating.
-8. **Rank history file** for month-over-month change reporting.
+8. ✅ **Rank history file** for month-over-month change reporting —
+   **done 2026-05-20**. `predict_now` writes every candidate's
+   score-rank to `rank_history.csv` (gitignored run artifact) each run,
+   idempotent per month, and prints ↑/↓/→/NEW deltas vs the most recent
+   prior month in the "ALL STOCKS RANKED BY SCORE" block. Adapted from
+   `monthly_rank.py`'s rank tracking. Pure reporting — does not touch
+   the model or features, so backtest/Sharpe are unaffected.
 
 User picked **Step 1 (ETF-baseline DML + health checks) first** —
 landed in commit `4f7b0ef`.
