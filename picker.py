@@ -2044,6 +2044,76 @@ def send_report_email(body, subject=None):
         return False
 
 
+def compute_vif(panel, feature_cols):
+    """Variance inflation factor per feature.
+
+    VIF > 10 = severe collinearity, > 5 = moderate. A high VIF means the
+    feature is largely a linear combination of the others (redundant).
+    Returns a DataFrame (feature, vif) sorted high-to-low.
+    """
+    from statsmodels.stats.outliers_influence import variance_inflation_factor
+    X = panel[feature_cols].copy()
+    X = X.fillna(X.median())
+    X = X.loc[:, X.std() > 0]   # drop zero-variance columns
+    rows = []
+    for i, col in enumerate(X.columns):
+        try:
+            v = float(variance_inflation_factor(X.values, i))
+        except Exception:
+            v = np.nan
+        rows.append({"feature": col, "vif": v})
+    return pd.DataFrame(rows).sort_values("vif", ascending=False, na_position="last")
+
+
+def run_vif_diagnostic(panel, model_features):
+    """Print a VIF collinearity table for the RAW features the model uses.
+
+    Maps each _norm feature back to its base column: rank normalization
+    bounds everything to [-1, 1] and masks the underlying collinearity, so
+    VIF on the raw columns is the honest view. Pure diagnostic — no model
+    or data is changed.
+    """
+    try:
+        import statsmodels  # noqa: F401
+    except ImportError:
+        print("  VIF needs statsmodels — `pip install statsmodels` and re-run.")
+        return None
+
+    base_feats = []
+    for f in model_features:
+        base = f[:-5] if f.endswith("_norm") else f
+        if base == "sector_code":
+            continue
+        if base in panel.columns and base not in base_feats:
+            base_feats.append(base)
+    vif_df = compute_vif(panel, base_feats)
+
+    print("\n" + "═" * 56)
+    print("  VIF COLLINEARITY DIAGNOSTIC (raw model features)")
+    print("═" * 56)
+    print(f"  {'feature':<22}{'VIF':>9}   status")
+    print("  " + "-" * 48)
+    for _, r in vif_df.iterrows():
+        v = r["vif"]
+        vs = f"{v:.1f}" if pd.notna(v) else "N/A"
+        if pd.notna(v) and v > 10:
+            status = "✗ severe (>10)"
+        elif pd.notna(v) and v > 5:
+            status = "~ moderate (>5)"
+        else:
+            status = "✓ ok"
+        print(f"  {r['feature']:<22}{vs:>9}   {status}")
+    n_sev = int((vif_df["vif"] > 10).sum())
+    n_mod = int(((vif_df["vif"] > 5) & (vif_df["vif"] <= 10)).sum())
+    print("  " + "-" * 48)
+    print(f"  {n_sev} severe (VIF>10), {n_mod} moderate (5<VIF≤10), "
+          f"of {len(vif_df)} features.")
+    print("  High-VIF features are drop candidates (less overfit at this "
+          "sample size).")
+    print("═" * 56)
+    return vif_df
+
+
 def print_backtest(results_df):
     """Print backtest summary."""
     if results_df.empty:
@@ -2095,7 +2165,8 @@ def print_backtest(results_df):
 
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "pick"
-    assert mode in ("pick", "backtest", "both"), f"Usage: python picker.py [pick|backtest|both]"
+    assert mode in ("pick", "backtest", "both", "vif"), \
+        f"Usage: python picker.py [pick|backtest|both|vif]"
 
     print(f"\n{'═' * 60}")
     print(f"  TSX Stock Picker — Mode: {mode.upper()}")
@@ -2142,6 +2213,10 @@ def main():
     panel, model_features = cross_sectional_normalize(panel, available_features)
     print(f"  Panel: {len(panel)} rows, {panel['ticker'].nunique()} tickers, "
           f"{panel['date'].nunique()} months")
+
+    if mode == "vif":
+        run_vif_diagnostic(panel, model_features)
+        return
 
     if mode in ("backtest", "both"):
         print("\n  [4/5] Running walk-forward backtest...")

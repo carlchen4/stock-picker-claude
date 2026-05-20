@@ -194,16 +194,22 @@ been disproven here (LGB). A scan for things that fit the current
 yfinance-only / functions-only design AND address this session's
 recurring lesson (adding features overfits the small sample) surfaced:
 
-1. **VIF collinearity diagnostic** (`compute_vif`, `picker_ca.py:4274`):
-   variance inflation factor per feature (>10 = severe collinearity).
-   Pure diagnostic, zero model risk. Turns "should I add this feature?"
-   from trial-and-error into a measurement — a new feature highly
-   collinear with existing ones (VIF flags it) is unlikely to help and
-   likely to overfit. Directly actionable given how many add-feature
-   experiments regressed this session. Needs `statsmodels`. (Note:
-   `apply_collinearity_reduction` in the same file also does mom/vol PCA
-   compression — picker.py already has the momentum PCA, so only the VIF
-   *reporting* part is new.)
+1. ✅ **VIF collinearity diagnostic** — **landed 2026-05-20**. Added
+   `compute_vif` + `run_vif_diagnostic` and a `python picker.py vif`
+   mode (needs `statsmodels`, now in requirements.txt). Computes VIF on
+   the RAW columns the model consumes (maps `_norm`→base; rank-normalized
+   columns are [-1,1]-bounded and hide collinearity). **Findings**: 6
+   features show severe collinearity (VIF>10), all technical/volatility:
+   high_52w_ratio 65.8, vol_ratio 41.0, rsi_14 39.7, vol_20d 28.8,
+   vol_60d 27.0, vix_level 17.7. By contrast mom_pc1/pc2 sit at 1.5/1.3
+   — proof the momentum PCA worked — and rev_1m at 2.5. This explains
+   why every add-feature experiment this session regressed: the feature
+   space is already saturated with redundant price-derived technicals,
+   so new features just add noise. **Next experiment it points to**: PCA-
+   compress the vol family (vol_20d/vol_60d/vol_ratio → vol_pc1), exactly
+   as the momentum PCA did — a "reduce", not "add", in line with every
+   change that worked this session (see candidate #2 below for the
+   companion `apply_collinearity_reduction` reference).
 2. **Segmented evaluation** (`evaluate_segments`, `picker_ca.py:3306`):
    per-year RankIC + per-sector RankIC + turnover stability. Answers
    "is the model just riding a couple of lucky regime years?" and
