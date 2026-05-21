@@ -288,6 +288,14 @@ features." All unverified — A/B against Sharpe 1.92 before adopting.
 | 4 | Regime risk: 2025 excess −4.2%, IC ≈ 0 | Light regime de-risking — scale DOWN exposure when signal is weak, rather than retreat to XIU.TO (retreating to the index would forfeit the selection alpha that does work). | Low-med; sizing overlay |
 | 5 | Turnover 54%/mo | Raise `rank_buffer`/`hold_bonus` or go quarterly — but some turnover is real signal change now that selection is shown to work. Test. | Low; param A/B |
 
+**On #2, confirmed by direct scoring (2026-05-21):** predicting the
+latest month, the model gave all 7 banks the *identical* score (0.542,
+spread 0.000) — XGBoost lands these highly-correlated names in a single
+leaf, so within Financials it isn't really selecting at all; which 2
+banks survive is decided by `hold_bonus` (keep current holdings) +
+tie-break, not skill. Stronger, more concrete evidence than the IC≈0.005
+average — supports holding a bank basket / ETF instead of ranking banks.
+
 **Dropped:** the earlier "re-target to sector rotation" / "ETF-fallback
 to XIU.TO" plan. The control experiment shows selection is the alpha, so
 abandoning it or retreating to the index would discard the edge. Regime
