@@ -219,23 +219,32 @@ recurring lesson (adding features overfits the small sample) surfaced:
    per-year RankIC, per-sector RankIC, and pick turnover after the
    backtest. Pure diagnostic — model/Sharpe unchanged.
 
-   **⚠️ Major finding — what actually drives the ~1.9 Sharpe:** the
-   cross-sectional stock-picking signal is *weak and regime-dependent*.
-   Full-sample RankIC = **+0.029** (ICIR 0.17; industry "useful" is
-   ~0.03–0.05), and it is wildly uneven by year: 2023 +0.065 / 2026
-   +0.120 (good) vs 2024 +0.010 / 2025 +0.002 (≈ zero). Per-sector IC is
-   tiny everywhere (Energy +0.014, Financials +0.005, Industrials +0.042;
-   all ICIR < 0.1). So the +28%/yr, Sharpe-1.9 backtest is driven mainly
-   by **structural sector/beta exposure (the min-1/max-2 per-sector band)
-   plus the 2023–24 regime**, NOT by precise cross-sectional alpha.
+   **⚠️ Major finding + same-day correction (random-score control):**
+   Full-sample RankIC is low (+0.029, ICIR 0.17) and regime-dependent
+   (2023 +0.065 / 2026 +0.120 good; 2024 +0.010 / 2025 +0.002 ≈ zero;
+   per-sector ICIR all < 0.1). That *looked* like "the edge is sector/
+   regime, not stock-picking" — and an earlier version of this note said
+   so. **A control experiment refuted that.** Replacing model scores with
+   random ones (same sector band, regime, universe —
+   `walk_forward(score_mode="random")`) collapses excess return from
+   +12.1% to **+1.5%** and Sharpe from 1.92 to **1.32**. So stock
+   selection contributes ~**+10.6pp excess and +0.60 Sharpe — it IS the
+   main alpha source**, not sector tilt.
 
-   This explains why every feature experiment this session regressed or
-   no-op'd: the edge isn't in stock-selection precision, so tuning
-   selection features (LGB, betas, vol PCA, 12-1) can't move returns that
-   come from elsewhere. **Live implication:** the result leans on the
-   2023–24 regime repeating; 2025 already lagged the benchmark (excess
-   −4.2%, IC ≈ 0). Treat it as a structured sector-tilt strategy, not a
-   reliable selection-alpha engine. Turnover ~54%/mo.
+   Why is RankIC low yet selection so valuable? The strategy only buys
+   the **head** (top-1/2 per sector). The model's alpha is concentrated
+   in picking the best few names; its ordering of the mid/bottom is
+   noisy. Full-cross-section RankIC is therefore a systematically
+   pessimistic gauge for a buy-the-top-k strategy. **Methodology lesson:
+   don't judge selection value by RankIC alone — run the random-score
+   control.**
+
+   Reconciling with the failed feature experiments: selection works, but
+   the feature space is saturated (VIF 6 severe; LGB/betas/vol-PCA/12-1
+   all regressed). Current features already extract the head alpha;
+   adding more can't squeeze out more. **Live implication:** 2025 still
+   lagged (excess −4.2%, IC ≈ 0) — regime is a real return-variance risk,
+   but that's volatility, not selection failure. Turnover ~54%/mo.
 3. ✅ **Monthly email report to self** — **landed 2026-05-20**,
    *user-requested*. After `pick` runs, `build_report_text` formats a
    plain-text report (picks + weights + regime + top features) and
@@ -260,39 +269,36 @@ write-up this round). PIT as-of constraints (`apply_constraints_asof`)
 were also reviewed but are limited by yfinance's shallow PIT data (same
 constraint that benched the PIT-fundamentals experiment).
 
-### Diagnosed weaknesses & proposed fixes (from Step 6, 2026-05-20)
+### Diagnosed weaknesses & proposed fixes (Step 6 + random-score control, 2026-05-20)
 
-Step 6 (segmented evaluation) showed the model is a **sector-tilt /
-regime strategy, not a selection-alpha engine** (full-sample RankIC
-0.029, regime-dependent, per-sector ICIR < 0.1). The fixes below target
-the ROOT — the mismatch between the modeling target (cross-sectional
-fwd_ret ranking) and the actual return source (sector exposure + regime).
-They deliberately do NOT add selection features; this session's 4 failed
-experiments proved that's optimizing the wrong layer. **All unverified —
-each needs an A/B against the Sharpe-1.92 baseline before adoption.**
+**Corrected reading after the random-score control:** stock selection
+IS the main alpha (~**+10.6pp excess, +0.60 Sharpe** vs random scores);
+the low RankIC 0.029 just reflects that the edge lives in the **head**
+(top-1/2 per sector), which full-cross-section RankIC under-measures. So
+the fixes are NOT "abandon selection" — they're "selection works, but the
+feature space is saturated (VIF + 4 failed add-feature experiments), so
+improve it by changing the data / objective / risk overlay, not by adding
+features." All unverified — A/B against Sharpe 1.92 before adopting.
 
 | # | Weakness (evidence) | Proposed fix | Risk |
 |---|---|---|---|
-| 1+3 | Selection signal weak; returns come from sector tilt, not stock-picking (RankIC 0.029 vs +28%/yr) | **Re-target to sector rotation**: predict each sector ETF's *relative* forward return, then hold the chosen sector(s) via the existing min-1/max-2 band (equal-weight or by sector score) instead of ranking individual names. Optimizes the layer that actually drives returns. | Largest change (rewrites the target); but it's the only fix aimed at the real edge |
-| 2 | Financials (largest sector, 7 banks) internal IC ≈ 0 (+0.005) | Stop selecting *within* Financials — the big banks are too homogeneous (beta-convergent). Hold a bank basket (top-2 equal-weight, or ZEB/XFN ETF) and spend modeling effort on sectors with some signal (Industrials IC +0.042). | Low; mostly a constraint/sizing change |
-| 4 | Edge is regime-dependent (2024/2025 IC ≈ 0, yet still fully invested) | Implement the **ETF-fallback** (`calculate_etf_threshold`, already scoped above): when rolling RankIC / mean score is weak, retreat to XIU.TO instead of force-picking in a no-skill regime. Directly cushions the 2024-25 failure mode. | Low; picker_ca has a reference impl, pure overlay |
-| 5 | Turnover 54%/mo on a weak signal = noise trading / wasted cost | Trade less when the signal is weak: raise `rank_buffer`/`hold_bonus`, or move to quarterly rebalancing. Testable immediately with existing params. | Low; parameter tuning, fast A/B |
-| (root) | Only ~8 names per sector model — too few for cross-sectional ranking | Cautiously widen the universe (31 → ~95/223, the `expand_universe.py` path) to give ranking room. | Medium; PLAN history shows the focused universe was *more* defensive — must A/B, don't assume |
+| 1 | Feature space saturated — more features can't extract more head-alpha (VIF 6 severe; LGB/β/vol-PCA/12-1 all regressed) | Change the *objective*, not the features: train on top-quintile membership or a pairwise/rank loss so the model optimizes head precision (where the alpha is) rather than full-cross-section ranking. | Medium; reshapes the target |
+| 2 | Financials (7 banks) internal IC ≈ 0 (+0.005) | Big banks too homogeneous to rank — hold a bank basket (top-2 EW or ZEB/XFN) and steer selection effort to sectors with signal (Industrials +0.042). | Low; constraint/sizing |
+| 3 (root) | Only ~8 names/sector — little room for head-selection | Widen universe (31 → ~95/223, `expand_universe.py`). Now well-motivated: selection works, more candidates = more good names to surface. | Medium; focused universe was more defensive historically — A/B |
+| 4 | Regime risk: 2025 excess −4.2%, IC ≈ 0 | Light regime de-risking — scale DOWN exposure when signal is weak, rather than retreat to XIU.TO (retreating to the index would forfeit the selection alpha that does work). | Low-med; sizing overlay |
+| 5 | Turnover 54%/mo | Raise `rank_buffer`/`hold_bonus` or go quarterly — but some turnover is real signal change now that selection is shown to work. Test. | Low; param A/B |
 
-**Strategic fork** (these are project-level directions, not tweaks):
-- **A — Go with the grain (recommended):** re-target to sector rotation
-  (#1) + ETF-fallback (#4). Optimize the real edge instead of fighting a
-  weak selection signal.
-- **B — Rescue selection:** widen the universe (#5) and re-check RankIC.
-  Works against the diagnosis; only worth it if RankIC actually lifts.
-- **C — Accept & de-risk:** keep it as a sector-beta strategy, add the
-  ETF-fallback to cap regime risk, and lower return expectations.
+**Dropped:** the earlier "re-target to sector rotation" / "ETF-fallback
+to XIU.TO" plan. The control experiment shows selection is the alpha, so
+abandoning it or retreating to the index would discard the edge. Regime
+handling should reduce *size*, not switch off selection.
 
-**Suggested starting point: fix #4 (ETF-fallback).** Lowest risk (a pure
-overlay, reference impl exists), directly addresses the most painful
-finding (regime dependence), and doesn't touch the modeling target — so
-it's reversible and measurable on its own before committing to the
-bigger sector-rotation rewrite (fork A).
+**Suggested starting point: #3 (widen the universe).** Selection is the
+proven edge and the feature space is saturated, so the highest-leverage
+move is giving the model more good names to pick from — it directly feeds
+the head-alpha the control experiment isolated. A/B the wider universe
+against Sharpe 1.92 (watch drawdown — the focused universe was
+historically more defensive).
 
 ### Tried and Rejected
 

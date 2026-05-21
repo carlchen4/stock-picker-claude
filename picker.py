@@ -1626,7 +1626,7 @@ def risk_parity_weights(tickers, price_df, lookback=60):
 # ══════════════════════════════════════════════════════════════════
 
 def walk_forward(panel, feature_cols, train_months=36, min_train=24,
-                 return_perstock=False):
+                 return_perstock=False, score_mode="model"):
     """
     Walk-forward backtester with rolling window.
     Returns monthly picks and scores for each period.
@@ -1635,6 +1635,11 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24,
     DataFrame (date, ticker, score, fwd_ret, sector_code, is_selected)
     for segmented RankIC diagnostics. Default False keeps the original
     single-DataFrame return for existing callers (smoke_test, etc.).
+
+    score_mode="random" replaces model scores with random values (a
+    diagnostic baseline that isolates the stock-picking contribution from
+    the sector-constraint structure + regime); "model" (default) uses the
+    trained models.
     """
     panel = panel.sort_values("date")
     dates = sorted(panel["date"].unique())
@@ -1675,6 +1680,13 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24,
                 scores = ensemble_predict(reg, clf, test_df[feature_cols].values)
         except Exception:
             continue
+
+        # Diagnostic baseline: replace model scores with random ones to
+        # isolate how much the model's stock-picking actually contributes
+        # vs the sector-constraint structure + regime. Per-month seed for
+        # reproducibility.
+        if score_mode == "random":
+            scores = np.random.RandomState(1000 + i).rand(len(test_df))
 
         # Rank and select
         test_df = test_df.copy()
