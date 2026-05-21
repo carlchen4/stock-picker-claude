@@ -67,6 +67,19 @@ def unit_checks():
         [("a", True, ""), ("b", False, "x")]).lower(),
         "_health_summary one-warning verdict")
 
+    # _format_report — initial-build (no holdings) vs rebalance (holdings)
+    _latest = pd.DataFrame({"ticker": ["A", "B"], "score": [1.0, 0.5]})
+    rep_new = " ".join(picker._format_report(
+        ["A", "B"], {"A": 0.5, "B": 0.5}, _latest, [("f", 0.1)],
+        "NEUTRAL", checks=[], holdings=[])).lower()
+    check("initial build" in rep_new and "buy all" in rep_new,
+          "_format_report shows initial-build BUY list when no holdings")
+    rep_reb = " ".join(picker._format_report(
+        ["A", "B"], {"A": 0.5, "B": 0.5}, _latest, [("f", 0.1)],
+        "NEUTRAL", checks=[], holdings=["B", "C"])).lower()
+    check("vs current holdings" in rep_reb and "sell" in rep_reb,
+          "_format_report shows SELL/BUY/HOLD when holding")
+
     d = tempfile.mkdtemp()
     try:
         # compute_rank_deltas — no history / up / down / flat / NEW

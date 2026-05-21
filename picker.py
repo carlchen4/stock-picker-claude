@@ -2153,15 +2153,21 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
         lines.append(f"Signal reliability: {hs}")
     lines.append("=" * 60)
 
+    sell, buy, hold = diff_holdings(picks, holdings)
+    bw = ", ".join(f"{t} {weights.get(t, 0):.0%}" for t in buy)
     if holdings:
-        sell, buy, hold = diff_holdings(picks, holdings)
-        bw = ", ".join(f"{t} {weights.get(t, 0):.0%}" for t in buy)
         lines += [
             "",
             "ACTIONS (vs current holdings):",
             f"  SELL ({len(sell)}): {', '.join(sell) if sell else '—'}",
             f"  BUY  ({len(buy)}): {bw if buy else '—'}",
             f"  HOLD ({len(hold)}): {', '.join(hold) if hold else '—'}",
+        ]
+    else:
+        lines += [
+            "",
+            "ACTIONS (initial build — no current holdings):",
+            f"  BUY all ({len(buy)}): {bw}",
         ]
 
     lines += ["", "Target portfolio:"]
