@@ -2052,7 +2052,7 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     as_of = dates[-1]
     rank_deltas = compute_rank_deltas(candidates, as_of)
 
-    # ══ DEBUG: Print all stocks ranked by score (with vs-last-month Δ) ══
+    # Full ranked board with month-over-month rank change (vs saved history)
     print("\n  ═══ ALL STOCKS RANKED BY SCORE ═══")
     for i, (ticker, row) in enumerate(latest_df.iterrows(), 1):
         sector = STOCK_PROFILE.get(row["ticker"], ("Unknown",))[0]
@@ -2063,55 +2063,19 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     # Persist this month's full ranking so next run can show deltas.
     save_rank_history(candidates, latest_df["score"].tolist(), as_of)
 
-    # ══ DEBUG: Print all financials ══
-    print("\n  ═══ FINANCIALS (Before Constraints) ═══")
-    fin_all = latest_df[latest_df["ticker"].isin([t for t in candidates if STOCK_PROFILE.get(t, ("Unknown",))[0] == "Financials"])]
-    for ticker, row in fin_all.iterrows():
-        style, subtype = STOCK_PROFILE.get(row["ticker"], ("?", "?", "?"))[1:3]
-        print(f"    {row['ticker']:<8} {style:<8} {subtype:<12} Score: {row['score']:.3f}")
-
-    # Fetch fundamentals for constraint checking
+    # Constraint filter, then rebalancing band → final picks.
     print("  Fetching fundamentals for constraint check...")
     fund_df = fetch_fundamentals(candidates[:30])  # Top 30 only
-
-    # Apply constraints
     filtered = apply_constraints(
         candidates, fund_df, price_df, mode="pick",
         current_holdings=current_holdings, constraints=constraints
     )
-
-    # ══ DEBUG: Print financials after constraints ══
-    print("\n  ═══ FINANCIALS (After Constraints) ═══")
-    fin_filtered = [t for t in filtered if STOCK_PROFILE.get(t, ("Unknown",))[0] == "Financials"]
-    fin_scores = latest_df[latest_df["ticker"].isin(fin_filtered)].sort_values("score", ascending=False)
-    for ticker, row in fin_scores.iterrows():
-        style, subtype = STOCK_PROFILE.get(row["ticker"], ("?", "?", "?"))[1:3]
-        print(f"    {row['ticker']:<8} {style:<8} {subtype:<12} Score: {row['score']:.3f}")
-    print(f"    Total: {len(fin_filtered)} financials passed constraints")
-
-    # ══ DEBUG: Print all sectors after constraints ══
-    print("\n  ═══ ALL CANDIDATES (After Constraints) ═══")
-    for ticker in filtered:
-        sector = STOCK_PROFILE.get(ticker, ("Unknown",))[0]
-        score = latest_df[latest_df["ticker"] == ticker]["score"].iloc[0]
-        print(f"    {ticker:<8} {sector:<14} Score: {score:.3f}")
-
-    # Rebalancing band
     final_picks = apply_rebalancing_band(
         filtered,
         latest_df[latest_df["ticker"].isin(filtered)]["score"].tolist(),
         current_holdings or [],
         constraints=constraints
     )
-
-    # ══ DEBUG: Print rebalancing band result ══
-    print("\n  ═══ FINAL PICKS (Rebalancing Band) ═══")
-    for i, ticker in enumerate(final_picks, 1):
-        sector = STOCK_PROFILE.get(ticker, ("Unknown",))[0]
-        score = latest_df[latest_df["ticker"] == ticker]["score"].iloc[0]
-        style, subtype = STOCK_PROFILE.get(ticker, ("?", "?", "?"))[1:3]
-        fin_mark = " ⭐ FINANCIALS" if sector == "Financials" else ""
-        print(f"    {i}. {ticker:<8} {sector:<14} {style:<8} Score: {score:.3f}{fin_mark}")
 
     # Position sizing
     weights = risk_parity_weights(final_picks, price_df)
