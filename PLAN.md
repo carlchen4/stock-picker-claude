@@ -311,6 +311,24 @@ to cut the 2025-type drawdown without touching selection; or (4) just
 remain the only untested low-to-medium-risk items; everything else this
 session converged on the same wall.
 
+### Operations / production readiness (2026-05-20)
+
+Direction chosen once model tuning hit the 1.92 ceiling: make the
+validated model produce reliable, **executable** monthly output rather
+than chase more Sharpe.
+
+1. ✅ **Actionable monthly report** — done. `pick` prints/emails a
+   SELL/BUY/HOLD diff vs `CURRENT_HOLDINGS` (`diff_holdings`) plus a
+   one-line signal-reliability verdict from health_check
+   (`_health_summary`), not just a picks list. stdout and email share
+   one body (`_format_report`). Live run from the 7-bank holdings:
+   SELL 5 banks, BUY 5 (energy/industrials/utilities), HOLD 2 — the
+   sector diversification the diagnostics implied.
+2. ⬜ **Automated scheduling** — run `picker.py pick` monthly (local
+   cron / launchd; it emails itself once `email_config.py` is set).
+3. ⬜ **Data robustness** — handle yfinance download failures / missing
+   tickers gracefully so a monthly run can't silently produce bad picks.
+
 ### Tried and Rejected
 
 - **Universe widening — fix #3 (2026-05-20)**: With selection shown to be real alpha (random-score control: +10.6pp) and the feature space saturated, tried giving the model more candidates in the 4 required sectors. Two variants, both worse than the focused 31-name universe (Sharpe 1.92): (a) full widen to 53 names (Financials 12→16, Energy 8→15, Industrials 6→13, Utilities 4→8) → Sharpe **1.40**, excess +7.2%, hit 51%; (b) selective widen to 42 (only Energy + Utilities — the sectors whose per-sector RankIC looked better under (a)) → Sharpe **1.57**, excess +10.0%, but the worst drawdown −10.7% and RankIC 0.005. The focused universe is genuinely the better config (confirms the earlier "more defensive" note). One upside seen under (a): returns spread more evenly across years (2025 excess −4.2% → +10.0%), i.e. less regime-dependent — but not worth the Sharpe hit. **Methodology lesson:** per-sector RankIC is unstable and universe-composition-dependent (Energy IC went +0.039 under full widen → −0.009 under selective widen, same names), so a single backtest's per-sector RankIC is NOT a reliable basis for decisions — the "selectively widen Energy/Utilities" call was built on that noise. Reverted to 31.

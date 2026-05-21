@@ -1866,6 +1866,7 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     latest_df = latest_df.copy()
     latest_df["score"] = scores
 
+    checks = []
     if USE_SECTOR_MODELS:
         checks = health_check(latest_df, train_df, sec_models, sec_dml_stats)
         print_health_check(checks)
@@ -1988,43 +1989,70 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
         importance = dict(zip(feature_cols, reg.feature_importances_))
     top_features = sorted(importance.items(), key=lambda x: -x[1])[:10]
 
-    return final_picks, weights, latest_df, top_features, regime
+    return final_picks, weights, latest_df, top_features, regime, checks, (current_holdings or [])
 
 
 # ══════════════════════════════════════════════════════════════════
 # OUTPUT
 # ══════════════════════════════════════════════════════════════════
 
-def print_picks(picks, weights, panel_latest, top_features, regime):
-    """Print formatted stock picks."""
-    print("\n" + "═" * 60)
-    print(f"  TSX STOCK PICKS — {datetime.now().strftime('%Y-%m-%d')}")
-    print(f"  Regime: {regime}")
-    print("═" * 60)
+def diff_holdings(picks, holdings):
+    """Split this month's picks vs current holdings into actions.
 
-    for i, ticker in enumerate(picks, 1):
-        w = weights.get(ticker, 0)
-        profile = STOCK_PROFILE.get(ticker, ("?", "?", "?"))
-        row = panel_latest[panel_latest["ticker"] == ticker]
-        score = row["score"].iloc[0] if len(row) > 0 else 0
-        print(f"  {i}. {ticker:<12} {profile[0]:<14} {profile[1]:<8} "
-              f"Score: {score:.3f}  Weight: {w:.1%}")
-
-    print("\n  Top Features:")
-    for feat, imp in top_features:
-        print(f"    {feat:<20} {imp:.4f}")
-    print("═" * 60)
+    Returns (sell, buy, hold):
+      sell = held but not in picks (exit)
+      buy  = in picks but not held (enter)
+      hold = in both               (keep)
+    """
+    picks_set, hold_set = set(picks), set(holdings or [])
+    sell = [t for t in (holdings or []) if t not in picks_set]
+    buy = [t for t in picks if t not in hold_set]
+    hold = [t for t in picks if t in hold_set]
+    return sell, buy, hold
 
 
-def build_report_text(picks, weights, panel_latest, top_features, regime):
-    """Plain-text monthly report (mirrors print_picks) for emailing."""
+def _health_summary(checks):
+    """One-line reliability verdict from health_check results."""
+    if not checks:
+        return ""
+    fails = [label for label, ok, _ in checks if not ok]
+    n = len(fails)
+    verdict = ("OK — all checks passed" if n == 0 else
+               "CAUTION — 1 warning" if n == 1 else
+               f"LOW CONFIDENCE — {n} warnings")
+    return verdict + (f" ({', '.join(fails)})" if fails else "")
+
+
+def _format_report(picks, weights, panel_latest, top_features, regime,
+                   checks=None, holdings=None):
+    """Build the shared monthly report body as a list of lines.
+
+    Same content for stdout (print_picks) and email (build_report_text):
+    a header with signal reliability, the actionable SELL/BUY/HOLD diff
+    vs current holdings, the target portfolio with weights, and the top
+    feature importances.
+    """
     lines = [
-        f"TSX Stock Picks — {datetime.now().strftime('%Y-%m-%d')}",
+        f"TSX STOCK PICKS — {datetime.now().strftime('%Y-%m-%d')}",
         f"Regime: {regime}",
-        "=" * 52,
-        "",
-        "Picks:",
     ]
+    hs = _health_summary(checks or [])
+    if hs:
+        lines.append(f"Signal reliability: {hs}")
+    lines.append("=" * 60)
+
+    if holdings:
+        sell, buy, hold = diff_holdings(picks, holdings)
+        bw = ", ".join(f"{t} {weights.get(t, 0):.0%}" for t in buy)
+        lines += [
+            "",
+            "ACTIONS (vs current holdings):",
+            f"  SELL ({len(sell)}): {', '.join(sell) if sell else '—'}",
+            f"  BUY  ({len(buy)}): {bw if buy else '—'}",
+            f"  HOLD ({len(hold)}): {', '.join(hold) if hold else '—'}",
+        ]
+
+    lines += ["", "Target portfolio:"]
     for i, ticker in enumerate(picks, 1):
         w = weights.get(ticker, 0)
         profile = STOCK_PROFILE.get(ticker, ("?", "?", "?"))
@@ -2032,10 +2060,29 @@ def build_report_text(picks, weights, panel_latest, top_features, regime):
         score = row["score"].iloc[0] if len(row) > 0 else 0
         lines.append(f"  {i}. {ticker:<10} {profile[0]:<14} {profile[1]:<8} "
                      f"Score: {score:.3f}  Weight: {w:.1%}")
+
     lines += ["", "Top Features:"]
     for feat, imp in top_features:
         lines.append(f"  {feat:<20} {imp:.4f}")
-    return "\n".join(lines)
+    return lines
+
+
+def print_picks(picks, weights, panel_latest, top_features, regime,
+                checks=None, holdings=None):
+    """Print the actionable monthly report to stdout."""
+    lines = _format_report(picks, weights, panel_latest, top_features,
+                           regime, checks, holdings)
+    print("\n" + "═" * 60)
+    for ln in lines:
+        print(f"  {ln}" if ln else "")
+    print("═" * 60)
+
+
+def build_report_text(picks, weights, panel_latest, top_features, regime,
+                      checks=None, holdings=None):
+    """Plain-text actionable monthly report for emailing."""
+    return "\n".join(_format_report(picks, weights, panel_latest,
+                                    top_features, regime, checks, holdings))
 
 
 def send_report_email(body, subject=None):
@@ -2331,9 +2378,10 @@ def main():
         result = predict_now(panel, model_features, price_df, macro_df,
                              current_holdings=CURRENT_HOLDINGS)
         if result:
-            picks, weights, latest_df, top_features, regime = result
-            print_picks(picks, weights, latest_df, top_features, regime)
-            report = build_report_text(picks, weights, latest_df, top_features, regime)
+            picks, weights, latest_df, top_features, regime, checks, holdings = result
+            print_picks(picks, weights, latest_df, top_features, regime, checks, holdings)
+            report = build_report_text(picks, weights, latest_df, top_features,
+                                       regime, checks, holdings)
             send_report_email(report)
 
 
