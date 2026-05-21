@@ -213,14 +213,29 @@ recurring lesson (adding features overfits the small sample) surfaced:
    detail (esp. vol_ratio) stays useful as split signal. Read VIF here as
    "why adding features doesn't help" (saturated space), NOT as a
    compress-it to-do list.
-2. **Segmented evaluation** (`evaluate_segments`, `picker_ca.py:3306`):
-   per-year RankIC + per-sector RankIC + turnover stability. Answers
-   "is the model just riding a couple of lucky regime years?" and
-   "which sectors carry real signal vs noise?". A superset of the open
-   Step 6 (IC/ICIR) plus anti-overfit diagnostics. Highest ROI — pure
-   reporting in `walk_forward`, no model changes. Port note: picker_ca's
-   `STOCK_PROFILE` is a dict (`.get("gics")`); picker.py's is a tuple
-   (`[0]` = sector) — adapt the sector lookup.
+2. ✅ **Segmented evaluation** (`evaluate_segments`) — **landed
+   2026-05-20, closes Step 6**. `walk_forward(return_perstock=True)` now
+   also returns a per-(month,ticker) frame; `evaluate_segments` prints
+   per-year RankIC, per-sector RankIC, and pick turnover after the
+   backtest. Pure diagnostic — model/Sharpe unchanged.
+
+   **⚠️ Major finding — what actually drives the ~1.9 Sharpe:** the
+   cross-sectional stock-picking signal is *weak and regime-dependent*.
+   Full-sample RankIC = **+0.029** (ICIR 0.17; industry "useful" is
+   ~0.03–0.05), and it is wildly uneven by year: 2023 +0.065 / 2026
+   +0.120 (good) vs 2024 +0.010 / 2025 +0.002 (≈ zero). Per-sector IC is
+   tiny everywhere (Energy +0.014, Financials +0.005, Industrials +0.042;
+   all ICIR < 0.1). So the +28%/yr, Sharpe-1.9 backtest is driven mainly
+   by **structural sector/beta exposure (the min-1/max-2 per-sector band)
+   plus the 2023–24 regime**, NOT by precise cross-sectional alpha.
+
+   This explains why every feature experiment this session regressed or
+   no-op'd: the edge isn't in stock-selection precision, so tuning
+   selection features (LGB, betas, vol PCA, 12-1) can't move returns that
+   come from elsewhere. **Live implication:** the result leans on the
+   2023–24 regime repeating; 2025 already lagged the benchmark (excess
+   −4.2%, IC ≈ 0). Treat it as a structured sector-tilt strategy, not a
+   reliable selection-alpha engine. Turnover ~54%/mo.
 3. ✅ **Monthly email report to self** — **landed 2026-05-20**,
    *user-requested*. After `pick` runs, `build_report_text` formats a
    plain-text report (picks + weights + regime + top features) and
@@ -244,6 +259,40 @@ regime/drawdown-halt logic. Logged as a future option (not selected for
 write-up this round). PIT as-of constraints (`apply_constraints_asof`)
 were also reviewed but are limited by yfinance's shallow PIT data (same
 constraint that benched the PIT-fundamentals experiment).
+
+### Diagnosed weaknesses & proposed fixes (from Step 6, 2026-05-20)
+
+Step 6 (segmented evaluation) showed the model is a **sector-tilt /
+regime strategy, not a selection-alpha engine** (full-sample RankIC
+0.029, regime-dependent, per-sector ICIR < 0.1). The fixes below target
+the ROOT — the mismatch between the modeling target (cross-sectional
+fwd_ret ranking) and the actual return source (sector exposure + regime).
+They deliberately do NOT add selection features; this session's 4 failed
+experiments proved that's optimizing the wrong layer. **All unverified —
+each needs an A/B against the Sharpe-1.92 baseline before adoption.**
+
+| # | Weakness (evidence) | Proposed fix | Risk |
+|---|---|---|---|
+| 1+3 | Selection signal weak; returns come from sector tilt, not stock-picking (RankIC 0.029 vs +28%/yr) | **Re-target to sector rotation**: predict each sector ETF's *relative* forward return, then hold the chosen sector(s) via the existing min-1/max-2 band (equal-weight or by sector score) instead of ranking individual names. Optimizes the layer that actually drives returns. | Largest change (rewrites the target); but it's the only fix aimed at the real edge |
+| 2 | Financials (largest sector, 7 banks) internal IC ≈ 0 (+0.005) | Stop selecting *within* Financials — the big banks are too homogeneous (beta-convergent). Hold a bank basket (top-2 equal-weight, or ZEB/XFN ETF) and spend modeling effort on sectors with some signal (Industrials IC +0.042). | Low; mostly a constraint/sizing change |
+| 4 | Edge is regime-dependent (2024/2025 IC ≈ 0, yet still fully invested) | Implement the **ETF-fallback** (`calculate_etf_threshold`, already scoped above): when rolling RankIC / mean score is weak, retreat to XIU.TO instead of force-picking in a no-skill regime. Directly cushions the 2024-25 failure mode. | Low; picker_ca has a reference impl, pure overlay |
+| 5 | Turnover 54%/mo on a weak signal = noise trading / wasted cost | Trade less when the signal is weak: raise `rank_buffer`/`hold_bonus`, or move to quarterly rebalancing. Testable immediately with existing params. | Low; parameter tuning, fast A/B |
+| (root) | Only ~8 names per sector model — too few for cross-sectional ranking | Cautiously widen the universe (31 → ~95/223, the `expand_universe.py` path) to give ranking room. | Medium; PLAN history shows the focused universe was *more* defensive — must A/B, don't assume |
+
+**Strategic fork** (these are project-level directions, not tweaks):
+- **A — Go with the grain (recommended):** re-target to sector rotation
+  (#1) + ETF-fallback (#4). Optimize the real edge instead of fighting a
+  weak selection signal.
+- **B — Rescue selection:** widen the universe (#5) and re-check RankIC.
+  Works against the diagnosis; only worth it if RankIC actually lifts.
+- **C — Accept & de-risk:** keep it as a sector-beta strategy, add the
+  ETF-fallback to cap regime risk, and lower return expectations.
+
+**Suggested starting point: fix #4 (ETF-fallback).** Lowest risk (a pure
+overlay, reference impl exists), directly addresses the most painful
+finding (regime dependence), and doesn't touch the modeling target — so
+it's reversible and measurable on its own before committing to the
+bigger sector-rotation rewrite (fork A).
 
 ### Tried and Rejected
 
@@ -408,7 +457,10 @@ so the integration avoids the pitfalls.
 5. ✅ **5-test health check** at `predict_now` output — **done
    2026-05-20**. Feature-drift test added (regime-shift variant, see
    "Candidate features" #3 above); health_check now runs all 5 tests.
-6. **IC / ICIR / win-rate / L/S Sharpe** in `walk_forward` results.
+6. ✅ **IC / ICIR / win-rate** in `walk_forward` results — **done
+   2026-05-20** via `evaluate_segments` (per-year + per-sector RankIC,
+   ICIR, hit-rate, turnover). See "Candidate features" #2 for the major
+   finding it surfaced (weak, regime-dependent cross-sectional signal).
 7. **HC3 standard errors** for per-stock alpha significance gating.
 8. ✅ **Rank history file** for month-over-month change reporting —
    **done 2026-05-20**. `predict_now` writes every candidate's

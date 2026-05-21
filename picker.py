@@ -1625,15 +1625,22 @@ def risk_parity_weights(tickers, price_df, lookback=60):
 # WALK-FORWARD BACKTEST
 # ══════════════════════════════════════════════════════════════════
 
-def walk_forward(panel, feature_cols, train_months=36, min_train=24):
+def walk_forward(panel, feature_cols, train_months=36, min_train=24,
+                 return_perstock=False):
     """
     Walk-forward backtester with rolling window.
     Returns monthly picks and scores for each period.
+
+    When return_perstock=True, also returns a per-(month, ticker)
+    DataFrame (date, ticker, score, fwd_ret, sector_code, is_selected)
+    for segmented RankIC diagnostics. Default False keeps the original
+    single-DataFrame return for existing callers (smoke_test, etc.).
     """
     panel = panel.sort_values("date")
     dates = sorted(panel["date"].unique())
 
     results = []
+    perstock = []
     holdings = []
 
     print(f"  Walk-forward: {len(dates)} months, train={train_months}m")
@@ -1717,6 +1724,12 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24):
 
         holdings = picks
 
+        if return_perstock:
+            ps = test_df[test_df["ticker"] != "XIU.TO"][
+                ["date", "ticker", "score", "fwd_ret", "sector_code"]].copy()
+            ps["is_selected"] = ps["ticker"].isin(picks)
+            perstock.append(ps)
+
         # Record actual returns. fwd_ret was computed from raw monthly
         # returns BEFORE cross_sectional_normalize rewrote mom_1m to a rank,
         # so it's the only column that still holds true forward returns.
@@ -1731,7 +1744,11 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24):
             "n_picks": len(picks),
         })
 
-    return pd.DataFrame(results)
+    results_df = pd.DataFrame(results)
+    if return_perstock:
+        perstock_df = pd.concat(perstock, ignore_index=True) if perstock else pd.DataFrame()
+        return results_df, perstock_df
+    return results_df
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -2114,6 +2131,77 @@ def run_vif_diagnostic(panel, model_features):
     return vif_df
 
 
+def evaluate_segments(perstock):
+    """Per-year and per-sector RankIC + pick turnover — anti-overfit checks.
+
+    RankIC = each month's cross-sectional Spearman corr between the model
+    score and realized fwd_ret. Answers: is the edge concentrated in a few
+    regime years, which sectors carry real signal vs noise, and is monthly
+    selection stable? Adapted from picker_ca.py's evaluate_segments
+    (picker.py's STOCK_PROFILE/sector_code differs from that file).
+    """
+    if perstock is None or perstock.empty:
+        print("  (no per-stock data for segmented evaluation)")
+        return
+    v = perstock.dropna(subset=["score", "fwd_ret"]).copy()
+    if v.empty:
+        return
+    v["date"] = pd.to_datetime(v["date"])
+    code_to_name = {c: n for n, c in SECTOR_NAME_TO_CODE.items()}
+    v["sector"] = v["sector_code"].map(code_to_name).fillna("Other")
+
+    def _ic(g):
+        if len(g) < 5:
+            return np.nan
+        return g["score"].rank().corr(g["fwd_ret"].rank())
+
+    monthly_ic = v.groupby("date").apply(_ic).dropna()
+    monthly_ic.index = pd.to_datetime(monthly_ic.index)
+
+    print("\n" + "═" * 60)
+    print("  SEGMENTED EVALUATION (anti-overfit diagnostics)")
+    print("═" * 60)
+
+    print("\n  By year — RankIC (is the edge regime-dependent?)")
+    print(f"    {'year':<6}{'months':>7}{'IC mean':>10}{'IC std':>9}{'ICIR':>7}{'hit%':>7}")
+    print("    " + "-" * 46)
+    for year, g in monthly_ic.groupby(monthly_ic.index.year):
+        icm, ics = g.mean(), g.std()
+        icir = icm / ics if ics > 0 else 0.0
+        print(f"    {year:<6}{len(g):>7}{icm:>+10.3f}{ics:>9.3f}{icir:>+7.2f}"
+              f"{(g > 0).mean() * 100:>6.0f}%")
+    icm, ics = monthly_ic.mean(), monthly_ic.std()
+    icir = icm / ics if ics > 0 else 0.0
+    print("    " + "-" * 46)
+    print(f"    {'ALL':<6}{len(monthly_ic):>7}{icm:>+10.3f}{ics:>9.3f}{icir:>+7.2f}"
+          f"{(monthly_ic > 0).mean() * 100:>6.0f}%")
+
+    print("\n  By sector — RankIC (which sectors carry real signal?)")
+    print(f"    {'sector':<14}{'months':>7}{'IC mean':>10}{'ICIR':>7}")
+    print("    " + "-" * 38)
+    for sector, g in v.groupby("sector"):
+        sic = g.groupby("date").apply(_ic).dropna()
+        if len(sic) < 6:
+            continue
+        icm, ics = sic.mean(), sic.std()
+        icir = icm / ics if ics > 0 else 0.0
+        print(f"    {sector:<14}{len(sic):>7}{icm:>+10.3f}{icir:>+7.2f}")
+
+    sel = v[v["is_selected"]]
+    picks_by_month = sel.groupby("date")["ticker"].apply(set).sort_index()
+    turn, prev = [], set()
+    for _, p in picks_by_month.items():
+        if p and prev:
+            turn.append(100.0 * len(p - prev) / len(p))
+        prev = p
+    if turn:
+        print(f"\n  Pick turnover: avg {np.mean(turn):.0f}%/mo "
+              f"(min {min(turn):.0f}%, max {max(turn):.0f}%)")
+    print("  Guide: |IC mean| range across years > 0.15, or a sector IC < 0,")
+    print("  signals a regime-dependent / noisy edge.")
+    print("═" * 60)
+
+
 def print_backtest(results_df):
     """Print backtest summary."""
     if results_df.empty:
@@ -2220,8 +2308,9 @@ def main():
 
     if mode in ("backtest", "both"):
         print("\n  [4/5] Running walk-forward backtest...")
-        results = walk_forward(panel, model_features)
+        results, perstock = walk_forward(panel, model_features, return_perstock=True)
         print_backtest(results)
+        evaluate_segments(perstock)
 
     if mode in ("pick", "both"):
         print("\n  [5/5] Generating current picks...")
