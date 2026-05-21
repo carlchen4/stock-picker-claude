@@ -37,8 +37,85 @@ def check(cond, msg):
     print(f"  ok: {msg}")
 
 
+def unit_checks():
+    """Fast, no-download unit tests for the ops/reporting functions added
+    this session (diff_holdings, _health_summary, compute_rank_deltas,
+    log_picks / oos_track_record, check_data_health). Guards the monthly
+    run against a silent regression in these.
+    """
+    import os
+    import tempfile
+    import shutil
+    import pandas as pd
+
+    print("[0] Unit checks (ops functions, no download)...")
+
+    # diff_holdings — SELL/BUY/HOLD split vs current holdings
+    sell, buy, hold = picker.diff_holdings(["A", "B", "C"], ["B", "C", "D"])
+    check(sell == ["D"] and buy == ["A"] and hold == ["B", "C"],
+          f"diff_holdings split (sell={sell} buy={buy} hold={hold})")
+    s2, b2, h2 = picker.diff_holdings(["A", "B"], [])
+    check(b2 == ["A", "B"] and not s2 and not h2,
+          "diff_holdings with no holdings -> all BUY")
+
+    # _health_summary — verdict wording from check tuples
+    check(picker._health_summary([]) == "", "_health_summary empty -> ''")
+    check("all checks passed" in picker._health_summary(
+        [("a", True, ""), ("b", True, "")]).lower(),
+        "_health_summary all-ok verdict")
+    check("caution" in picker._health_summary(
+        [("a", True, ""), ("b", False, "x")]).lower(),
+        "_health_summary one-warning verdict")
+
+    d = tempfile.mkdtemp()
+    try:
+        # compute_rank_deltas — no history / up / down / flat / NEW
+        rpath = os.path.join(d, "rank.csv")
+        check(picker.compute_rank_deltas(["A", "B"], "2026-01-31", path=rpath) == {},
+              "compute_rank_deltas no history -> {}")
+        picker.save_rank_history(["A", "B", "C"], [0.9, 0.5, 0.1], "2026-01-31", path=rpath)
+        dl = picker.compute_rank_deltas(["B", "A", "C"], "2026-02-28", path=rpath)
+        check(dl["B"] == "↑1" and dl["A"] == "↓1" and dl["C"] == "→",
+              f"compute_rank_deltas up/down/flat ({dl})")
+        check(picker.compute_rank_deltas(["A", "D"], "2026-02-28", path=rpath).get("D") == "NEW",
+              "compute_rank_deltas NEW for unseen ticker")
+
+        # log_picks idempotency + XIU benchmark row; oos_track_record math
+        opath = os.path.join(d, "picks.csv")
+        picker.log_picks(["A", "B"], {"A": 0.5, "B": 0.5}, {"A": 1, "B": 1}, "2026-01-31", path=opath)
+        n1 = len(pd.read_csv(opath))
+        picker.log_picks(["A", "B"], {"A": 0.5, "B": 0.5}, {"A": 1, "B": 1}, "2026-01-31", path=opath)
+        check(n1 == 3 and len(pd.read_csv(opath)) == n1,
+              "log_picks logs picks+XIU row and is idempotent per month")
+        pd.DataFrame({
+            "as_of": pd.to_datetime(["2026-01-31"] * 3),
+            "ticker": ["A", "B", "XIU.TO"], "weight": [0.5, 0.5, 0.0],
+            "score": [1, 1, float("nan")], "fwd_realized": [0.04, 0.02, 0.01],
+        }).to_csv(opath, index=False)
+        oos_txt = " ".join(picker.oos_track_record(opath)).lower()
+        check("portfolio" in oos_txt and "xiu" in oos_txt,
+              "oos_track_record reports portfolio vs XIU")
+
+        # check_data_health — benchmark present / missing
+        idx = pd.date_range("2024-01-01", periods=60, freq="ME")
+        cols = pd.MultiIndex.from_product([["XIU.TO", "RY.TO", "CNQ.TO"], ["Close"]])
+        pdf = pd.DataFrame(np.random.rand(60, 3) + 10, index=idx, columns=cols)
+        ok_map = {l: ok for l, ok, _ in
+                  picker.check_data_health(pdf, ["XIU.TO", "RY.TO", "CNQ.TO"], ["Financials"])}
+        check(ok_map.get("Benchmark XIU.TO") is True,
+              "check_data_health benchmark present -> ok")
+        miss = {l: ok for l, ok, _ in picker.check_data_health(
+            pdf.drop(columns=[("XIU.TO", "Close")]), ["XIU.TO", "RY.TO"], [])}
+        check(miss.get("Benchmark XIU.TO") is False,
+              "check_data_health missing benchmark -> fail")
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    print()
+
+
 def main():
     print("\n=== Smoke test: picker.py pipeline ===\n")
+    unit_checks()
 
     print("[1] Fetching prices...")
     all_tickers = SMOKE_UNIVERSE + list(picker.MACRO_TICKERS.values())

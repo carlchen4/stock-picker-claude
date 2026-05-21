@@ -355,21 +355,16 @@ than chase more Sharpe.
    real forward out-of-sample record to confirm — or not — that the
    backtest holds up live. First run shows 1 mo (+2.0% vs XIU +0.8%);
    it grows one month per run, judge after ~6+.
-5. ⬜ **Regression tests for the new ops functions** — `smoke_test.py`
-   covers only the core pipeline (download / panel / features /
-   walk_forward); this session's ~600 lines of new functionality have no
-   tests. They were verified once by hand (unit checks + live pick runs)
-   but that isn't fixed in place. Add fast, no-download assertions for:
-   - `diff_holdings` — SELL/BUY/HOLD split vs current holdings
-   - `oos_track_record` — weighted portfolio-vs-XIU math + log idempotency
-   - `compute_rank_deltas` — ↑/↓/→/NEW and the no-history case
-   - `check_data_health` — flags missing tickers / missing XIU benchmark /
-     under-covered required sector
-   - `_health_summary` — verdict wording from check results
-   Purpose: guard the monthly run against a silent regression (e.g. a
-   broken OOS backfill or data-health gate) shipping a bad report. Low
-   risk, fast; the one remaining code-quality item before the project is
-   "complete" in the engineering sense.
+5. ✅ **Regression tests for the new ops functions** — **done
+   2026-05-21**. Added `unit_checks()` as section `[0]` of
+   `smoke_test.py`: 12 fast, no-download assertions over `diff_holdings`
+   (SELL/BUY/HOLD split), `_health_summary` (verdict wording),
+   `compute_rank_deltas` (↑/↓/→/NEW + no-history), `log_picks` /
+   `oos_track_record` (XIU row, per-month idempotency, portfolio-vs-XIU
+   math), and `check_data_health` (benchmark present/missing). Runs
+   first so a broken ops function fails in seconds before the ~30s
+   end-to-end pipeline. Guards the monthly run against a silent
+   regression shipping a bad report. Engineering completeness: done.
 
 ### Tried and Rejected
 
