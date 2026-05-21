@@ -324,8 +324,12 @@ than chase more Sharpe.
    one body (`_format_report`). Live run from the 7-bank holdings:
    SELL 5 banks, BUY 5 (energy/industrials/utilities), HOLD 2 — the
    sector diversification the diagnostics implied.
-2. ⬜ **Automated scheduling** — run `picker.py pick` monthly (local
-   cron / launchd; it emails itself once `email_config.py` is set).
+2. ✅ **Convenience run script** — `run_monthly.sh` (executable) does
+   cd + venv-activate + `python picker.py pick` + append to
+   `logs/monthly.log`, all in one command. User opted for **manual**
+   monthly runs for now (no launchd/cron) — just run `./run_monthly.sh`.
+   Automating later is a one-step add: a launchd plist calling this
+   script (StartCalendarInterval, monthly).
 3. ⬜ **Data robustness** — handle yfinance download failures / missing
    tickers gracefully so a monthly run can't silently produce bad picks.
 

@@ -19,3 +19,6 @@ email_config.py
 # Generated report artifacts
 tsx_report_*.html
 tsx_report_*.pdf
+
+# Run logs (run_monthly.sh)
+logs/
