@@ -337,6 +337,16 @@ than chase more Sharpe.
    rate < 85% or missing XIU.TO benchmark) instead of silently producing
    picks off partial yfinance data. Verified: a healthy 31/31 run passes
    the gate and is unaffected (Sharpe 1.92).
+4. ✅ **OOS track record** — done 2026-05-20. `pick` logs each month's
+   picks + weights + a XIU benchmark row to `picks_log.csv` (gitignored,
+   idempotent per month); `backfill_realized` fills each pick's
+   next-month return from prices once it matures; `oos_track_record`
+   reports realized portfolio vs XIU since logging began, shown in the
+   report/email. **This is the one thing that genuinely adds information
+   from here:** the 1.92 is walk-forward (historical); this accumulates a
+   real forward out-of-sample record to confirm — or not — that the
+   backtest holds up live. First run shows 1 mo (+2.0% vs XIU +0.8%);
+   it grows one month per run, judge after ~6+.
 
 ### Tried and Rejected
 

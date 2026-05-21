@@ -13,6 +13,8 @@ portfolio_config.py
 
 # Run artifact: monthly score-ranking history (Step 8)
 rank_history.csv
+# Run artifact: OOS picks track record
+picks_log.csv
 
 # Secrets: email/SMTP credentials stay local; commit only email_config.example.py
 email_config.py

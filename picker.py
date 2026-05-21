@@ -1860,6 +1860,115 @@ def save_rank_history(ranked_tickers, scores, as_of, path=RANK_HISTORY_FILE):
     rows.to_csv(path, index=False)
 
 
+PICKS_LOG_FILE = "picks_log.csv"
+
+
+def log_picks(picks, weights, scores_by_ticker, as_of, path=PICKS_LOG_FILE):
+    """Append this month's picks to the OOS track-record log.
+
+    Records (as_of, ticker, weight, score, fwd_realized=NaN) per pick,
+    plus one XIU.TO benchmark row (weight 0). Idempotent per as_of month.
+    fwd_realized is filled later by backfill_realized once the next
+    month's prices exist — that's what turns this log into a genuine
+    out-of-sample record to check against the backtest's 1.92.
+    """
+    as_of = pd.Timestamp(as_of).normalize()
+    tickers = list(picks) + ["XIU.TO"]
+    rows = pd.DataFrame({
+        "as_of": as_of,
+        "ticker": tickers,
+        "weight": [weights.get(t, 0.0) for t in picks] + [0.0],
+        "score": [scores_by_ticker.get(t, np.nan) for t in picks] + [np.nan],
+        "fwd_realized": np.nan,
+    })
+    if os.path.exists(path):
+        try:
+            hist = pd.read_csv(path, parse_dates=["as_of"])
+            hist = hist[hist["as_of"] != as_of]
+            rows = pd.concat([hist, rows], ignore_index=True)
+        except Exception:
+            pass
+    rows.to_csv(path, index=False)
+
+
+def backfill_realized(price_df, path=PICKS_LOG_FILE):
+    """Fill fwd_realized for logged picks whose next-month price now exists.
+
+    fwd_realized = the ticker's return from its as_of month-end to the
+    following month-end, from price_df. Rows stay NaN until that data
+    arrives, so the log only credits returns that were genuinely OOS at
+    pick time.
+    """
+    if not os.path.exists(path):
+        return
+    try:
+        log = pd.read_csv(path, parse_dates=["as_of"])
+    except Exception:
+        return
+    need = log["fwd_realized"].isna()
+    if not need.any():
+        return
+    updated = False
+    for idx in log.index[need]:
+        t = log.at[idx, "ticker"]
+        d = pd.Timestamp(log.at[idx, "as_of"]).normalize()
+        close, _ = get_ohlcv(price_df, t)
+        if close is None:
+            continue
+        m = close.resample("ME").last()
+        at, after = m[m.index <= d], m[m.index > d]
+        if len(at) and len(after):
+            r = after.iloc[0] / at.iloc[-1] - 1
+            if np.isfinite(r):
+                log.at[idx, "fwd_realized"] = float(r)
+                updated = True
+    if updated:
+        log.to_csv(path, index=False)
+
+
+def oos_track_record(path=PICKS_LOG_FILE):
+    """Summary lines for the realized out-of-sample track record.
+
+    Portfolio monthly OOS return per as_of = weight-weighted fwd_realized
+    of that month's picks; benchmark = the logged XIU.TO row. Only matured
+    (filled) months count, so this is empty until the first month's picks
+    have a realized return.
+    """
+    if not os.path.exists(path):
+        return []
+    try:
+        log = pd.read_csv(path, parse_dates=["as_of"])
+    except Exception:
+        return []
+    filled = log.dropna(subset=["fwd_realized"])
+    picks_f = filled[filled["weight"] > 0]
+    if picks_f.empty:
+        return ["OOS track record: none matured yet "
+                "(picks logged; returns fill in next month)."]
+    port = picks_f.groupby("as_of").apply(
+        lambda g: (g["weight"] * g["fwd_realized"]).sum() / g["weight"].sum())
+    bench = (filled[filled["ticker"] == "XIU.TO"]
+             .set_index("as_of")["fwd_realized"].reindex(port.index))
+    n = len(port)
+    cum = (1 + port).prod() - 1
+    hit = (port > 0).mean()
+    lines = ["OOS track record (realized, since logging began):"]
+    if bench.notna().all():
+        bcum = (1 + bench).prod() - 1
+        beat = (port.values > bench.values).mean()
+        lines.append(f"  {n} mo | portfolio {cum:+.1%} vs XIU {bcum:+.1%} "
+                     f"(excess {cum - bcum:+.1%})")
+        lines.append(f"  monthly avg {port.mean():+.2%} | positive {hit:.0%} "
+                     f"| beat XIU {beat:.0%}")
+    else:
+        lines.append(f"  {n} mo | portfolio cum {cum:+.1%} | "
+                     f"monthly avg {port.mean():+.2%} | positive {hit:.0%}")
+    if n < 6:
+        lines.append(f"  (only {n} mo of live data — too few to judge; "
+                     f"backtest was Sharpe 1.92)")
+    return lines
+
+
 def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     """Generate current month stock picks."""
     panel = panel.sort_values("date")
@@ -2007,6 +2116,12 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     # Position sizing
     weights = risk_parity_weights(final_picks, price_df)
 
+    # OOS track record: log this month's picks, then backfill any prior
+    # months whose realized returns have now matured (see functions).
+    sbt = dict(zip(latest_df["ticker"], latest_df["score"]))
+    log_picks(final_picks, weights, sbt, as_of)
+    backfill_realized(price_df)
+
     # Feature importance. Under sector models, average importance across
     # all trained sector regressors so the user still gets a single top-10
     # view; under the global model, use the single regressor directly.
@@ -2097,6 +2212,10 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
     lines += ["", "Top Features:"]
     for feat, imp in top_features:
         lines.append(f"  {feat:<20} {imp:.4f}")
+
+    oos = oos_track_record()
+    if oos:
+        lines += [""] + oos
     return lines
 
 
