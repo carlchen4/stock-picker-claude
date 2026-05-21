@@ -2452,6 +2452,17 @@ def print_backtest(results_df):
     print("  " + "-" * 44)
     for year, row in yearly.iterrows():
         print(f"  {year}    {row['port']:+.1%}      {row['bench']:+.1%}      {row['excess']:+.1%}")
+
+    # Recent monthly detail — feel for month-to-month behavior, not just
+    # the aggregate Sharpe. (pseudo-OOS: params were tuned over all
+    # history, so recent months read optimistic vs a true forward OOS.)
+    recent = results_df.tail(6)
+    print("\n  Last 6 months   Portfolio   Benchmark   Excess")
+    print("  " + "-" * 44)
+    for _, r in recent.iterrows():
+        d = pd.Timestamp(r["date"]).strftime("%Y-%m")
+        ex = r["port_ret"] - r["bench_ret"]
+        print(f"  {d}      {r['port_ret']:+.1%}      {r['bench_ret']:+.1%}      {ex:+.1%}")
     print()
 
 
