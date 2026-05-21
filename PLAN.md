@@ -365,6 +365,15 @@ than chase more Sharpe.
    first so a broken ops function fails in seconds before the ~30s
    end-to-end pipeline. Guards the monthly run against a silent
    regression shipping a bad report. Engineering completeness: done.
+6. ⬜ **Richer OOS performance metrics (deferred — needs data)** — once
+   `picks_log.csv` has accumulated **~6+ months of realized (matured)**
+   rows, extend `oos_track_record` from the current cum-return / win-rate
+   summary to also report **OOS Sharpe, max drawdown, and rolling
+   IC/ICIR** — the same metrics the backtest shows, but on real
+   out-of-sample months, so the live record is comparable apples-to-
+   apples with the 1.92 backtest. **Not now:** with ~1 month logged these
+   are pure noise. Trigger: revisit after ~6 monthly runs (check distinct
+   `as_of` months in `picks_log.csv`).
 
 ### Tried and Rejected
 
