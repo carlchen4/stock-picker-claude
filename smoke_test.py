@@ -63,9 +63,9 @@ def unit_checks():
     check("all checks passed" in picker._health_summary(
         [("a", True, ""), ("b", True, "")]).lower(),
         "_health_summary all-ok verdict")
-    check("caution" in picker._health_summary(
-        [("a", True, ""), ("b", False, "x")]).lower(),
-        "_health_summary one-warning verdict")
+    _one = picker._health_summary([("a", True, ""), ("b", False, "drift detail")])
+    check("caution" in _one.lower() and "drift detail" in _one,
+          "_health_summary one-warning names the failed check detail")
 
     # _format_report — initial-build (no holdings) vs rebalance (holdings)
     _latest = pd.DataFrame({"ticker": ["A", "B"], "score": [1.0, 0.5]})

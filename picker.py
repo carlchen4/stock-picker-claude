@@ -1403,9 +1403,8 @@ def health_check(latest_df, train_df, sec_models, sec_dml_stats, dml_p_threshold
         z = abs((latest_mean - tr_means.mean()) / tr_means.std())
         if z > 3.0:
             drift.append(f"{f}(z={z:.1f})")
-    detail = f"{len(drift)} features show regime shift (|z|>3)"
-    if drift:
-        detail += f": {drift}"
+    detail = (f"{len(drift)} regime-shifted (|z|>3): {', '.join(drift)}"
+              if drift else "all features within train range")
     checks.append(("Feature drift", len(drift) == 0, detail))
 
     return checks
@@ -2150,15 +2149,17 @@ def diff_holdings(picks, holdings):
 
 
 def _health_summary(checks):
-    """One-line reliability verdict from health_check results."""
+    """One-line reliability verdict, naming each failed check + its detail."""
     if not checks:
         return ""
-    fails = [label for label, ok, _ in checks if not ok]
+    fails = [(label, detail) for label, ok, detail in checks if not ok]
     n = len(fails)
     verdict = ("OK — all checks passed" if n == 0 else
                "CAUTION — 1 warning" if n == 1 else
                f"LOW CONFIDENCE — {n} warnings")
-    return verdict + (f" ({', '.join(fails)})" if fails else "")
+    if fails:
+        verdict += " — " + "; ".join(f"{lbl}: {det}" for lbl, det in fails)
+    return verdict
 
 
 def _format_report(picks, weights, panel_latest, top_features, regime,
