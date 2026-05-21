@@ -205,11 +205,14 @@ recurring lesson (adding features overfits the small sample) surfaced:
    — proof the momentum PCA worked — and rev_1m at 2.5. This explains
    why every add-feature experiment this session regressed: the feature
    space is already saturated with redundant price-derived technicals,
-   so new features just add noise. **Next experiment it points to**: PCA-
-   compress the vol family (vol_20d/vol_60d/vol_ratio → vol_pc1), exactly
-   as the momentum PCA did — a "reduce", not "add", in line with every
-   change that worked this session (see candidate #2 below for the
-   companion `apply_collinearity_reduction` reference).
+   so new features just add noise. **Correction (same day)**: the obvious
+   follow-up — PCA-compress the vol family like the momentum PCA — was
+   tried and *failed* (see Tried and Rejected). High VIF does NOT imply
+   "compress this" for a TREE model: collinearity hurts *linear* models,
+   but XGBoost is robust to it, and the vol family's term-structure
+   detail (esp. vol_ratio) stays useful as split signal. Read VIF here as
+   "why adding features doesn't help" (saturated space), NOT as a
+   compress-it to-do list.
 2. **Segmented evaluation** (`evaluate_segments`, `picker_ca.py:3306`):
    per-year RankIC + per-sector RankIC + turnover stability. Answers
    "is the model just riding a couple of lucky regime years?" and
@@ -243,6 +246,8 @@ were also reviewed but are limited by yfinance's shallow PIT data (same
 constraint that benched the PIT-fundamentals experiment).
 
 ### Tried and Rejected
+
+- **Volatility-family PCA (2026-05-20)**: VIF flagged vol_20d/vol_60d/vol_ratio as severely collinear (41/29/27), so — by analogy with the successful momentum PCA — compressed them into a single `vol_pc1` (`apply_vol_pca`, `USE_VOL_PCA` flag). Regressed all five metrics: Sharpe 1.92 → 1.66, annualized +28.0% → +23.9%, excess +12.1% → +8.1%, max drawdown −7.6% → −8.2%, hit rate 66.0% → 53.2%. **Lesson (corrects the VIF write-up's first instinct):** high VIF does not justify compression for a *tree* model. Collinearity inflates variance in *linear* estimators; XGBoost splits are unaffected by it, and the short/long vol distinction plus vol_ratio's term-structure carry real signal that one PC discards. The momentum PCA worked for different reasons (4 horizons far more redundant; model was at Sharpe 0.83 with room to gain), not a general "compress high-VIF families" rule. Reverted.
 
 - **Rolling 24m betas — Step 3 (2026-05-20)**: Added three per-ticker, strictly past-only rolling betas (`equity_beta` vs ^GSPTSE, `sector_beta` vs the sector ETF, `cad_beta` vs CADUSD=X) via `compute_rolling_betas`, wired into `_BASE_SECTOR_FEATURES`. The implementation was correct — betas computed with right-aligned `rolling(24)` so each (ticker, month) value uses only data ≤ that month (avoiding the full-panel look-ahead the companion scripts have), validated by equity_beta mean ≈0.98 / sector_beta ≈0.88. But it regressed **all five metrics** vs the rev_1m baseline: Sharpe 1.92 → 1.83, annualized +28.0% → +26.4%, excess +12.1% → +10.6%, max drawdown −7.6% → −8.8%, hit rate 66.0% → 57.4%. Same lesson as the spec-coverage and LGB experiments — at ~31 tickers × 84 months across 4 sector models, adding 3 features × 4 models (one of them, `cad_beta`, very noisy at range [−6, +10]) overfits faster than the betas inform. A feature-budget problem, not a bug. Reverted entirely.
 
