@@ -38,6 +38,13 @@ except ImportError:
 # Set False to keep the raw momentum features (the original baseline).
 USE_MOMENTUM_PCA = True
 
+# When True and portfolio_config.CURRENT_HOLDINGS is empty, treat last
+# run's picks as the current holdings — auto-rolls the portfolio month to
+# month so holdings never need hand-editing. Valid ONLY if the model's
+# picks are actually executed each month; if your real positions diverge,
+# fill CURRENT_HOLDINGS (it takes precedence) or set this False.
+AUTO_ROLL_HOLDINGS = True
+
 # When True, train one XGBoost+DML per required sector (Financials,
 # Energy, Industrials, Utilities), each on its curated feature subset
 # from SECTOR_FEATURES below. Set False to use a single global model
@@ -1863,6 +1870,25 @@ def save_rank_history(ranked_tickers, scores, as_of, path=RANK_HISTORY_FILE):
 PICKS_LOG_FILE = "picks_log.csv"
 
 
+def last_logged_picks(path=PICKS_LOG_FILE):
+    """Tickers from the most recent month in the picks log (weight > 0).
+
+    Used by AUTO_ROLL_HOLDINGS to treat last run's picks as the current
+    holdings — only valid if the model's picks are actually executed each
+    month. Excludes the weight==0 XIU benchmark row. Returns [] if no log.
+    """
+    if not os.path.exists(path):
+        return []
+    try:
+        log = pd.read_csv(path, parse_dates=["as_of"])
+    except Exception:
+        return []
+    if log.empty:
+        return []
+    last = log[log["as_of"] == log["as_of"].max()]
+    return last[last["weight"] > 0]["ticker"].tolist()
+
+
 def log_picks(picks, weights, scores_by_ticker, as_of, path=PICKS_LOG_FILE):
     """Append this month's picks to the OOS track-record log.
 
@@ -2509,10 +2535,15 @@ def main():
 
     if mode in ("pick", "both"):
         print("\n  [5/5] Generating current picks...")
-        if CURRENT_HOLDINGS:
-            print(f"  Current holdings from portfolio_config: {len(CURRENT_HOLDINGS)} tickers")
+        holdings = list(CURRENT_HOLDINGS)
+        if holdings:
+            print(f"  Current holdings from portfolio_config: {len(holdings)} tickers")
+        elif AUTO_ROLL_HOLDINGS:
+            holdings = last_logged_picks()
+            if holdings:
+                print(f"  Auto-roll: using last run's {len(holdings)} picks as current holdings")
         result = predict_now(panel, model_features, price_df, macro_df,
-                             current_holdings=CURRENT_HOLDINGS)
+                             current_holdings=holdings)
         if result:
             picks, weights, latest_df, top_features, regime, checks, holdings = result
             print_picks(picks, weights, latest_df, top_features, regime, checks, holdings)

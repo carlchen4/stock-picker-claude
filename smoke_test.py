@@ -109,6 +109,14 @@ def unit_checks():
         check("portfolio" in oos_txt and "xiu" in oos_txt,
               "oos_track_record reports portfolio vs XIU")
 
+        # last_logged_picks — newest month's weight>0 tickers (XIU excluded)
+        lp = os.path.join(d, "lp.csv")
+        picker.log_picks(["A", "B"], {"A": .5, "B": .5}, {"A": 1, "B": 1}, "2026-01-31", path=lp)
+        picker.log_picks(["C", "D"], {"C": .5, "D": .5}, {"C": 1, "D": 1}, "2026-02-28", path=lp)
+        rolled = picker.last_logged_picks(lp)
+        check(set(rolled) == {"C", "D"},
+              f"last_logged_picks -> latest month, no XIU ({rolled})")
+
         # check_data_health — benchmark present / missing
         idx = pd.date_range("2024-01-01", periods=60, freq="ME")
         cols = pd.MultiIndex.from_product([["XIU.TO", "RY.TO", "CNQ.TO"], ["Close"]])
