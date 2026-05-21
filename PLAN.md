@@ -330,8 +330,13 @@ than chase more Sharpe.
    monthly runs for now (no launchd/cron) — just run `./run_monthly.sh`.
    Automating later is a one-step add: a launchd plist calling this
    script (StartCalendarInterval, monthly).
-3. ⬜ **Data robustness** — handle yfinance download failures / missing
-   tickers gracefully so a monthly run can't silently produce bad picks.
+3. ✅ **Data robustness** — done 2026-05-20. `check_data_health` runs
+   right after the download and reports download rate, benchmark
+   presence, and per-required-sector coverage (`print_health_check` now
+   takes a `title`). main() aborts the run on hard failures (download
+   rate < 85% or missing XIU.TO benchmark) instead of silently producing
+   picks off partial yfinance data. Verified: a healthy 31/31 run passes
+   the gate and is unaffected (Sharpe 1.92).
 
 ### Tried and Rejected
 

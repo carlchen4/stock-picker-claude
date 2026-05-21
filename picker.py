@@ -376,6 +376,41 @@ def get_ohlcv(price_df, ticker):
         return None, None
 
 
+def check_data_health(price_df, universe, required_sectors=None):
+    """Download-completeness diagnostic; returns (label, ok, detail) tuples.
+
+    Catches the silent-failure mode where yfinance returns partial data:
+    flags a low overall download rate, a missing benchmark, and any
+    required sector left with too few names for its per-sector model to
+    be meaningful. main() aborts the run on the hard failures rather than
+    quietly producing picks off broken data.
+    """
+    avail = set()
+    for t in universe:
+        close, _ = get_ohlcv(price_df, t)
+        if close is not None and len(close) > 20:
+            avail.add(t)
+    missing = [t for t in universe if t not in avail]
+
+    checks = []
+    rate = len(avail) / max(len(universe), 1)
+    detail = f"{len(avail)}/{len(universe)} tickers ({rate:.0%})"
+    if missing:
+        detail += f"; missing: {missing}"
+    checks.append(("Download rate", rate >= 0.85, detail))
+
+    bench_ok = "XIU.TO" in avail
+    checks.append(("Benchmark XIU.TO", bench_ok,
+                   "present" if bench_ok else "MISSING — excess/benchmark invalid"))
+
+    for sec in (required_sectors or []):
+        n = sum(1 for t in avail
+                if t != "XIU.TO" and STOCK_PROFILE.get(t, ("",))[0] == sec)
+        checks.append((f"{sec} coverage", n >= 2,
+                       f"{n} names" + ("" if n >= 2 else " (need >=2)")))
+    return checks
+
+
 def fetch_macro(years=7):
     """Download macro indicator time series."""
     tickers = list(MACRO_TICKERS.values())
@@ -1369,18 +1404,16 @@ def health_check(latest_df, train_df, sec_models, sec_dml_stats, dml_p_threshold
     return checks
 
 
-def print_health_check(checks):
-    print("\n  Health check:")
+def print_health_check(checks, title="Health check"):
+    print(f"\n  {title}:")
     for label, ok, detail in checks:
         marker = "OK" if ok else "!!"
         print(f"    [{marker}] {label}: {detail}")
     n_fail = sum(1 for _, ok, _ in checks if not ok)
     if n_fail == 0:
         print("    All checks passed.")
-    elif n_fail == 1:
-        print("    1 warning - proceed with caution.")
     else:
-        print(f"    {n_fail} warnings - signal reliability low.")
+        print(f"    {n_fail} warning(s).")
 
 
 def predict_sector_models(test_df, sector_models):
@@ -2327,6 +2360,20 @@ def main():
     print("  [1/5] Downloading price data...")
     all_tickers = TSX_UNIVERSE + list(MACRO_TICKERS.values())
     price_df = fetch_prices(all_tickers, years=7)
+    if price_df is None or len(price_df) == 0:
+        print("  ERROR: price download returned no data — aborting (retry later).")
+        return
+
+    # Data-health gate: catch yfinance partial/failed downloads before
+    # they silently produce bad picks. Hard failures abort the run.
+    data_checks = check_data_health(price_df, TSX_UNIVERSE,
+                                    CONSTRAINTS.get("required_sectors"))
+    print_health_check(data_checks, title="Data health")
+    fatal = [lbl for lbl, ok, _ in data_checks
+             if not ok and lbl in ("Download rate", "Benchmark XIU.TO")]
+    if fatal:
+        print(f"  ERROR: data health failed ({', '.join(fatal)}) — aborting this run.")
+        return
 
     print("  [2/5] Downloading macro data...")
     macro_df = price_df  # Already included in the download
