@@ -293,14 +293,27 @@ to XIU.TO" plan. The control experiment shows selection is the alpha, so
 abandoning it or retreating to the index would discard the edge. Regime
 handling should reduce *size*, not switch off selection.
 
-**Suggested starting point: #3 (widen the universe).** Selection is the
-proven edge and the feature space is saturated, so the highest-leverage
-move is giving the model more good names to pick from — it directly feeds
-the head-alpha the control experiment isolated. A/B the wider universe
-against Sharpe 1.92 (watch drawdown — the focused universe was
-historically more defensive).
+**Update (2026-05-20): #3 was tried and rejected** (see Tried and
+Rejected — both full and selective widening underperformed 1.92). With
+that, **every avenue for lifting selection has now been tested and
+failed**: 4 add-feature experiments (LGB / 12-1 / rolling-β / vol-PCA)
+and 2 universe-widening variants. **Sharpe 1.92 on the focused 31-name
+universe is a hard ceiling for this design + data.** Selection is real
+(+10.6pp vs random) but already maxed out by the current features on the
+current universe.
+
+Remaining options are no longer "tweaks" — they are genuinely different
+projects: (1) a different/deeper data source (richer fundamentals, the
+PIT path yfinance can't support); (2) a different objective (rank/
+top-quintile loss — #1 in the table, untested); (3) regime sizing (#4)
+to cut the 2025-type drawdown without touching selection; or (4) just
+**accept 1.92 as a finished, validated result** and run it. Fixes #1/#4
+remain the only untested low-to-medium-risk items; everything else this
+session converged on the same wall.
 
 ### Tried and Rejected
+
+- **Universe widening — fix #3 (2026-05-20)**: With selection shown to be real alpha (random-score control: +10.6pp) and the feature space saturated, tried giving the model more candidates in the 4 required sectors. Two variants, both worse than the focused 31-name universe (Sharpe 1.92): (a) full widen to 53 names (Financials 12→16, Energy 8→15, Industrials 6→13, Utilities 4→8) → Sharpe **1.40**, excess +7.2%, hit 51%; (b) selective widen to 42 (only Energy + Utilities — the sectors whose per-sector RankIC looked better under (a)) → Sharpe **1.57**, excess +10.0%, but the worst drawdown −10.7% and RankIC 0.005. The focused universe is genuinely the better config (confirms the earlier "more defensive" note). One upside seen under (a): returns spread more evenly across years (2025 excess −4.2% → +10.0%), i.e. less regime-dependent — but not worth the Sharpe hit. **Methodology lesson:** per-sector RankIC is unstable and universe-composition-dependent (Energy IC went +0.039 under full widen → −0.009 under selective widen, same names), so a single backtest's per-sector RankIC is NOT a reliable basis for decisions — the "selectively widen Energy/Utilities" call was built on that noise. Reverted to 31.
 
 - **Volatility-family PCA (2026-05-20)**: VIF flagged vol_20d/vol_60d/vol_ratio as severely collinear (41/29/27), so — by analogy with the successful momentum PCA — compressed them into a single `vol_pc1` (`apply_vol_pca`, `USE_VOL_PCA` flag). Regressed all five metrics: Sharpe 1.92 → 1.66, annualized +28.0% → +23.9%, excess +12.1% → +8.1%, max drawdown −7.6% → −8.2%, hit rate 66.0% → 53.2%. **Lesson (corrects the VIF write-up's first instinct):** high VIF does not justify compression for a *tree* model. Collinearity inflates variance in *linear* estimators; XGBoost splits are unaffected by it, and the short/long vol distinction plus vol_ratio's term-structure carry real signal that one PC discards. The momentum PCA worked for different reasons (4 horizons far more redundant; model was at Sharpe 0.83 with room to gain), not a general "compress high-VIF families" rule. Reverted.
 
