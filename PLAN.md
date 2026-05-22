@@ -391,6 +391,22 @@ than chase more Sharpe.
      visible (pseudo-OOS — params tuned over all history, reads
      optimistic vs true forward OOS).
    All covered by `smoke_test` `[0]` unit assertions where applicable.
+8. ⬜ **Explainability — permutation importance + SHAP (deferred,
+   explanation-only)** — the current feature importance is tree-native
+   `feature_importances_` (gain, computed on the TRAIN set so it
+   overfits; also hit an "all-zero" extraction quirk once). Augment with:
+   - **Permutation importance** (priority; sklearn `permutation_importance`,
+     **no new dependency**): shuffle a feature, measure how much OOS
+     RankIC / return drops — the honest measure of a feature's value,
+     computable on the `walk_forward` test set, immune to the
+     gain-importance quirk. Replaces the unreliable top-10 gain list in
+     the report / a `picker.py importance` mode.
+   - **SHAP** (nice-to-have; needs the `shap` package): per-prediction
+     Shapley contributions for the most precise read of *why* a name was
+     picked (TreeExplainer supports ExtraTrees/XGB).
+   **Explanation/diagnostic only — does NOT move Sharpe** (that's the
+   ExtraTrees switch). Value: makes "which features actually matter"
+   reliable instead of the current overfit train-set gain numbers.
 
 ### Tried and Rejected
 
