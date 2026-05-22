@@ -374,6 +374,23 @@ than chase more Sharpe.
    apples with the 1.92 backtest. **Not now:** with ~1 month logged these
    are pure noise. Trigger: revisit after ~6 monthly runs (check distinct
    `as_of` months in `picks_log.csv`).
+7. ✅ **Usage-driven UX refinements (2026-05-21)** — landed as the user
+   started running it monthly:
+   - **Actionable report for any holdings state**: empty CURRENT_HOLDINGS
+     now prints an explicit `ACTIONS (initial build — no current
+     holdings): BUY all (N)` list (not just a Target portfolio).
+   - **`AUTO_ROLL_HOLDINGS`**: when CURRENT_HOLDINGS is empty, seed
+     current holdings from last run's picks (`last_logged_picks`) so the
+     portfolio rolls month to month with no hand-editing — for a
+     follow-the-model workflow. CURRENT_HOLDINGS still overrides.
+   - **Named drift in the reliability line**: `_health_summary` shows the
+     failed check's detail, e.g. `Feature drift: rev_growth_yoy(z=7.6)`
+     instead of an opaque `(Feature drift)`.
+   - **Last-6-months table in `print_backtest`**: per-month port/bench/
+     excess after the yearly table, so recent month-to-month behavior is
+     visible (pseudo-OOS — params tuned over all history, reads
+     optimistic vs true forward OOS).
+   All covered by `smoke_test` `[0]` unit assertions where applicable.
 
 ### Tried and Rejected
 
