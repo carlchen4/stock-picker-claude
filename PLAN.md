@@ -133,6 +133,52 @@ non-empty, the rebalancing band prefers keeping them across runs.
 
 ## Potential Enhancements
 
+### ⚠️ Quantitative-rigor audit & gaps (2026-05-22)
+
+Audited `picker.py` against a comprehensive QA checklist. **Full 9-model
+comparison this session** (per-sector, same pipeline): ExtraTrees **2.09**
+(mean of 7 seeds, std 0.05) > xgb 1.98 > rf 1.86 > catboost 1.74 >
+LGB 1.62 > histgb 1.53 > gbdt/adaboost/linear 1.00. **Bagging > boosting
+> linear** is now firmly established.
+
+**Critical honesty — multiple-testing overfitting (the headline gap):**
+this session ran ~15 experiments (9 models + 6 feature variants) and
+reports the *maximum* (ExtraTrees 2.09). That is exactly the bias that
+**Deflated Sharpe Ratio / PBO** correct for. The deflated Sharpe is
+almost certainly < 2.09; how much of the +0.11 over XGB is real vs
+selection noise is UNQUANTIFIED. **→ Do NOT hard-switch the default to
+ExtraTrees until this is deflated or confirmed on real forward OOS.** The
+same caveat deflates the 1.92 baseline and every "best" result here.
+
+**Overfitting / leakage gaps (highest priority):**
+- ❌ **Survivorship bias** — universe is *currently-listed* TSX names
+  (delisted ERF/SSL/AND were removed); historical backtests read high.
+- ❌ **Deflated Sharpe / PBO / White's Reality Check / FDR** — none;
+  required to judge whether this session's "best" picks are real.
+- ❌ **Embargo / Purging** — `walk_forward` has no gap between train/test;
+  Purged K-Fold / CPCV (López de Prado) would be leakage-safe.
+- ❌ **Nested CV** — hyperparameters hand-tuned over all history.
+- ⚠️ **Look-ahead** — mostly avoided (past-only betas, monthly train),
+  but momentum-PCA / cross-sectional-normalize fit on the full panel.
+- ✅ Data/label leakage (fwd_ret = shift(-1), features point-in-time),
+  walk-forward / rolling-window / TimeSeriesSplit, forward/paper testing
+  (OOS log) — these are in place.
+
+**Recommended priority (only the few that decide credibility):**
+1. **Deflated Sharpe + PBO** — quantify how much of 2.09 / 1.92 is
+   selection overfit. Highest priority — it audits every conclusion here.
+2. **Survivorship-bias fix** — point-in-time constituents incl.
+   delistings (hard with yfinance; may be a known-limitation note).
+3. **Purged K-Fold + embargo** — stricter leakage-safe validation.
+   (permutation importance + SHAP = Operations #8, explanation layer,
+   lower priority than correctness above.)
+
+**Other metric gaps (nice-to-have, low priority):** Sortino / Calmar /
+Information Ratio, quantile-decile analysis, classification metrics
+(AUC/F1 — clf exists but unreported), regression metrics (RMSE/R²),
+bootstrap / Monte Carlo, parameter-stability. Mostly reporting niceties
+for a 31-name monthly strategy, not correctness issues.
+
 ### Candidate features — companion-script second-pass scan (2026-05-20)
 
 A re-read of `financials_dml_picker-2.py` and `monthly_rank.py` (beyond

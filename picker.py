@@ -1135,16 +1135,91 @@ def make_xgb_classifier(pos_weight=1.0):
     )
 
 
+# Model family for the per-sector learners. "xgb" is the baseline; the
+# comparison harness flips this to test rf / extratrees / histgb / linear.
+MODEL_KIND = "xgb"
+
+
+def make_regressor(kind=None):
+    """Regressor for the requested model family (defaults to MODEL_KIND)."""
+    kind = kind or MODEL_KIND
+    if kind == "xgb":
+        return make_xgb_regressor()
+    if kind == "rf":
+        from sklearn.ensemble import RandomForestRegressor
+        return RandomForestRegressor(n_estimators=300, max_depth=5,
+            min_samples_leaf=10, max_features=0.7, n_jobs=-1, random_state=42)
+    if kind == "extratrees":
+        from sklearn.ensemble import ExtraTreesRegressor
+        return ExtraTreesRegressor(n_estimators=300, max_depth=5,
+            min_samples_leaf=10, max_features=0.7, n_jobs=-1, random_state=42)
+    if kind == "histgb":
+        from sklearn.ensemble import HistGradientBoostingRegressor
+        return HistGradientBoostingRegressor(max_iter=300, max_depth=3,
+            learning_rate=0.04, l2_regularization=1.0, random_state=42)
+    if kind == "linear":
+        from sklearn.linear_model import Ridge
+        return Ridge(alpha=1.0)
+    if kind == "gbdt":
+        from sklearn.ensemble import GradientBoostingRegressor
+        return GradientBoostingRegressor(n_estimators=300, max_depth=3,
+            learning_rate=0.04, subsample=0.8, random_state=42)
+    if kind == "adaboost":
+        from sklearn.ensemble import AdaBoostRegressor
+        return AdaBoostRegressor(n_estimators=200, learning_rate=0.05,
+            random_state=42)
+    if kind == "catboost":
+        from catboost import CatBoostRegressor
+        return CatBoostRegressor(iterations=300, depth=3, learning_rate=0.04,
+            l2_leaf_reg=3.0, random_state=42, verbose=False)
+    raise ValueError(f"unknown MODEL_KIND: {kind}")
+
+
+def make_classifier(kind=None, pos_weight=1.0):
+    """Top-quintile classifier for the requested model family."""
+    kind = kind or MODEL_KIND
+    if kind == "xgb":
+        return make_xgb_classifier(pos_weight=pos_weight)
+    if kind == "rf":
+        from sklearn.ensemble import RandomForestClassifier
+        return RandomForestClassifier(n_estimators=300, max_depth=5,
+            min_samples_leaf=10, max_features=0.7, class_weight="balanced",
+            n_jobs=-1, random_state=42)
+    if kind == "extratrees":
+        from sklearn.ensemble import ExtraTreesClassifier
+        return ExtraTreesClassifier(n_estimators=300, max_depth=5,
+            min_samples_leaf=10, max_features=0.7, class_weight="balanced",
+            n_jobs=-1, random_state=42)
+    if kind == "histgb":
+        from sklearn.ensemble import HistGradientBoostingClassifier
+        return HistGradientBoostingClassifier(max_iter=300, max_depth=3,
+            learning_rate=0.05, l2_regularization=1.0, random_state=42)
+    if kind == "linear":
+        from sklearn.linear_model import LogisticRegression
+        return LogisticRegression(class_weight="balanced", C=1.0, max_iter=1000)
+    if kind == "gbdt":
+        from sklearn.ensemble import GradientBoostingClassifier
+        return GradientBoostingClassifier(n_estimators=300, max_depth=3,
+            learning_rate=0.05, subsample=0.8, random_state=42)
+    if kind == "adaboost":
+        from sklearn.ensemble import AdaBoostClassifier
+        return AdaBoostClassifier(n_estimators=200, learning_rate=0.05,
+            random_state=42)
+    if kind == "catboost":
+        from catboost import CatBoostClassifier
+        return CatBoostClassifier(iterations=300, depth=3, learning_rate=0.05,
+            l2_leaf_reg=3.0, random_state=42, verbose=False, auto_class_weights="Balanced")
+    raise ValueError(f"unknown MODEL_KIND: {kind}")
+
+
 def fit_models(X_train, y_train, sample_weights=None):
-    """Train XGBoost regressor + classifier ensemble."""
-    # Regression
-    reg = make_xgb_regressor()
+    """Train a regressor + top-quintile classifier ensemble (MODEL_KIND)."""
+    reg = make_regressor()
     reg.fit(X_train, y_train, sample_weight=sample_weights)
 
-    # Classification (top quintile)
     y_cls = (y_train > y_train.quantile(0.8)).astype(int)
     pos_w = (len(y_cls) - y_cls.sum()) / max(y_cls.sum(), 1)
-    clf = make_xgb_classifier(pos_weight=pos_w)
+    clf = make_classifier(pos_weight=pos_w)
     clf.fit(X_train, y_cls, sample_weight=sample_weights)
 
     return reg, clf
