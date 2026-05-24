@@ -3430,15 +3430,22 @@ def print_backtest(results_df):
 
     # Yearly breakdown
     results_df["year"] = results_df["date"].dt.year
+    results_df["monthly_excess"] = results_df["port_ret"] - results_df["bench_ret"]
     yearly = results_df.groupby("year").agg(
         port=("port_ret", lambda x: (1 + x).prod() - 1),
         bench=("bench_ret", lambda x: (1 + x).prod() - 1),
+        te=("monthly_excess", lambda x: x.std(ddof=1) * np.sqrt(12)),
+        n=("port_ret", "count"),
     )
     yearly["excess"] = yearly["port"] - yearly["bench"]
-    print("\n  Year    Portfolio   Benchmark   Excess")
-    print("  " + "-" * 44)
+    yearly["ir"] = yearly.apply(
+        lambda r: r["excess"] / r["te"] if r["te"] > 0 and r["n"] >= 3 else np.nan, axis=1
+    )
+    print("\n  Year    Portfolio   Benchmark   Excess      IR")
+    print("  " + "-" * 52)
     for year, row in yearly.iterrows():
-        print(f"  {year}    {row['port']:+.1%}      {row['bench']:+.1%}      {row['excess']:+.1%}")
+        ir_str = f"{row['ir']:+.2f}" if not np.isnan(row["ir"]) else "  n/a"
+        print(f"  {year}    {row['port']:+.1%}      {row['bench']:+.1%}      {row['excess']:+.1%}    {ir_str}")
 
     # Recent monthly detail — feel for month-to-month behavior, not just
     # the aggregate Sharpe. (pseudo-OOS: params were tuned over all
