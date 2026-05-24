@@ -3514,18 +3514,24 @@ def _print_equity_curve(results_df, width=50):
 # ══════════════════════════════════════════════════════════════════
 
 def _wf_metrics(panel, model_features, embargo_months=1, half_life=12):
-    """Run walk_forward; return (sharpe, ann_ret, max_dd, hit_rate)."""
+    """Run walk_forward; return (sharpe, ir, ann_ret, max_dd, hit_rate)."""
     results = walk_forward(panel, model_features, embargo_months=embargo_months,
                            half_life=half_life)
     if results.empty:
-        return (np.nan,) * 4
+        return (np.nan,) * 5
     r = results["port_ret"].values
-    sr = r.mean() / r.std(ddof=1) * np.sqrt(12) if r.std(ddof=1) > 0 else np.nan
+    b = results["bench_ret"].values
+    excess = r - b
+    sr  = r.mean() / r.std(ddof=1) * np.sqrt(12) if r.std(ddof=1) > 0 else np.nan
     ann = (1 + r).prod() ** (12 / len(r)) - 1
+    ann_bench = (1 + b).prod() ** (12 / len(b)) - 1
+    ann_excess = ann - ann_bench
+    te  = excess.std(ddof=1) * np.sqrt(12)
+    ir  = ann_excess / te if te > 0 else np.nan
     cum = (1 + r).cumprod()
-    dd = float((cum / np.maximum.accumulate(cum) - 1).min())
+    dd  = float((cum / np.maximum.accumulate(cum) - 1).min())
     hit = float((r > 0).mean())
-    return sr, ann, dd, hit
+    return sr, ir, ann, dd, hit
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -3659,14 +3665,14 @@ def run_hp_stability(panel, model_features):
             old_hp = ET_HP.copy()
             ET_HP.update(hp)
             try:
-                sr, ann, dd, hit = _wf_metrics(panel, model_features, embargo_months=1)
+                sr, ir, ann, dd, hit = _wf_metrics(panel, model_features, embargo_months=1)
             finally:
                 ET_HP.clear()
                 ET_HP.update(old_hp)
             rows.append({
                 "param": param, "value": val,
                 "is_baseline": val == baseline[param],
-                "sharpe": sr, "ann_ret": ann, "max_dd": dd, "hit": hit,
+                "sharpe": sr, "ir": ir, "ann_ret": ann, "max_dd": dd, "hit": hit,
             })
     return rows
 
@@ -3674,27 +3680,28 @@ def run_hp_stability(panel, model_features):
 def print_hp_stability_report(rows):
     """Print hyperparameter stability results grouped by parameter."""
     params = list(dict.fromkeys(r["param"] for r in rows))  # preserve order
-    baseline_sharpe = next(r["sharpe"] for r in rows if r["is_baseline"] and r["param"] == "n_estimators")
+    base_row = next(r for r in rows if r["is_baseline"] and r["param"] == "n_estimators")
+    baseline_ir = base_row["ir"]
 
-    print("\n" + "═" * 66)
-    print("  HYPERPARAMETER STABILITY  (ExtraTrees, walk-forward Sharpe)")
+    print("\n" + "═" * 74)
+    print("  HYPERPARAMETER STABILITY  (ExtraTrees, primary metric: IR)")
     print(f"  Baseline: n_estimators=300, max_depth=5, min_samples_leaf=10, max_features=0.7")
-    print(f"  Baseline Sharpe: {baseline_sharpe:.2f}")
-    print("═" * 66)
+    print(f"  Baseline IR: {baseline_ir:.2f}  (Sharpe: {base_row['sharpe']:.2f})")
+    print("═" * 74)
 
     for param in params:
         param_rows = [r for r in rows if r["param"] == param]
         print(f"\n  {param}")
-        print(f"  {'Value':<12}  {'Sharpe':>7}  {'Ann Ret':>8}  {'MaxDD':>7}  {'Hit%':>6}  {'vs base':>8}")
-        print("  " + "─" * 56)
+        print(f"  {'Value':<12}  {'IR':>6}  {'Sharpe':>7}  {'Ann Ret':>8}  {'MaxDD':>7}  {'Hit%':>6}  {'ΔIR':>7}")
+        print("  " + "─" * 62)
         for r in param_rows:
             tag = " ←" if r["is_baseline"] else ""
-            delta = r["sharpe"] - baseline_sharpe if not np.isnan(r["sharpe"]) else np.nan
+            delta = r["ir"] - baseline_ir if not np.isnan(r["ir"]) else np.nan
             delta_str = f"{delta:+.2f}" if not np.isnan(delta) else "  n/a"
             val_str = str(r["value"]) if r["value"] is not None else "None"
-            print(f"  {val_str:<12}  {r['sharpe']:>7.2f}  {r['ann_ret']:>7.1%}  "
-                  f"{r['max_dd']:>7.1%}  {r['hit']:>5.1%}  {delta_str:>8}{tag}")
-    print("\n" + "═" * 66)
+            print(f"  {val_str:<12}  {r['ir']:>6.2f}  {r['sharpe']:>7.2f}  {r['ann_ret']:>7.1%}  "
+                  f"{r['max_dd']:>7.1%}  {r['hit']:>5.1%}  {delta_str:>7}{tag}")
+    print("\n" + "═" * 74)
 
 
 def run_sensitivity(panel, model_features):
@@ -3712,33 +3719,34 @@ def run_sensitivity(panel, model_features):
             kwargs = dict(base)
             kwargs[param] = val
             print(f"  [{done}/{total}] {param}={val} ...", end="", flush=True)
-            sr, ann, dd, hit = _wf_metrics(panel, model_features, **kwargs)
-            print(f"  Sharpe {sr:.3f}")
+            sr, ir, ann, dd, hit = _wf_metrics(panel, model_features, **kwargs)
+            print(f"  IR {ir:.3f}  Sharpe {sr:.3f}")
             rows.append({"param": param, "value": val,
                          "baseline": (val == base[param]),
-                         "sharpe": sr, "ann_ret": ann, "max_dd": dd, "hit": hit})
+                         "sharpe": sr, "ir": ir, "ann_ret": ann, "max_dd": dd, "hit": hit})
     return rows
 
 
 def print_sensitivity_report(rows):
-    print("\n" + "═" * 68)
-    print("  SENSITIVITY ANALYSIS  (one-at-a-time, ★ = baseline)")
-    print("═" * 68)
-    print(f"  {'Parameter':<16} {'Value':>7}  {'Sharpe':>7}  {'Ann.Ret':>8}  {'MaxDD':>7}  {'Hit':>6}")
-    print(f"  {'─'*16} {'─'*7}  {'─'*7}  {'─'*8}  {'─'*7}  {'─'*6}")
+    print("\n" + "═" * 76)
+    print("  SENSITIVITY ANALYSIS  (one-at-a-time, ★ = baseline, primary metric: IR)")
+    print("═" * 76)
+    print(f"  {'Parameter':<16} {'Value':>7}  {'IR':>6}  {'Sharpe':>7}  {'Ann.Ret':>8}  {'MaxDD':>7}  {'Hit':>6}")
+    print(f"  {'─'*16} {'─'*7}  {'─'*6}  {'─'*7}  {'─'*8}  {'─'*7}  {'─'*6}")
     prev_param = None
     for r in rows:
         if prev_param and r["param"] != prev_param:
-            print(f"  {'─'*16} {'─'*7}  {'─'*7}  {'─'*8}  {'─'*7}  {'─'*6}")
+            print(f"  {'─'*16} {'─'*7}  {'─'*6}  {'─'*7}  {'─'*8}  {'─'*7}  {'─'*6}")
         prev_param = r["param"]
         star = "★" if r["baseline"] else " "
         val_str = f"{r['value']:.2f}" if isinstance(r["value"], float) else str(r["value"])
         print(f"  {r['param']:<15}{star} {val_str:>7}  "
+              f"{r['ir']:>6.3f}  "
               f"{r['sharpe']:>7.3f}  "
               f"{r['ann_ret']:>+8.1%}  "
               f"{r['max_dd']:>7.1%}  "
               f"{r['hit']:>6.1%}")
-    print("═" * 68)
+    print("═" * 76)
 
 
 def run_halflife_sweep(panel, model_features):
@@ -3748,40 +3756,41 @@ def run_halflife_sweep(panel, model_features):
     rows = []
     for i, hl in enumerate(values):
         print(f"  [{i+1}/{len(values)}] half_life={hl}m ...", end="", flush=True)
-        sr, ann, dd, hit = _wf_metrics(panel, model_features, half_life=hl)
-        print(f"  Sharpe {sr:.3f}")
+        sr, ir, ann, dd, hit = _wf_metrics(panel, model_features, half_life=hl)
+        print(f"  IR {ir:.3f}  Sharpe {sr:.3f}")
         rows.append({"half_life": hl, "baseline": (hl == baseline),
-                     "sharpe": sr, "ann_ret": ann, "max_dd": dd, "hit": hit})
+                     "sharpe": sr, "ir": ir, "ann_ret": ann, "max_dd": dd, "hit": hit})
     return rows
 
 
 def print_halflife_report(rows):
-    print("\n" + "═" * 62)
-    print("  HALF-LIFE SWEEP  (time-decay weight, ★ = current default)")
-    print("═" * 62)
-    print(f"  {'Half-life':>10}  {'Sharpe':>7}  {'Ann.Ret':>8}  {'MaxDD':>7}  {'Hit':>6}")
-    print(f"  {'─'*10}  {'─'*7}  {'─'*8}  {'─'*7}  {'─'*6}")
-    best_sr = max(r["sharpe"] for r in rows if not np.isnan(r["sharpe"]))
+    print("\n" + "═" * 70)
+    print("  HALF-LIFE SWEEP  (time-decay weight, ★ = current default, primary: IR)")
+    print("═" * 70)
+    print(f"  {'Half-life':>10}  {'IR':>6}  {'Sharpe':>7}  {'Ann.Ret':>8}  {'MaxDD':>7}  {'Hit':>6}")
+    print(f"  {'─'*10}  {'─'*6}  {'─'*7}  {'─'*8}  {'─'*7}  {'─'*6}")
+    best_ir = max(r["ir"] for r in rows if not np.isnan(r["ir"]))
     for r in rows:
         star = "★" if r["baseline"] else " "
-        best = "◀ best" if abs(r["sharpe"] - best_sr) < 1e-9 else ""
+        best = "◀ best" if abs(r["ir"] - best_ir) < 1e-9 else ""
         print(f"  {r['half_life']:>9}m{star}  "
+              f"{r['ir']:>6.3f}  "
               f"{r['sharpe']:>7.3f}  "
               f"{r['ann_ret']:>+8.1%}  "
               f"{r['max_dd']:>7.1%}  "
               f"{r['hit']:>6.1%}  {best}")
-    print("═" * 62)
-    best_row = max(rows, key=lambda r: r["sharpe"])
+    print("═" * 70)
+    best_row = max(rows, key=lambda r: r["ir"])
     if not best_row["baseline"]:
-        delta = best_row["sharpe"] - next(r["sharpe"] for r in rows if r["baseline"])
+        delta = best_row["ir"] - next(r["ir"] for r in rows if r["baseline"])
         print(f"\n  Best: half_life={best_row['half_life']}m  "
-              f"(Δ Sharpe {delta:+.3f} vs baseline 12m)")
+              f"(Δ IR {delta:+.3f} vs baseline 12m)")
         if delta >= 0.05:
-            print(f"  → Meets adoption threshold (≥ 0.05) — consider updating default.")
+            print(f"  → Meets adoption threshold (ΔIR ≥ 0.05) — consider updating default.")
         else:
-            print(f"  → Below adoption threshold (< 0.05) — keep default 12m.")
+            print(f"  → Below adoption threshold (ΔIR < 0.05) — keep default 12m.")
     else:
-        print(f"\n  Baseline (12m) is already optimal.")
+        print(f"\n  Baseline (12m) is already optimal by IR.")
 
 
 # ══════════════════════════════════════════════════════════════════
