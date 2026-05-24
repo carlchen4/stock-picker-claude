@@ -520,6 +520,10 @@ than chase more Sharpe.
     sector min-1/max-2 rebalancing band (`apply_rebalancing_band`) is kept —
     that is portfolio construction, not turnover control.
 
+### 实验接受标准（2026-05-24 起）
+
+**主指标：IR ≥ 1.06**（基线 1.08 − 0.02）。Sharpe 作为副指标参考，不单独作为接受/拒绝依据。DSR 须保持 MODERATE（≥ 80%）以上。
+
 ### Tried and Accepted
 
 - **half_life=6m (Experiment C, 2026-05-24)**: Half-life sweep over {6,9,12,18,24} months.
@@ -740,7 +744,7 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 
 | 指标 | 状态 | 说明 |
 |------|------|------|
-| Sharpe Ratio | ✅ | 主指标，当前 **2.13** (ExtraTrees, vol_ratio removed, half_life=6m, 2026-05-24) |
+| Sharpe Ratio | ✅ | **副指标**（2026-05-24 降级），当前 **2.13** (ExtraTrees, vol_ratio removed, half_life=6m) |
 | Sortino Ratio | ✅ | 已实现 (2026-05-22)；当前 3.03 |
 | Calmar Ratio | ✅ | 已实现 (2026-05-22)；当前 3.25 |
 | Maximum Drawdown | ✅ | 当前 **-8.3%** (half_life=6m 后轻微扩大) |
@@ -753,7 +757,7 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 | Alpha (vs benchmark) | ✅ | 超额收益 **+11.2%/yr** vs XIU.TO |
 | Beta | ✅ | 同上；0.66（低 beta，防御性） |
 | Treynor Ratio | ✅ | 同上；0.41 |
-| Information Ratio | ✅ | 已实现 (2026-05-22)；当前 **1.08** |
+| Information Ratio | ✅ | **主指标**（2026-05-24 升级）；当前 **1.08**；实验接受阈值：IR ≥ **1.06**（基线 − 0.02），Sharpe 作为副指标参考 |
 | Tracking Error | ✅ | 已实现 (2026-05-22)；当前 10.4% |
 
 ### 稳健性检验
