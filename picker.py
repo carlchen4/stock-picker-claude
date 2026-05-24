@@ -3484,7 +3484,61 @@ def print_backtest(results_df):
         print(f"  {d}      {row['port_ret']:+.1%}      {row['bench_ret']:+.1%}      {ex:+.1%}")
     print()
 
+    # ASCII equity curve — cumulative growth of $1
+    _print_equity_curve(results_df)
+
     print_overfit_report(results_df)
+
+
+def _print_equity_curve(results_df, width=50):
+    """Print a compact two-line ASCII equity curve (portfolio vs benchmark)."""
+    port_cum = (1 + results_df["port_ret"]).cumprod().values
+    bench_cum = (1 + results_df["bench_ret"]).cumprod().values
+    n = len(port_cum)
+
+    # Sample to `width` points evenly; label every ~12 months
+    idx = np.linspace(0, n - 1, min(width, n), dtype=int)
+    p_vals = port_cum[idx]
+    b_vals = bench_cum[idx]
+    all_vals = np.concatenate([p_vals, b_vals])
+    lo, hi = all_vals.min(), all_vals.max()
+    rng = hi - lo or 1.0
+    rows = 5  # height in terminal lines
+
+    # Build grid: rows × width chars
+    grid = [[" "] * len(idx) for _ in range(rows)]
+
+    def _row(v):
+        return rows - 1 - int(round((v - lo) / rng * (rows - 1)))
+
+    for col, (pv, bv) in enumerate(zip(p_vals, b_vals)):
+        pr, br = _row(pv), _row(bv)
+        if 0 <= pr < rows:
+            grid[pr][col] = "█"
+        if 0 <= br < rows and br != pr:
+            grid[br][col] = "░"
+
+    dates = results_df["date"].values
+    first_yr = pd.Timestamp(dates[0]).year
+    last_yr = pd.Timestamp(dates[-1]).year
+
+    print("  Equity curve  █ Portfolio  ░ Benchmark")
+    for r in range(rows):
+        label = f" {lo + (rows - 1 - r) / (rows - 1) * rng:.0%}" if r in (0, rows - 1) else "     "
+        print("  " + label + " " + "".join(grid[r]))
+
+    # Year tick marks
+    tick_line = [" "] * len(idx)
+    for i, ix in enumerate(idx):
+        yr = pd.Timestamp(dates[ix]).year
+        if yr != (pd.Timestamp(dates[idx[i-1]]).year if i > 0 else yr - 1):
+            s = str(yr)
+            for k, ch in enumerate(s):
+                if i + k < len(tick_line):
+                    tick_line[i + k] = ch
+    print("  " + " " * 6 + "".join(tick_line))
+    print(f"  {first_yr}–{last_yr}  Port: {port_cum[-1]:.0%} total  Bench: {bench_cum[-1]:.0%} total")
+    print()
 
 
 # ══════════════════════════════════════════════════════════════════

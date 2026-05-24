@@ -685,11 +685,11 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 | Spearman Rank Correlation | ✅ | Rank IC 的底层实现 |
 | Kendall Tau | ✅ | 已实现 (2026-05-23)；`evaluate_segments` 同时报告 Spearman + Kendall τ |
 | Top-minus-bottom return | ✅ | 已实现；score 五分位 → 月均收益 + 单调性检验 (`evaluate_segments`)，upgraded from tertile (2026-05-24) |
-| Long-short spread | ⬜ | 未实现（策略只做多） |
+| Long-short spread | N/A | 策略只做多；不适用 |
 | Quantile return analysis | ✅ | 已实现 (2026-05-24)；五分位 (Q1–Q5) score→return 单调性检验，`evaluate_segments` 输出 |
 | Decile portfolio analysis | N/A | 31 只股票分十档意义有限；五分位已足够 |
-| Lift chart | ⬜ | 可视化选股提升效果 |
-| Cumulative gains chart | ⬜ | 同上 |
+| Lift chart | ⬜ | 可视化选股提升效果；低优先级 |
+| Cumulative gains chart | ✅ | 已实现 (2026-05-24)；ASCII 双折线 equity curve (portfolio █ vs benchmark ░) 附 print_backtest 输出，_print_equity_curve() |
 
 > **关键发现 (2026-05-20):** random-score control 证明选股贡献 +10.6pp 超额 / +0.60 Sharpe。全截面 Rank IC 低（0.056）但不代表选股无效——alpha 集中在 head（top-1/2 per sector），全截面 IC 系统低估该策略的选股价值。
 
@@ -725,7 +725,7 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 | Feature importance stability | ✅ | 已实现 (2026-05-23)；OOS permutation importance (IC drop) 替代 train-set gain importance；`perm_importance.json` 缓存跨 fold 均值 |
 | Permutation importance | ✅ | 已实现 (2026-05-23)；OOS RankIC drop，`perm_importance.json` 缓存，`pick` 模式使用 |
 | SHAP value stability | ✅ | 已实现 (2026-05-23)；`_compute_shap_for_models` TreeExplainer，per-pick top-3 驱动因子显示在 email + stdout；`python picker.py shap` 输出全局重要性 |
-| Bootstrap test | ⬜ | 未实现 |
+| Bootstrap test | ✅ | 已实现 (2026-05-23)；WRC (White's Reality Check) bootstrap + `compute_sharpe_ci` 95% CI in `print_overfit_report` |
 | Monte Carlo simulation | ⬜ | 未实现 |
 | Stress testing | ⬜ | 2022 熊市已覆盖部分；未系统化 |
 | Regime analysis | ✅ | `detect_regime()` + per-year IC breakdown |
