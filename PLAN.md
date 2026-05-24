@@ -684,10 +684,10 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 | ICIR (IC Information Ratio) | ✅ | 同上 |
 | Spearman Rank Correlation | ✅ | Rank IC 的底层实现 |
 | Kendall Tau | ✅ | 已实现 (2026-05-23)；`evaluate_segments` 同时报告 Spearman + Kendall τ |
-| Top-minus-bottom return | ✅ | 已实现 (2026-05-23)；score 三分位 → 月均收益分析 (`evaluate_segments` tertile spread)；Top +1.84%/mo vs Bottom +1.44%/mo (+4.8%/yr) |
+| Top-minus-bottom return | ✅ | 已实现；score 五分位 → 月均收益 + 单调性检验 (`evaluate_segments`)，upgraded from tertile (2026-05-24) |
 | Long-short spread | ⬜ | 未实现（策略只做多） |
-| Quantile return analysis | ⬜ | 按 score 分位数看收益分布 |
-| Decile portfolio analysis | ⬜ | 分十档；31 只股票分档意义有限 |
+| Quantile return analysis | ✅ | 已实现 (2026-05-24)；五分位 (Q1–Q5) score→return 单调性检验，`evaluate_segments` 输出 |
+| Decile portfolio analysis | N/A | 31 只股票分十档意义有限；五分位已足够 |
 | Lift chart | ⬜ | 可视化选股提升效果 |
 | Cumulative gains chart | ⬜ | 同上 |
 

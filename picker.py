@@ -3106,25 +3106,31 @@ def evaluate_segments(perstock):
         icir = icm / ics if ics > 0 else 0.0
         print(f"    {sector:<14}{len(sic):>7}{icm:>+10.3f}{sic_k.mean():>+11.3f}{icir:>+7.2f}")
 
-    # Score tertile → realized return spread
-    tertile_frames = []
+    # Score quintile → realized return spread (monotonicity check)
+    q_labels = ["Q1 (bottom)", "Q2", "Q3", "Q4", "Q5 (top)"]
+    quintile_frames = []
     for _date, _g in v.groupby("date"):
-        if len(_g) < 6:
+        if len(_g) < 10:
             continue
         try:
             _g = _g.copy()
-            _g["tertile"] = pd.qcut(_g["score"], 3, labels=["Bottom", "Mid", "Top"])
-            tertile_frames.append(_g.groupby("tertile")["fwd_ret"].mean())
+            _g["quintile"] = pd.qcut(_g["score"], 5, labels=q_labels)
+            quintile_frames.append(_g.groupby("quintile", observed=True)["fwd_ret"].mean())
         except Exception:
             continue
-    if tertile_frames:
-        tert = pd.concat(tertile_frames).groupby(level=0).mean() * 100
-        spread = tert.get("Top", 0) - tert.get("Bottom", 0)
-        print(f"\n  Score tertile → avg realized return (ann. proxied as ×12):")
-        print(f"    Top third:    {tert.get('Top', np.nan):>+6.2f}%/mo  ({tert.get('Top', np.nan)*12:>+6.1f}%/yr)")
-        print(f"    Mid third:    {tert.get('Mid', np.nan):>+6.2f}%/mo  ({tert.get('Mid', np.nan)*12:>+6.1f}%/yr)")
-        print(f"    Bottom third: {tert.get('Bottom', np.nan):>+6.2f}%/mo  ({tert.get('Bottom', np.nan)*12:>+6.1f}%/yr)")
+    if quintile_frames:
+        qdf = pd.concat(quintile_frames).groupby(level=0).mean() * 100
+        spread = qdf.get("Q5 (top)", 0) - qdf.get("Q1 (bottom)", 0)
+        print(f"\n  Score quintile → avg realized return (monotonicity):")
+        for lbl in q_labels:
+            val = qdf.get(lbl, np.nan)
+            print(f"    {lbl:<14} {val:>+6.2f}%/mo  ({val * 12:>+6.1f}%/yr)")
         print(f"    Top−Bottom spread: {spread:>+6.2f}%/mo  ({spread*12:>+6.1f}%/yr)")
+        # Monotonicity: is each quintile strictly greater than the previous?
+        q_vals = [qdf.get(lbl, np.nan) for lbl in q_labels]
+        mono = all(q_vals[i] < q_vals[i+1] for i in range(len(q_vals)-1)
+                   if not (np.isnan(q_vals[i]) or np.isnan(q_vals[i+1])))
+        print(f"    Monotone (Q1<Q2<Q3<Q4<Q5): {'Yes ✓' if mono else 'No ✗'}")
 
     print("  Guide: |IC mean| range across years > 0.15, or a sector IC < 0,")
     print("  signals a regime-dependent / noisy edge.")
