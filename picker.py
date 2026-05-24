@@ -2630,7 +2630,7 @@ def _health_summary(checks):
 
 def _format_report(picks, weights, panel_latest, top_features, regime,
                    checks=None, holdings=None, shap_by_ticker=None,
-                   te_estimate=None):
+                   te_estimate=None, portfolio_value=0.0, prices=None):
     """Build the shared monthly report body as a list of lines.
 
     Same content for stdout (print_picks) and email (build_report_text):
@@ -2672,6 +2672,12 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
         score = row["score"].iloc[0] if len(row) > 0 else 0
         lines.append(f"  {i}. {ticker:<10} {profile[0]:<14} {profile[1]:<8} "
                      f"Score: {score:.3f}  Weight: {w:.1%}")
+        if portfolio_value > 0 and prices:
+            price = prices.get(ticker)
+            if price and price > 0:
+                dollar_amt = portfolio_value * w
+                shares = max(1, int(dollar_amt / price))
+                lines.append(f"     ${dollar_amt:,.0f}  →  {shares} shares @ ${price:.2f}")
         if shap_by_ticker and ticker in shap_by_ticker:
             sv = shap_by_ticker[ticker]
             top3 = sorted(sv.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
@@ -2698,11 +2704,12 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
 
 def print_picks(picks, weights, panel_latest, top_features, regime,
                 checks=None, holdings=None, shap_by_ticker=None,
-                te_estimate=None):
+                te_estimate=None, portfolio_value=0.0, prices=None):
     """Print the actionable monthly report to stdout."""
     lines = _format_report(picks, weights, panel_latest, top_features,
                            regime, checks, holdings, shap_by_ticker,
-                           te_estimate=te_estimate)
+                           te_estimate=te_estimate,
+                           portfolio_value=portfolio_value, prices=prices)
     print("\n" + "═" * 60)
     for ln in lines:
         print(f"  {ln}" if ln else "")
@@ -2711,15 +2718,17 @@ def print_picks(picks, weights, panel_latest, top_features, regime,
 
 def build_report_text(picks, weights, panel_latest, top_features, regime,
                       checks=None, holdings=None, shap_by_ticker=None,
-                      te_estimate=None):
+                      te_estimate=None, portfolio_value=0.0, prices=None):
     """Plain-text actionable monthly report for emailing."""
     return "\n".join(_format_report(picks, weights, panel_latest,
                                     top_features, regime, checks, holdings, shap_by_ticker,
-                                    te_estimate=te_estimate))
+                                    te_estimate=te_estimate,
+                                    portfolio_value=portfolio_value, prices=prices))
 
 
 def build_report_html(picks, weights, panel_latest, top_features, regime,
-                      checks=None, holdings=None, shap_by_ticker=None):
+                      checks=None, holdings=None, shap_by_ticker=None,
+                      portfolio_value=0.0, prices=None):
     """HTML actionable monthly report for emailing."""
     date_str = datetime.now().strftime("%Y-%m-%d")
     hs = _health_summary(checks or [])
@@ -2877,6 +2886,17 @@ def build_report_html(picks, weights, panel_latest, top_features, regime,
                 )
             drivers_html = "&nbsp; ".join(parts)
 
+        shares_html = ""
+        if portfolio_value > 0 and prices:
+            price = prices.get(ticker)
+            if price and price > 0:
+                dollar_amt = portfolio_value * w
+                n_shares = max(1, int(dollar_amt / price))
+                shares_html = (f'<div style="font-size:11px;color:#555">'
+                               f'${dollar_amt:,.0f}</div>'
+                               f'<div style="font-size:11px;color:#333;font-weight:600">'
+                               f'{n_shares} sh @ ${price:.2f}</div>')
+
         rows_html += f"""
         <tr>
           <td style="font-weight:700;color:#1a252f">{ticker}</td>
@@ -2887,16 +2907,18 @@ def build_report_html(picks, weights, panel_latest, top_features, regime,
             <div style="font-size:12px;font-weight:600;margin-bottom:3px">{w:.1%}</div>
             <div class="weight-bar-bg"><div class="weight-bar" style="width:{bar_pct}%"></div></div>
           </td>
+          <td style="font-size:12px">{shares_html}</td>
           <td style="font-size:12px">{drivers_html}</td>
         </tr>"""
 
+    shares_header = "<th>Shares</th>" if portfolio_value > 0 else ""
     html += f"""
     <div class="card">
       <h2>Target Portfolio ({len(picks)} positions)</h2>
       <table>
         <tr>
           <th>Ticker</th><th>Sector</th><th>Action</th>
-          <th>Score</th><th>Weight</th><th>SHAP Drivers</th>
+          <th>Score</th><th>Weight</th>{shares_header}<th>SHAP Drivers</th>
         </tr>
         {rows_html}
       </table>
@@ -2978,6 +3000,118 @@ def send_report_email(body, html_body=None, subject=None):
     except Exception as e:
         print(f"  Email: send failed ({e}).")
         return False
+
+
+def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
+                         checks, shap_by_ticker, te_estimate,
+                         portfolio_value=0.0, prices=None):
+    """Write vercel/data.json for the Vercel dashboard."""
+    import json, os
+    root = os.path.dirname(os.path.abspath(__file__))
+    out_dir = os.path.join(root, "vercel")
+    os.makedirs(out_dir, exist_ok=True)
+
+    sell, buy, hold = diff_holdings(picks, [])
+    hs = _health_summary(checks or [])
+
+    _FEAT_LABELS = {
+        "adv_20d_rank": "ADV 20-day Rank", "mom_pc1": "Momentum PC1",
+        "mom_pc2": "Momentum PC2", "vol_20d": "Volatility 20d",
+        "vol_60d": "Volatility 60d", "high_52w_ratio": "52-Week High Proximity",
+        "rsi_14": "RSI (14-day)", "bb_zscore": "Bollinger Band Z",
+        "div_growth_yoy": "Dividend Growth YoY", "rev_growth_yoy": "Revenue Growth YoY",
+        "rev_1m": "Short-Term Reversal",
+    }
+
+    picks_data = []
+    for i, ticker in enumerate(picks, 1):
+        w = weights.get(ticker, 0)
+        profile = STOCK_PROFILE.get(ticker, ("?", "?", "?"))
+        row = panel_latest[panel_latest["ticker"] == ticker]
+        score = float(row["score"].iloc[0]) if len(row) > 0 else 0.0
+        price = (prices or {}).get(ticker)
+        dollar_amt = portfolio_value * w if portfolio_value > 0 and price else None
+        n_shares = max(1, int(dollar_amt / price)) if dollar_amt and price else None
+
+        drivers = []
+        if shap_by_ticker and ticker in shap_by_ticker:
+            sv = shap_by_ticker[ticker]
+            top3 = sorted(sv.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
+            for f, v in top3:
+                if abs(v) > 0.001:
+                    label = _FEAT_LABELS.get(f.replace("_norm", ""),
+                                             f.replace("_norm", "").replace("_", " ").title())
+                    drivers.append({"label": label, "shap": round(float(v), 4)})
+
+        action = "BUY" if ticker in buy else ("SELL" if ticker in sell else "HOLD")
+        picks_data.append({
+            "rank": i, "ticker": ticker,
+            "sector": profile[0], "style": profile[1],
+            "score": round(score, 3), "weight": round(w, 4), "action": action,
+            "price": round(price, 2) if price else None,
+            "shares": n_shares,
+            "dollar_value": int(dollar_amt) if dollar_amt else None,
+            "drivers": drivers,
+        })
+
+    oos = oos_track_record()
+    oos_summary = {}
+    if oos:
+        for line in oos:
+            if "monthly avg" in line:
+                try:
+                    avg = float(line.split("monthly avg")[1].split("%")[0].strip().lstrip("+")) / 100
+                    oos_summary["avg_monthly"] = round(avg, 4)
+                except Exception:
+                    pass
+            if " mo |" in line or " mo)" in line:
+                try:
+                    mo = int(line.strip().split(" mo")[0].strip())
+                    oos_summary["months"] = mo
+                except Exception:
+                    pass
+
+    data = {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "as_of": datetime.now().strftime("%Y-%m-%d"),
+        "regime": regime,
+        "reliability": "OK" if not hs or "OK" in hs else ("CAUTION" if "CAUTION" in hs else "LOW CONFIDENCE"),
+        "reliability_detail": hs or "All checks passed",
+        "portfolio_value": portfolio_value if portfolio_value > 0 else None,
+        "te_estimate": round(float(te_estimate), 4) if te_estimate and not np.isnan(te_estimate) else None,
+        "picks": picks_data,
+        "actions": {"sell": list(sell), "buy": list(buy), "hold": list(hold)},
+        "top_features": [
+            {"name": _FEAT_LABELS.get(f.replace("_norm", ""), f.replace("_norm", "").replace("_", " ").title()),
+             "importance": round(float(v), 4)}
+            for f, v in top_features[:8]
+        ],
+        "backtest": {"sharpe": 2.13, "ir": 1.08, "ann_ret": 0.270, "max_dd": -0.083,
+                     "period": "2022-05 to 2026-03"},
+        "oos": oos_summary,
+    }
+
+    path = os.path.join(out_dir, "data.json")
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"  Dashboard: wrote {path}")
+
+
+def _push_dashboard(as_of):
+    """Commit vercel/data.json and push to GitHub for Vercel auto-deploy."""
+    import subprocess, os
+    root = os.path.dirname(os.path.abspath(__file__))
+    cmds = [
+        ["git", "add", "vercel/data.json"],
+        ["git", "commit", "-m", f"dashboard: update picks {as_of}"],
+        ["git", "push"],
+    ]
+    for cmd in cmds:
+        r = subprocess.run(cmd, cwd=root, capture_output=True, text=True)
+        if r.returncode != 0:
+            print(f"  Dashboard push: {cmd[1]} failed — {r.stderr.strip()[:100]}")
+            return
+    print("  Dashboard: pushed to GitHub → Vercel will auto-deploy")
 
 
 def compute_vif(panel, feature_cols):
@@ -3502,6 +3636,33 @@ def print_monte_carlo_report(results_df, n_sim=5000, seed=42):
     print("═" * 62)
 
 
+def print_rolling_report(results_df, window=6):
+    """Print non-overlapping rolling-window performance slices."""
+    r  = results_df["port_ret"].values
+    b  = results_df["bench_ret"].values
+    dates = results_df["date"].values
+    n = len(r)
+    print(f"\n  Rolling {window}m windows (non-overlapping)")
+    print(f"  {'Period':<16}  {'Port':>7}  {'Excess':>7}  {'IR':>6}  {'Sharpe':>7}")
+    print("  " + "─" * 52)
+    for start in range(0, n - window + 1, window):
+        r_w  = r[start:start + window]
+        b_w  = b[start:start + window]
+        ex_w = r_w - b_w
+        ann  = (1 + r_w).prod() ** (12 / window) - 1
+        ann_b = (1 + b_w).prod() ** (12 / window) - 1
+        exc  = ann - ann_b
+        te   = ex_w.std(ddof=1) * np.sqrt(12) if len(ex_w) > 1 else np.nan
+        ir   = exc / te if (te and te > 0) else np.nan
+        sd   = r_w.std(ddof=1)
+        sr   = r_w.mean() / sd * np.sqrt(12) if sd > 0 else np.nan
+        label = (f"{str(dates[start])[:7]}~"
+                 f"{str(dates[min(start + window - 1, n - 1)])[:7]}")
+        ir_s = f"{ir:+.2f}" if not np.isnan(ir) else "  n/a"
+        sr_s = f"{sr:+.2f}" if not np.isnan(sr) else "  n/a"
+        print(f"  {label:<16}  {ann:>+7.1%}  {exc:>+7.1%}  {ir_s:>6}  {sr_s:>7}")
+
+
 def print_permutation_importance(importance_dict, top_n=20):
     """Print OOS permutation importance table (mean RankIC drop per feature)."""
     if not importance_dict:
@@ -3624,6 +3785,8 @@ def print_backtest(results_df):
         ex = row["port_ret"] - row["bench_ret"]
         print(f"  {d}      {row['port_ret']:+.1%}      {row['bench_ret']:+.1%}      {ex:+.1%}")
     print()
+
+    print_rolling_report(results_df)
 
     # ASCII equity curve — cumulative growth of $1
     _print_equity_curve(results_df)
@@ -4123,6 +4286,14 @@ def main():
         save_perm_importance(importance)
 
     if mode in ("pick", "both"):
+        # Prompt for portfolio value (optional — skip with Enter)
+        portfolio_value = 0.0
+        try:
+            raw = input("\n  Enter total portfolio value (CAD $, or Enter to skip): ").strip()
+            portfolio_value = float(raw.replace(",", "")) if raw else 0.0
+        except (ValueError, EOFError):
+            portfolio_value = 0.0
+
         print("\n  [5/5] Generating current picks...")
         holdings = list(CURRENT_HOLDINGS)
         if holdings:
@@ -4136,14 +4307,28 @@ def main():
         if result:
             picks, weights, latest_df, top_features, regime, checks, holdings, shap_vals = result
             te_est = estimate_portfolio_te(picks, weights, price_df)
+
+            # Fetch latest close prices for buy-amount calculation
+            prices = {}
+            if portfolio_value > 0:
+                for t in picks:
+                    close, _ = get_ohlcv(price_df, t)
+                    if close is not None and len(close) > 0:
+                        prices[t] = float(close.iloc[-1])
+
             print_picks(picks, weights, latest_df, top_features, regime, checks, holdings, shap_vals,
-                        te_estimate=te_est)
+                        te_estimate=te_est, portfolio_value=portfolio_value, prices=prices)
             report = build_report_text(picks, weights, latest_df, top_features,
                                        regime, checks, holdings, shap_vals,
-                                       te_estimate=te_est)
+                                       te_estimate=te_est,
+                                       portfolio_value=portfolio_value, prices=prices)
             html_report = build_report_html(picks, weights, latest_df, top_features,
-                                            regime, checks, holdings, shap_vals)
+                                            regime, checks, holdings, shap_vals,
+                                            portfolio_value=portfolio_value, prices=prices)
             send_report_email(report, html_body=html_report)
+            write_dashboard_data(picks, weights, latest_df, top_features, regime, checks,
+                                 shap_vals, te_est, portfolio_value, prices)
+            _push_dashboard(datetime.now().strftime("%Y-%m-%d"))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TSX Stock Picker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #f0f2f5; color: #1a252f; font-size: 14px; }
+
+  .header { background: #1a252f; color: #fff; padding: 16px;
+            position: sticky; top: 0; z-index: 10; }
+  .header h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.3px; }
+  .header .meta { font-size: 12px; color: #aab; margin-top: 4px; display: flex;
+                  gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px;
+           font-size: 11px; font-weight: 600; }
+  .badge-bull   { background: #d4edda; color: #155724; }
+  .badge-bear   { background: #f8d7da; color: #721c24; }
+  .badge-neutral{ background: #d1ecf1; color: #0c5460; }
+  .badge-ok     { background: #d4edda; color: #155724; }
+  .badge-caution{ background: #fff3cd; color: #856404; }
+  .badge-low    { background: #f8d7da; color: #721c24; }
+
+  .container { max-width: 520px; margin: 0 auto; padding: 12px; }
+
+  .card { background: #fff; border-radius: 12px; padding: 14px;
+          margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .card h2 { font-size: 13px; font-weight: 700; color: #555;
+             text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+
+  /* Actions chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .chip-buy  { background: #d4edda; color: #155724; }
+  .chip-sell { background: #f8d7da; color: #721c24; }
+  .chip-hold { background: #e9ecef; color: #495057; }
+  .chip-label{ font-size: 11px; color: #888; margin-bottom: 4px; }
+
+  /* Stats grid */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat { background: #f8f9fa; border-radius: 8px; padding: 10px 12px; }
+  .stat-val { font-size: 20px; font-weight: 700; color: #1a252f; }
+  .stat-val.positive { color: #155724; }
+  .stat-val.negative { color: #721c24; }
+  .stat-lbl { font-size: 11px; color: #888; margin-top: 2px; }
+
+  /* Picks table */
+  .pick-row { border-bottom: 1px solid #f0f2f5; padding: 10px 0; }
+  .pick-row:last-child { border-bottom: none; }
+  .pick-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .pick-ticker { font-weight: 700; font-size: 15px; color: #1a252f; min-width: 72px; }
+  .pick-sector { font-size: 11px; color: #888; flex: 1; }
+  .pick-score { font-size: 12px; color: #555; }
+  .tag { padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; }
+  .tag-buy  { background: #d4edda; color: #155724; }
+  .tag-sell { background: #f8d7da; color: #721c24; }
+  .tag-hold { background: #e9ecef; color: #495057; }
+
+  .weight-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .weight-bar-bg { flex: 1; height: 5px; background: #e9ecef; border-radius: 3px; }
+  .weight-bar { height: 100%; background: #3498db; border-radius: 3px; }
+  .weight-pct { font-size: 12px; font-weight: 600; color: #3498db; min-width: 40px; text-align: right; }
+
+  .shares-line { font-size: 12px; color: #555; margin-bottom: 4px; }
+  .shares-line span { font-weight: 600; color: #1a252f; }
+
+  .drivers { display: flex; flex-wrap: wrap; gap: 4px; }
+  .driver { font-size: 11px; padding: 1px 6px; border-radius: 8px; background: #f8f9fa; }
+  .driver-up   { color: #155724; }
+  .driver-down { color: #721c24; }
+
+  /* Features */
+  .feat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .feat-name { font-size: 12px; color: #555; min-width: 170px; }
+  .feat-bar-bg { flex: 1; height: 6px; background: #e9ecef; border-radius: 3px; }
+  .feat-bar { height: 100%; background: #3498db; border-radius: 3px; }
+  .feat-val { font-size: 11px; color: #888; min-width: 42px; text-align: right; }
+
+  /* OOS */
+  .oos-line { font-size: 13px; color: #555; }
+  .oos-line .hi { font-weight: 700; color: #155724; }
+
+  .error { color: #721c24; padding: 20px; text-align: center; }
+  .loading { color: #888; padding: 40px; text-align: center; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>TSX Stock Picker</h1>
+  <div class="meta" id="header-meta">Loading…</div>
+</div>
+
+<div class="container">
+  <div id="app"><div class="loading">Loading dashboard data…</div></div>
+</div>
+
+<script>
+fetch('./data.json?t=' + Date.now())
+  .then(r => r.ok ? r.json() : Promise.reject('HTTP ' + r.status))
+  .then(render)
+  .catch(e => {
+    document.getElementById('app').innerHTML =
+      '<div class="error">Could not load data.json<br><small>' + e + '</small></div>';
+  });
+
+function fmt(v, pct) {
+  if (v == null) return '—';
+  if (pct) return (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + '%';
+  return (v >= 0 ? '+' : '') + v.toFixed(2);
+}
+
+function render(d) {
+  // Header
+  const regimeClass = {BULL:'badge-bull', BEAR:'badge-bear', NEUTRAL:'badge-neutral'}[d.regime] || 'badge-neutral';
+  const relClass = d.reliability === 'OK' ? 'badge-ok' : d.reliability === 'CAUTION' ? 'badge-caution' : 'badge-low';
+  document.getElementById('header-meta').innerHTML =
+    `<span>${d.as_of}</span>
+     <span class="badge ${regimeClass}">${d.regime}</span>
+     <span class="badge ${relClass}">${d.reliability}</span>`;
+
+  let html = '';
+
+  // Reliability detail (if warning)
+  if (d.reliability !== 'OK') {
+    html += `<div class="card" style="border-left:3px solid #f39c12">
+      <div style="font-size:12px;color:#856404">${d.reliability_detail}</div>
+    </div>`;
+  }
+
+  // Actions
+  const sell = d.actions.sell || [], buy = d.actions.buy || [], hold = d.actions.hold || [];
+  let chipsHtml = '';
+  if (sell.length) {
+    chipsHtml += `<div class="chip-label">SELL (${sell.length})</div>`;
+    sell.forEach(t => chipsHtml += `<span class="chip chip-sell">${t}</span>`);
+    chipsHtml += '<br style="width:100%;margin-top:4px">';
+  }
+  if (buy.length) {
+    chipsHtml += `<div class="chip-label" style="margin-top:${sell.length?6:0}px">BUY (${buy.length})</div>`;
+    buy.forEach(t => chipsHtml += `<span class="chip chip-buy">${t}</span>`);
+    chipsHtml += '<br style="width:100%;margin-top:4px">';
+  }
+  if (hold.length) {
+    chipsHtml += `<div class="chip-label" style="margin-top:${(sell.length||buy.length)?6:0}px">HOLD (${hold.length})</div>`;
+    hold.forEach(t => chipsHtml += `<span class="chip chip-hold">${t}</span>`);
+  }
+  html += `<div class="card"><h2>Actions</h2><div class="chips">${chipsHtml}</div></div>`;
+
+  // Picks
+  let picksHtml = '';
+  const maxW = Math.max(...d.picks.map(p => p.weight));
+  d.picks.forEach(p => {
+    const tagClass = {BUY:'tag-buy', SELL:'tag-sell', HOLD:'tag-hold'}[p.action] || 'tag-hold';
+    const barPct = maxW > 0 ? Math.round(p.weight / maxW * 100) : 0;
+    let sharesHtml = '';
+    if (p.shares) {
+      sharesHtml = `<div class="shares-line">
+        $${p.dollar_value ? p.dollar_value.toLocaleString() : '—'}
+        &nbsp;→&nbsp; <span>${p.shares} shares</span>
+        @ $${p.price ? p.price.toFixed(2) : '—'}
+      </div>`;
+    }
+    let driversHtml = '';
+    if (p.drivers && p.drivers.length) {
+      driversHtml = '<div class="drivers">' + p.drivers.map(dr =>
+        `<span class="driver ${dr.shap >= 0 ? 'driver-up' : 'driver-down'}">
+          ${dr.label} ${dr.shap >= 0 ? '↑' : '↓'}${Math.abs(dr.shap).toFixed(3)}
+        </span>`).join('') + '</div>';
+    }
+    picksHtml += `<div class="pick-row">
+      <div class="pick-top">
+        <span class="pick-ticker">${p.ticker}</span>
+        <span class="pick-sector">${p.sector}</span>
+        <span class="tag ${tagClass}">${p.action}</span>
+        <span class="pick-score">${p.score.toFixed(3)}</span>
+      </div>
+      <div class="weight-row">
+        <div class="weight-bar-bg"><div class="weight-bar" style="width:${barPct}%"></div></div>
+        <div class="weight-pct">${(p.weight * 100).toFixed(1)}%</div>
+      </div>
+      ${sharesHtml}${driversHtml}
+    </div>`;
+  });
+  const portTitle = d.portfolio_value
+    ? `Portfolio — $${d.portfolio_value.toLocaleString()} CAD`
+    : `Portfolio (${d.picks.length} positions)`;
+  html += `<div class="card"><h2>${portTitle}</h2>${picksHtml}</div>`;
+
+  // Backtest stats
+  if (d.backtest) {
+    const b = d.backtest;
+    html += `<div class="card"><h2>Backtest · ${b.period || ''}</h2>
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="stat-val positive">${fmt(b.sharpe)}</div>
+          <div class="stat-lbl">Sharpe Ratio</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val positive">${fmt(b.ir)}</div>
+          <div class="stat-lbl">Info Ratio (IR)</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val positive">${fmt(b.ann_ret, true)}</div>
+          <div class="stat-lbl">Ann. Return</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val negative">${fmt(b.max_dd, true)}</div>
+          <div class="stat-lbl">Max Drawdown</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Top features
+  if (d.top_features && d.top_features.length) {
+    const maxImp = Math.max(...d.top_features.map(f => f.importance));
+    let featHtml = d.top_features.map(f => {
+      const barPct = maxImp > 0 ? Math.round(f.importance / maxImp * 100) : 0;
+      return `<div class="feat-row">
+        <div class="feat-name">${f.name}</div>
+        <div class="feat-bar-bg"><div class="feat-bar" style="width:${barPct}%"></div></div>
+        <div class="feat-val">${f.importance.toFixed(4)}</div>
+      </div>`;
+    }).join('');
+    html += `<div class="card"><h2>Feature Importance</h2>${featHtml}</div>`;
+  }
+
+  // OOS
+  if (d.oos && d.oos.months) {
+    const avgStr = d.oos.avg_monthly != null
+      ? `<span class="hi">${fmt(d.oos.avg_monthly, true)}/mo</span>`
+      : '';
+    html += `<div class="card"><h2>Live OOS Track Record</h2>
+      <div class="oos-line">${d.oos.months} month${d.oos.months > 1 ? 's' : ''} of live data
+        ${avgStr ? '· avg ' + avgStr : ''}
+      </div>
+      <div style="font-size:11px;color:#aaa;margin-top:6px">
+        ${d.oos.months < 6 ? 'Too few months to judge — accumulating record.' : ''}
+      </div>
+    </div>`;
+  }
+
+  // Footer
+  html += `<div style="text-align:center;font-size:11px;color:#aaa;padding:8px 0 20px">
+    Updated ${d.generated_at} · TSX Stock Picker
+  </div>`;
+
+  document.getElementById('app').innerHTML = html;
+}
+</script>
+</body>
+</html>
