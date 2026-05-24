@@ -3145,7 +3145,7 @@ def evaluate_prediction_quality(perstock):
     try:
         from sklearn.metrics import (
             roc_auc_score, average_precision_score, brier_score_loss,
-            matthews_corrcoef, balanced_accuracy_score,
+            log_loss, matthews_corrcoef, balanced_accuracy_score,
             f1_score, precision_score, recall_score,
         )
     except ImportError:
@@ -3157,7 +3157,7 @@ def evaluate_prediction_quality(perstock):
     if v.empty:
         return
 
-    aucroc_l, aucpr_l, brier_l, mcc_l = [], [], [], []
+    aucroc_l, aucpr_l, brier_l, logloss_l, mcc_l = [], [], [], [], []
     f1_l, prec_l, rec_l, bacc_l, dacc_l = [], [], [], [], []
 
     for _, g in v.groupby("date"):
@@ -3175,7 +3175,7 @@ def evaluate_prediction_quality(perstock):
         # Predicted class: above-median score
         y_pred = (score >= np.median(score)).astype(int)
 
-        # Normalized score → [0, 1] for Brier
+        # Normalized score → [0, 1] for Brier / LogLoss
         rng = score.max() - score.min()
         score_01 = (score - score.min()) / (rng + 1e-12)
 
@@ -3183,6 +3183,7 @@ def evaluate_prediction_quality(perstock):
             aucroc_l.append(roc_auc_score(y_true, score))
             aucpr_l.append(average_precision_score(y_true, score))
             brier_l.append(brier_score_loss(y_true, score_01))
+            logloss_l.append(log_loss(y_true, np.clip(score_01, 1e-7, 1 - 1e-7)))
             mcc_l.append(matthews_corrcoef(y_true, y_pred))
             f1_l.append(f1_score(y_true, y_pred, zero_division=0))
             prec_l.append(precision_score(y_true, y_pred, zero_division=0))
@@ -3208,6 +3209,7 @@ def evaluate_prediction_quality(perstock):
     print(f"  AUC-ROC:               {_fmt(aucroc_l)}")
     print(f"  AUC-PR:                {_fmt(aucpr_l)}")
     print(f"  Brier Score:           {_fmt(brier_l)}  (lower = better)")
+    print(f"  Log Loss:              {_fmt(logloss_l)}  (lower = better)")
     print(f"  MCC:                   {_fmt(mcc_l)}")
     print(f"  F1 Score:              {_fmt(f1_l)}")
     print(f"  Precision:             {_fmt(prec_l)}")

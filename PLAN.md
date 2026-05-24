@@ -655,7 +655,7 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 | F1-score | ✅ | 同上；0.321 (±0.117) |
 | AUC-ROC | ✅ | 同上；0.554 (±0.154)，lift +0.054 vs random |
 | AUC-PR | ✅ | 同上；0.311 (±0.116) |
-| Log Loss | ⬜ | 未实现；可加入 evaluate_prediction_quality |
+| Log Loss | ✅ | 已实现 (2026-05-24)；`evaluate_prediction_quality` 中 log_loss，clip to [1e-7, 1-1e-7] |
 | Brier Score | ✅ | 同上；0.318 (±0.054) |
 | Matthews Correlation Coefficient (MCC) | ✅ | 同上；0.052 (±0.213) |
 | Balanced Accuracy | ✅ | 同上；0.532 (±0.133) |
@@ -722,7 +722,7 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 | Turnover analysis | ❌ | 已移除 (2026-05-24)；用户不关心换手率 |
 | Sensitivity analysis | ✅ | 已实现 (2026-05-23)；现仅扫描 `embargo_months`；`python picker.py sensitivity` |
 | Parameter stability test | ✅ | 已实现 (2026-05-24)；OAT sweep 17 组合，`python picker.py hptest`。**结论：OAT 单参改善不可叠加**，(300, 5, 10, 0.7) 是稳定局部最优。小样本(47mo)下 OAT 结果本身含大量噪声，不可靠 |
-| Feature importance stability | ⬜ | 当前 gain importance 在 train set 计算，过拟合 |
+| Feature importance stability | ✅ | 已实现 (2026-05-23)；OOS permutation importance (IC drop) 替代 train-set gain importance；`perm_importance.json` 缓存跨 fold 均值 |
 | Permutation importance | ✅ | 已实现 (2026-05-23)；OOS RankIC drop，`perm_importance.json` 缓存，`pick` 模式使用 |
 | SHAP value stability | ✅ | 已实现 (2026-05-23)；`_compute_shap_for_models` TreeExplainer，per-pick top-3 驱动因子显示在 email + stdout；`python picker.py shap` 输出全局重要性 |
 | Bootstrap test | ⬜ | 未实现 |
