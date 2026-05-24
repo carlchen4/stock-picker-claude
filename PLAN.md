@@ -539,6 +539,14 @@ than chase more Sharpe.
 
 ### Tried and Rejected
 
+- **Experiment D — bb_zscore removal (2026-05-24)**: OOS permutation IC was −0.0035 under
+  half_life=6m baseline. Removed from `_BASE_SECTOR_FEATURES` (kept in FEATURE_COLS).
+  Result: Sharpe 2.13 → 1.92, Ann. +27.0% → +23.7%, 2025 excess +0.3% → **−8.5%** (large),
+  DSR STRONG → **MODERATE** (95.6%→94.1%), PBO 4.4%→5.9%, Quintile mono Yes→No. Side-effect:
+  mom_pc1 IC dropped from −0.0001 to −0.0070, revealing that bb_zscore suppresses spurious
+  mom_pc1 signals. Pattern: same stabilizer role as vol_20d and rev_growth_yoy. Reverted.
+  **4/4 negative-IC feature removals have failed** — feature set is a fragile local optimum.
+
 - **Experiment B — rev_growth_yoy removal from Industrials (2026-05-24)**: OOS IC was 0.0000
   across 47 months, and yfinance coverage is ~5% for Industrials names. Removing it from
   `SECTOR_FEATURES["Industrials"]` (keeping in FEATURE_COLS) regressed: Sharpe 1.99 → 1.92
@@ -732,21 +740,21 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 
 | 指标 | 状态 | 说明 |
 |------|------|------|
-| Sharpe Ratio | ✅ | 主指标，当前 1.99 (ExtraTrees, vol_ratio removed 2026-05-24) |
-| Sortino Ratio | ✅ | 已实现 (2026-05-22)；当前 3.74（高，下行风险低） |
-| Calmar Ratio | ✅ | 已实现 (2026-05-22)；当前 3.64 |
-| Maximum Drawdown | ✅ | 当前 -7.1%（embargo 后改善） |
-| Annualized Return | ✅ | 当前 +25.9% gross / +24.4% net |
-| Annualized Volatility | ✅ | 已实现 (2026-05-22)；当前 13.4% |
-| Cumulative Return | ✅ | 当前 +146.7% gross |
-| Win Rate | ✅ | 当前 59.6% |
-| Profit Factor | ✅ | `print_backtest` (2026-05-22)；1.77（赢 / 输 = 1.77x） |
-| Expectancy | ✅ | 同上；+0.71%/月 |
-| Alpha (vs benchmark) | ✅ | 超额收益 +10.1%/yr vs XIU.TO |
-| Beta | ✅ | 同上；0.70（低于市场 beta，防御性） |
-| Treynor Ratio | ✅ | 同上；0.37 |
-| Information Ratio | ✅ | 已实现 (2026-05-22)；当前 0.95 |
-| Tracking Error | ✅ | 已实现 (2026-05-22)；当前 10.6% |
+| Sharpe Ratio | ✅ | 主指标，当前 **2.13** (ExtraTrees, vol_ratio removed, half_life=6m, 2026-05-24) |
+| Sortino Ratio | ✅ | 已实现 (2026-05-22)；当前 3.03 |
+| Calmar Ratio | ✅ | 已实现 (2026-05-22)；当前 3.25 |
+| Maximum Drawdown | ✅ | 当前 **-8.3%** (half_life=6m 后轻微扩大) |
+| Annualized Return | ✅ | 当前 **+27.0%** |
+| Annualized Volatility | ✅ | 已实现 (2026-05-22)；当前 12.7% |
+| Cumulative Return | ✅ | 当前 **+155.0%** |
+| Win Rate | ✅ | 当前 **68.1%** |
+| Profit Factor | ✅ | `print_backtest` (2026-05-22)；**1.89** |
+| Expectancy | ✅ | 同上；**+0.78%/月** |
+| Alpha (vs benchmark) | ✅ | 超额收益 **+11.2%/yr** vs XIU.TO |
+| Beta | ✅ | 同上；0.66（低 beta，防御性） |
+| Treynor Ratio | ✅ | 同上；0.41 |
+| Information Ratio | ✅ | 已实现 (2026-05-22)；当前 **1.08** |
+| Tracking Error | ✅ | 已实现 (2026-05-22)；当前 10.4% |
 
 ### 稳健性检验
 
@@ -777,18 +785,18 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 | Embargo period | ✅ | 已实现 (2026-05-22)；`walk_forward(embargo_months=1)` 默认开启；Sharpe 2.12→1.93（差值=泄漏修正） |
 | Purging | ❌ | 未实现；Purged K-Fold / CPCV 可修复 |
 | Nested cross-validation | ❌ | 超参手调于全历史；nested CV 可修复 |
-| White's Reality Check | ✅ | 已实现 (2026-05-23)；bootstrap demeaned null，**98.7%**，与 DSR 一致 |
-| Deflated Sharpe Ratio (DSR) | ✅ | 已实现；`compute_dsr(n_trials=15)` → **97.5%**，STRONG |
-| Probability of Backtest Overfitting (PBO) | ⚠️ | PBO proxy (1−DSR) = **2.5%**；真正 CPCV-based PBO 需多策略对比，未实现 |
+| White's Reality Check | ✅ | 已实现 (2026-05-23)；bootstrap demeaned null，**98.6%**，与 DSR 一致 |
+| Deflated Sharpe Ratio (DSR) | ✅ | 已实现；`compute_dsr(n_trials=35)` → **91.0%**，MODERATE (n_trials 更新为实际实验次数 2026-05-24) |
+| Probability of Backtest Overfitting (PBO) | ⚠️ | PBO proxy (1−DSR) = **9.0%**（n_trials=35 诚实估计）；真正 CPCV-based PBO 需多策略对比，未实现 |
 | False Discovery Rate (FDR) control | ✅ | 已实现 (2026-05-23)；BH α=0.05，`rigor` 模式；0/29 特征显著（特征空间饱和，符合预期） |
 
 > **优先级排序（影响可信度）：**
-> 1. ✅ DSR + PBO — **已完成 (2026-05-22)**：DSR 97.5%，PBO proxy 2.5%，STRONG
+> 1. ✅ DSR + PBO — **更新 (2026-05-24)**：n_trials=35（实际实验次数），DSR **91.0%** MODERATE，PBO **9.0%**。真实 OOS Sharpe 预估 ~1.5–1.8；2.13 为乐观上界。
 > 2. ✅ Survivorship bias — **已知局限 (2026-05-23)**：yfinance 限制，irremediable
 > 3. ✅ Embargo (1m) — **已完成 (2026-05-22)**：Sharpe 2.12→1.93（差值=泄漏修正量）
 > 4. ❌ Transaction cost — **已移除 (2026-05-24)**；用户不需要
-> 5. ✅ 补充指标 — **已完成 (2026-05-22)**：Sortino 3.74、Calmar 3.64、Vol 13.4%、IR 0.95、TE 10.6%
-> 6. ✅ CPCV / WRC / FDR / Permutation importance — **已完成 (2026-05-23)**：`python picker.py rigor`；DSR 97.5%、WRC 98.7%、CPCV 均值 1.35（15/15 路径 > 0）、FDR 0/29（饱和）
+> 5. ✅ 补充指标 — **已完成 (2026-05-22)**：当前 Sortino 3.03、Calmar 3.25、Vol 12.7%、IR 1.08、TE 10.4%
+> 6. ✅ CPCV / WRC / FDR / Permutation importance — **已完成 (2026-05-23)**：`python picker.py rigor`；WRC 98.6%、CPCV 均值 1.35（15/15 路径 > 0）、FDR 0/29（饱和）
 
 ---
 
