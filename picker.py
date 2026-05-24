@@ -3274,7 +3274,7 @@ def compute_sharpe_ci(monthly_returns, confidence=0.95, n_boot=2000,
     return obs, lo, hi
 
 
-def print_overfit_report(results_df, n_trials=15):
+def print_overfit_report(results_df, n_trials=35):
     """DSR / PSR / bootstrap CI overfitting audit appended to backtest output.
 
     n_trials: total independent experiments run before selecting the current
