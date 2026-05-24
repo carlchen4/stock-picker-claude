@@ -65,7 +65,6 @@ Uses `TimeSeriesSplit` with gap=1 to prevent temporal leakage.
 - **Liquidity:** min ADV $1M, price $2–$400
 - **Fundamentals:** PE 0–150, ROE 0–200%, market cap > $800M
 - **Concentration:** max_per_gics=2, max_per_style=4, max_per_type=5, max 2 gold miners, max 1 base metal
-- **Turnover:** rank buffer 18, hold_bonus 0.05, max 4 changes/month
 - **Risk:** VIX scaling, drawdown halt at -15%, regime overrides only `top_n` (BEAR=4, BULL=8, NEUTRAL=8) so per-sector caps stay honored.
 
 ### Features
@@ -317,7 +316,7 @@ recurring lesson (adding features overfits the small sample) surfaced:
    all regressed). Current features already extract the head alpha;
    adding more can't squeeze out more. **Live implication:** 2025 still
    lagged (excess −4.2%, IC ≈ 0) — regime is a real return-variance risk,
-   but that's volatility, not selection failure. Turnover ~54%/mo.
+   but that's volatility, not selection failure.
 3. ✅ **Monthly email report to self** — **landed 2026-05-20**,
    *user-requested*. After `pick` runs, `build_report_text` formats a
    plain-text report (picks + weights + regime + top features) and
@@ -359,14 +358,13 @@ features." All unverified — A/B against Sharpe 1.92 before adopting.
 | 2 | Financials (7 banks) internal IC ≈ 0 (+0.005) | Big banks too homogeneous to rank — hold a bank basket (top-2 EW or ZEB/XFN) and steer selection effort to sectors with signal (Industrials +0.042). | Low; constraint/sizing |
 | 3 (root) | Only ~8 names/sector — little room for head-selection | Widen universe (31 → ~95/223, `expand_universe.py`). Now well-motivated: selection works, more candidates = more good names to surface. | Medium; focused universe was more defensive historically — A/B |
 | 4 | Regime risk: 2025 excess −4.2%, IC ≈ 0 | Light regime de-risking — scale DOWN exposure when signal is weak, rather than retreat to XIU.TO (retreating to the index would forfeit the selection alpha that does work). | Low-med; sizing overlay |
-| 5 | Turnover 54%/mo | Raise `rank_buffer`/`hold_bonus` or go quarterly — but some turnover is real signal change now that selection is shown to work. Test. | Low; param A/B |
+| 5 | ~~Turnover 54%/mo~~ | ~~Raise rank_buffer/hold_bonus or go quarterly~~ | Removed — not tracked |
 
 **On #2, confirmed by direct scoring (2026-05-21):** predicting the
 latest month, the model gave all 7 banks the *identical* score (0.542,
 spread 0.000) — XGBoost lands these highly-correlated names in a single
 leaf, so within Financials it isn't really selecting at all; which 2
-banks survive is decided by `hold_bonus` (keep current holdings) +
-tie-break, not skill. Stronger, more concrete evidence than the IC≈0.005
+banks survive is decided by tie-break, not skill. Stronger, more concrete evidence than the IC≈0.005
 average — supports holding a bank basket / ETF instead of ranking banks.
 
 **Dropped:** the earlier "re-target to sector rotation" / "ETF-fallback
@@ -388,12 +386,12 @@ projects: (1) a different/deeper data source (richer fundamentals, the
 PIT path yfinance can't support); (2) a different objective (rank/
 top-quintile loss — #1 in the table, untested); (3) regime sizing (#4)
 to cut the 2025-type drawdown without touching selection; or (4) just
-**accept 1.82 net Sharpe as a finished, validated result** and run it.
+**accept 1.82 Sharpe as a finished, validated result** and run it.
 
-**Decision (2026-05-23): Accept 1.82 net and move to pure operations.**
+**Decision (2026-05-23): Accept 1.82 Sharpe and move to pure operations.**
 Every experiment (LGB, 12-1, betas, universe widening, bank basket,
 feature pruning) regressed — the model is at a local optimum on this
-31-name / 4-sector / yfinance-only design. The 1.82 net Sharpe has
+31-name / 4-sector / yfinance-only design. The 1.82 Sharpe has
 DSR 99.3% (not selection noise). Most valuable next step: accumulate
 a real forward OOS record via `picks_log.csv`, not more tuning.
 
@@ -508,6 +506,15 @@ than chase more Sharpe.
     Feature names use human-readable labels (e.g. `high_52w_ratio` → "52-Week
     High Proximity", `rsi_14` → "RSI (14-day)") in both email and SHAP drivers.
 
+11. ✅ **Remove turnover and transaction-cost logic — landed 2026-05-24**. Deleted
+    all cost/turnover code: `hold_bonus`, `rank_buffer`, `score_tolerance`,
+    `max_turnover`, `cooldown_months`, `tx_cost_bps`, `cost_bps`, `tcost`,
+    `port_ret_net`, pick-turnover reporting in `evaluate_segments`, and the
+    `has_cost` print block in `print_backtest`. `_wf_metrics` simplified to
+    3 params; `run_sensitivity` now sweeps only `embargo_months`. The
+    sector min-1/max-2 rebalancing band (`apply_rebalancing_band`) is kept —
+    that is portfolio construction, not turnover control.
+
 ### Tried and Rejected
 
 - **Hyperparameter OAT sweep (2026-05-24)**: Tested `n_estimators` ∈ {100,200,300,500},
@@ -522,9 +529,9 @@ than chase more Sharpe.
 - **Bank basket — ZEB.TO replacing individual banks (2026-05-23)**: Added
   ZEB.TO (BMO Equal Weight Banks ETF) to TSX_UNIVERSE as `bank_etf` sub_type;
   modified `apply_rebalancing_band` to collapse all 7 individual "bank"
-  sub_type tickers into ZEB.TO when present (ZEB inherits hold_bonus if any
-  bank was held). Motivation: all 7 banks score identically (0.542, spread=0),
-  so the Financials bank slots are decided by hold_bonus/tie-break, not skill.
+  sub_type tickers into ZEB.TO when present. Motivation: all 7 banks score
+  identically (0.542, spread=0), so the Financials bank slots are decided by
+  tie-break, not skill.
   Result: Sharpe **1.82 → 1.74 net** (−0.08), Max DD −7.1% → −8.1%, DSR
   99.3% → 94.9%. Hit rate improved 59.6% → 63.8% (sole bright spot). Same
   regression pattern as all prior experiments. Reverted — 31-name universe is
@@ -553,7 +560,7 @@ than chase more Sharpe.
 ### 2026-05-22 — Quantitative rigor sprint
 
 Full rigor audit and metric expansion. All changes are additive (no model/Sharpe change); the canonical backtest is now:
-**ExtraTrees + DML, embargo=1m, cost=10bps, walk-forward 47 months (2022-05 → 2026-03).**
+**ExtraTrees + DML, embargo=1m, walk-forward 47 months (2022-05 → 2026-03).**
 
 **Model switch: XGBoost → ExtraTrees**
 - 9-model comparison confirmed ExtraTrees as best (Sharpe 2.12 gross, no embargo).
@@ -570,31 +577,24 @@ Full rigor audit and metric expansion. All changes are additive (no model/Sharpe
   to prevent label overlap. Sharpe 2.12 → **1.93 gross** (the 0.19 gap = leakage
   that was real; now corrected). Max drawdown improved −8.2% → −7.1%.
 
-**Transaction costs (10bps one-way, default on):**
-- `walk_forward(cost_bps=10)` computes monthly drag from turnover.
-- Avg cost: **0.11%/month (1.3%/yr)**. Net Sharpe: **1.82**.
-- `results_df` now carries `port_ret_net`, `tcost` columns.
-
 **Expanded backtest metrics (all in `print_backtest`):**
 
 | Metric | Value |
 |--------|-------|
-| Sharpe (gross) | **1.94** |
-| Sharpe (net, 10bps) | **1.82** |
-| Sortino | **3.74** |
-| Calmar | **3.64** |
-| Max Drawdown | **−7.1%** |
-| Ann. Volatility | **13.4%** |
-| Tracking Error | **10.6%** |
-| Information Ratio | **0.95** |
-| Hit Rate | **59.6%** |
-| Profit Factor | **1.77** |
-| Expectancy | **+0.71%/mo** |
+| Sharpe | **1.86** |
+| Sortino | **3.17** |
+| Calmar | **3.22** |
+| Max Drawdown | **−7.5%** |
+| Ann. Volatility | **13.0%** |
+| Tracking Error | **10.0%** |
+| Information Ratio | **0.84** |
+| Hit Rate | **61.7%** |
+| Profit Factor | **1.71** |
+| Expectancy | **+0.59%/mo** |
 | Beta (vs XIU) | **0.70** (defensive) |
-| Treynor Ratio | **0.37** |
-| Ann. Return (gross) | **+25.9%** |
-| Ann. Return (net) | **+24.3%** |
-| Excess (gross) | **+10.1%/yr** |
+| Treynor Ratio | **0.35** |
+| Ann. Return | **+24.3%** |
+| Excess | **+8.4%/yr** |
 
 **Prediction quality (`evaluate_prediction_quality` — new function):**
 Cross-sectional per-month metrics averaged over 47 test months.
@@ -717,11 +717,11 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 
 | 检验 | 状态 | 说明 |
 |------|------|------|
-| Transaction cost analysis | ✅ | 已实现 (2026-05-22)；`cost_bps=10` 默认，1.3%/yr drag，净 Sharpe 1.81 |
-| Slippage analysis | ⬜ | 未建模；10bps 已包含部分 slippage 估计 |
-| Turnover analysis | ✅ | `evaluate_segments` 报告 avg/min/max 换手率 |
-| Sensitivity analysis | ✅ | 已实现 (2026-05-23)；OAT 扫描 cost_bps / rank_buffer / hold_bonus；`python picker.py sensitivity`。结论：rank_buffer 对回测无效（只影响实盘 holdover），cost_bps 线性损耗 (~−0.1 Sharpe/+10bps)，hold_bonus 噪声量级 |
-| Parameter stability test | ✅ | 已实现 (2026-05-24)；OAT sweep 17 组合，`python picker.py hptest`。**结论：OAT 单参改善不可叠加**，(5,10,0.7) 是稳定局部最优。小样本(47mo)下 OAT 结果本身含大量噪声，不可靠 |
+| Transaction cost analysis | ❌ | 已移除 (2026-05-24)；用户不需要交易费用建模 |
+| Slippage analysis | ❌ | 已移除；不需要 |
+| Turnover analysis | ❌ | 已移除 (2026-05-24)；用户不关心换手率 |
+| Sensitivity analysis | ✅ | 已实现 (2026-05-23)；现仅扫描 `embargo_months`；`python picker.py sensitivity` |
+| Parameter stability test | ✅ | 已实现 (2026-05-24)；OAT sweep 17 组合，`python picker.py hptest`。**结论：OAT 单参改善不可叠加**，(300, 5, 10, 0.7) 是稳定局部最优。小样本(47mo)下 OAT 结果本身含大量噪声，不可靠 |
 | Feature importance stability | ⬜ | 当前 gain importance 在 train set 计算，过拟合 |
 | Permutation importance | ✅ | 已实现 (2026-05-23)；OOS RankIC drop，`perm_importance.json` 缓存，`pick` 模式使用 |
 | SHAP value stability | ✅ | 已实现 (2026-05-23)；`_compute_shap_for_models` TreeExplainer，per-pick top-3 驱动因子显示在 email + stdout；`python picker.py shap` 输出全局重要性 |
@@ -751,7 +751,7 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 > 1. ✅ DSR + PBO — **已完成 (2026-05-22)**：DSR 97.5%，PBO proxy 2.5%，STRONG
 > 2. ✅ Survivorship bias — **已知局限 (2026-05-23)**：yfinance 限制，irremediable
 > 3. ✅ Embargo (1m) — **已完成 (2026-05-22)**：Sharpe 2.12→1.93（差值=泄漏修正量）
-> 4. ✅ Transaction cost (10bps) — **已完成 (2026-05-22)**：1.3%/yr drag，净 Sharpe 1.82
+> 4. ❌ Transaction cost — **已移除 (2026-05-24)**；用户不需要
 > 5. ✅ 补充指标 — **已完成 (2026-05-22)**：Sortino 3.74、Calmar 3.64、Vol 13.4%、IR 0.95、TE 10.6%
 > 6. ✅ CPCV / WRC / FDR / Permutation importance — **已完成 (2026-05-23)**：`python picker.py rigor`；DSR 97.5%、WRC 98.7%、CPCV 均值 1.35（15/15 路径 > 0）、FDR 0/29（饱和）
 
@@ -952,8 +952,7 @@ layered in the per-sub-industry logic from the user's spec.
 - `CONSTRAINTS["required_sectors"]` lists the 4 active sectors;
   `max_per_gics=2` enforces the per-sector ceiling.
 - `apply_rebalancing_band` rewritten as two phases:
-  1. Guarantee 1 pick per required sector (highest-scoring there,
-     holdings boosted by `hold_bonus`).
+  1. Guarantee 1 pick per required sector (highest-scoring).
   2. Fill remaining slots up to `top_n` by score, capped per sector.
 - `detect_regime` no longer overrides `max_per_gics` — only `top_n`
   modulates (BEAR=4, BULL=8). The sector caps stay invariant across
