@@ -1833,6 +1833,40 @@ def risk_parity_weights(tickers, price_df, lookback=60):
     return weights
 
 
+def estimate_portfolio_te(picks, weights, price_df, benchmark="XIU.TO", lookback=252):
+    """Estimate annualized tracking error from last `lookback` trading days.
+
+    Equal-weights any ticker missing from the weights dict. Returns NaN if
+    fewer than 30 overlapping days are available.
+    """
+    try:
+        bench_close, _ = get_ohlcv(price_df, benchmark)
+        if bench_close is None:
+            return np.nan
+        bench_ret = bench_close.pct_change().dropna().tail(lookback)
+
+        port_daily = None
+        for ticker in picks:
+            close, _ = get_ohlcv(price_df, ticker)
+            if close is None:
+                continue
+            ret = close.pct_change().dropna().tail(lookback)
+            w = weights.get(ticker, 1.0 / max(len(picks), 1))
+            port_daily = ret * w if port_daily is None else port_daily.add(ret * w, fill_value=0)
+
+        if port_daily is None:
+            return np.nan
+
+        aligned = pd.concat([port_daily.rename("port"), bench_ret.rename("bench")],
+                            axis=1).dropna()
+        if len(aligned) < 30:
+            return np.nan
+
+        return (aligned["port"] - aligned["bench"]).std() * np.sqrt(252)
+    except Exception:
+        return np.nan
+
+
 # ══════════════════════════════════════════════════════════════════
 # WALK-FORWARD BACKTEST
 # ══════════════════════════════════════════════════════════════════
@@ -2595,7 +2629,8 @@ def _health_summary(checks):
 
 
 def _format_report(picks, weights, panel_latest, top_features, regime,
-                   checks=None, holdings=None, shap_by_ticker=None):
+                   checks=None, holdings=None, shap_by_ticker=None,
+                   te_estimate=None):
     """Build the shared monthly report body as a list of lines.
 
     Same content for stdout (print_picks) and email (build_report_text):
@@ -2647,6 +2682,10 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
             if drivers:
                 lines.append(f"     Drivers: {drivers}")
 
+    if te_estimate is not None and not np.isnan(te_estimate):
+        lines.append(f"  Est. Tracking Error: {te_estimate:.1%}/yr  "
+                     f"({'high' if te_estimate > 0.12 else 'normal' if te_estimate > 0.07 else 'low'})")
+
     lines += ["", "Top Features:"]
     for feat, imp in top_features:
         lines.append(f"  {feat:<20} {imp:.4f}")
@@ -2658,10 +2697,12 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
 
 
 def print_picks(picks, weights, panel_latest, top_features, regime,
-                checks=None, holdings=None, shap_by_ticker=None):
+                checks=None, holdings=None, shap_by_ticker=None,
+                te_estimate=None):
     """Print the actionable monthly report to stdout."""
     lines = _format_report(picks, weights, panel_latest, top_features,
-                           regime, checks, holdings, shap_by_ticker)
+                           regime, checks, holdings, shap_by_ticker,
+                           te_estimate=te_estimate)
     print("\n" + "═" * 60)
     for ln in lines:
         print(f"  {ln}" if ln else "")
@@ -2669,10 +2710,12 @@ def print_picks(picks, weights, panel_latest, top_features, regime,
 
 
 def build_report_text(picks, weights, panel_latest, top_features, regime,
-                      checks=None, holdings=None, shap_by_ticker=None):
+                      checks=None, holdings=None, shap_by_ticker=None,
+                      te_estimate=None):
     """Plain-text actionable monthly report for emailing."""
     return "\n".join(_format_report(picks, weights, panel_latest,
-                                    top_features, regime, checks, holdings, shap_by_ticker))
+                                    top_features, regime, checks, holdings, shap_by_ticker,
+                                    te_estimate=te_estimate))
 
 
 def build_report_html(picks, weights, panel_latest, top_features, regime,
@@ -3968,9 +4011,12 @@ def main():
                              current_holdings=holdings)
         if result:
             picks, weights, latest_df, top_features, regime, checks, holdings, shap_vals = result
-            print_picks(picks, weights, latest_df, top_features, regime, checks, holdings, shap_vals)
+            te_est = estimate_portfolio_te(picks, weights, price_df)
+            print_picks(picks, weights, latest_df, top_features, regime, checks, holdings, shap_vals,
+                        te_estimate=te_est)
             report = build_report_text(picks, weights, latest_df, top_features,
-                                       regime, checks, holdings, shap_vals)
+                                       regime, checks, holdings, shap_vals,
+                                       te_estimate=te_est)
             html_report = build_report_html(picks, weights, latest_df, top_features,
                                             regime, checks, holdings, shap_vals)
             send_report_email(report, html_body=html_report)
