@@ -3414,6 +3414,94 @@ def print_overfit_report(results_df, n_trials=35):
     print("═" * 60)
 
 
+def print_monte_carlo_report(results_df, n_sim=5000, seed=42):
+    """Bootstrap Monte Carlo: resample monthly returns to show path distribution.
+
+    Resamples the observed monthly returns (with replacement) n_sim times to
+    generate alternative equity paths. Reports percentile table for Sharpe, IR,
+    max drawdown, and total return, plus tail-risk probabilities and an ASCII
+    fan chart showing the P5/P25/P50/P75/P95 equity paths.
+    """
+    r = results_df["port_ret"].values
+    b = results_df["bench_ret"].values
+    T = len(r)
+    rng = np.random.default_rng(seed)
+
+    sharpes, irs, max_dds, terminals = [], [], [], []
+    paths = np.empty((n_sim, T), dtype=float)
+
+    for i in range(n_sim):
+        idx = rng.integers(0, T, size=T)
+        r_s = r[idx]
+        b_s = b[idx]
+        excess_s = r_s - b_s
+        sd_r = r_s.std(ddof=1)
+        sd_e = excess_s.std(ddof=1)
+        sharpes.append(r_s.mean() / sd_r * np.sqrt(12) if sd_r > 0 else np.nan)
+        irs.append(excess_s.mean() * np.sqrt(12) / sd_e if sd_e > 0 else np.nan)
+        cum = (1 + r_s).cumprod()
+        dd = float((cum / np.maximum.accumulate(cum) - 1).min())
+        max_dds.append(dd)
+        terminals.append(float(cum[-1]))
+        paths[i] = cum
+
+    sharpes = np.array(sharpes)
+    irs    = np.array(irs)
+    max_dds = np.array(max_dds)
+    terminals = np.array(terminals)
+
+    pcts = [5, 25, 50, 75, 95]
+    sr_p  = np.nanpercentile(sharpes, pcts)
+    ir_p  = np.nanpercentile(irs, pcts)
+    dd_p  = np.nanpercentile(max_dds, pcts)
+    tr_p  = np.nanpercentile((terminals - 1) * 100, pcts)
+
+    print("\n" + "═" * 62)
+    print(f"  MONTE CARLO  ({n_sim:,} bootstrap paths, {T} months resampled)")
+    print("═" * 62)
+    print(f"  {'Metric':<14}  {'P5':>7}  {'P25':>7}  {'P50':>7}  {'P75':>7}  {'P95':>7}")
+    print(f"  {'─'*14}  {'─'*7}  {'─'*7}  {'─'*7}  {'─'*7}  {'─'*7}")
+    print(f"  {'Sharpe':<14}  {sr_p[0]:>+7.2f}  {sr_p[1]:>+7.2f}  {sr_p[2]:>+7.2f}  {sr_p[3]:>+7.2f}  {sr_p[4]:>+7.2f}")
+    print(f"  {'IR':<14}  {ir_p[0]:>+7.2f}  {ir_p[1]:>+7.2f}  {ir_p[2]:>+7.2f}  {ir_p[3]:>+7.2f}  {ir_p[4]:>+7.2f}")
+    print(f"  {'Max Drawdown':<14}  {dd_p[0]:>+7.1%}  {dd_p[1]:>+7.1%}  {dd_p[2]:>+7.1%}  {dd_p[3]:>+7.1%}  {dd_p[4]:>+7.1%}")
+    print(f"  {'Total Return':<14}  {tr_p[0]:>+6.0f}%  {tr_p[1]:>+6.0f}%  {tr_p[2]:>+6.0f}%  {tr_p[3]:>+6.0f}%  {tr_p[4]:>+6.0f}%")
+    print(f"  {'─'*60}")
+    print(f"  P(Sharpe > 1):       {np.mean(sharpes > 1.0):.1%}")
+    print(f"  P(IR > 0):           {np.mean(irs > 0.0):.1%}")
+    print(f"  P(MaxDD < −15%):     {np.mean(max_dds < -0.15):.1%}")
+    print(f"  P(MaxDD < −25%):     {np.mean(max_dds < -0.25):.1%}")
+
+    # ASCII fan chart — P5/P25/P50/P75/P95 equity paths
+    fan = np.percentile(paths, pcts, axis=0)  # (5, T)
+    width = min(T, 48)
+    col_idx = np.linspace(0, T - 1, width, dtype=int)
+    fan_w = fan[:, col_idx]  # (5, width)
+
+    height = 8
+    y_hi = fan_w.max() * 1.05
+    y_lo = max(fan_w.min() * 0.95, 0.5)
+    y_rng = y_hi - y_lo or 1.0
+
+    def _to_row(val):
+        return int((y_hi - val) / y_rng * (height - 1))
+
+    grid = [[' '] * width for _ in range(height)]
+    chars = ['·', '░', '█', '▓', '■']   # P5 P25 P50 P75 P95
+    for p_i, ch in enumerate(chars):
+        for t in range(width):
+            row = max(0, min(height - 1, _to_row(fan_w[p_i, t])))
+            # only overwrite if higher priority (P50 > P25 > P5 etc.)
+            if grid[row][t] in (' ', '·', '░') or ch in ('█', '▓', '■'):
+                grid[row][t] = ch
+
+    print(f"\n  Fan  ·=P5  ░=P25  █=P50  ▓=P75  ■=P95  (×1 = initial capital)")
+    for i, row in enumerate(grid):
+        y_val = y_hi - y_rng * i / (height - 1)
+        label = f"{y_val:.1f}×" if i % 2 == 0 else "     "
+        print(f"  {label:>5} {''.join(row)}")
+    print("═" * 62)
+
+
 def print_permutation_importance(importance_dict, top_n=20):
     """Print OOS permutation importance table (mean RankIC drop per feature)."""
     if not importance_dict:
@@ -3541,6 +3629,7 @@ def print_backtest(results_df):
     _print_equity_curve(results_df)
 
     print_overfit_report(results_df)
+    print_monte_carlo_report(results_df)
 
 
 def _print_equity_curve(results_df, width=50):
