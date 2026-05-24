@@ -3317,6 +3317,31 @@ def compute_sharpe_ci(monthly_returns, confidence=0.95, n_boot=2000,
     return obs, lo, hi
 
 
+def compute_ir_ci(excess_returns, confidence=0.95, n_boot=2000,
+                  block_size=4, seed=43):
+    """Block-bootstrap confidence interval for annualized IR.
+
+    excess_returns: monthly (port_ret - bench_ret).
+    Returns (observed_ann_ir, ci_lo, ci_hi).
+    """
+    rng = np.random.default_rng(seed)
+    e = np.asarray(excess_returns, dtype=float)
+    T = len(e)
+    sd = e.std(ddof=1)
+    obs = e.mean() * np.sqrt(12) / sd if sd > 0 else np.nan
+    n_blocks = int(np.ceil(T / block_size))
+    boot = []
+    for _ in range(n_boot):
+        starts = rng.integers(0, max(T - block_size + 1, 1), size=n_blocks)
+        sample = np.concatenate([e[s: s + block_size] for s in starts])[:T]
+        sd_s = sample.std(ddof=1)
+        if sd_s > 0:
+            boot.append(sample.mean() * np.sqrt(12) / sd_s)
+    alpha = 1 - confidence
+    lo, hi = np.percentile(boot, [alpha / 2 * 100, (1 - alpha / 2) * 100])
+    return obs, lo, hi
+
+
 def print_overfit_report(results_df, n_trials=35):
     """DSR / PSR / bootstrap CI overfitting audit appended to backtest output.
 
@@ -3333,6 +3358,13 @@ def print_overfit_report(results_df, n_trials=35):
     sr_ann = r.mean() / r.std(ddof=1) * np.sqrt(12)
     s = _skew(r)
     k = _kurt(r, fisher=True)
+
+    e = (results_df["bench_ret"].values
+         if "bench_ret" in results_df.columns
+         else np.zeros_like(r))
+    excess = r - e
+    ir_ann = excess.mean() * np.sqrt(12) / excess.std(ddof=1) if excess.std(ddof=1) > 0 else np.nan
+    _, ir_ci_lo, ir_ci_hi = compute_ir_ci(excess)
 
     psr = compute_psr(r, sr_benchmark=0.0)
     dsr = compute_dsr(r, n_trials=n_trials)
@@ -3361,9 +3393,12 @@ def print_overfit_report(results_df, n_trials=35):
     print("═" * 60)
     print(f"  Observations (months):        {T}")
     print(f"  Observed Sharpe (ann.):       {sr_ann:.3f}")
+    ir_str = f"{ir_ann:.3f}" if not np.isnan(ir_ann) else "n/a"
+    print(f"  Observed IR    (ann.):        {ir_str}")
     print(f"  Skewness:                     {s:+.3f}")
     print(f"  Excess kurtosis:              {k:+.3f}")
     print(f"  Bootstrap 95% CI (ann. SR):   [{ci_lo:.2f}, {ci_hi:.2f}]")
+    print(f"  Bootstrap 95% CI (ann. IR):   [{ir_ci_lo:.2f}, {ir_ci_hi:.2f}]")
     print(f"  PSR  P(true SR > 0):          {psr:.1%}")
     print(f"  DSR  P(true SR > E[max_{n_trials:02d}]):  {dsr:.1%}")
     pbo = 1.0 - dsr if dsr is not None and not np.isnan(dsr) else np.nan
