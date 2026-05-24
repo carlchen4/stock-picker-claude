@@ -1878,10 +1878,13 @@ def risk_parity_weights(tickers, price_df, lookback=60):
 def walk_forward(panel, feature_cols, train_months=36, min_train=24,
                  return_perstock=False, score_mode="model",
                  embargo_months=1, return_importance=False,
-                 return_raw_importance=False):
+                 return_raw_importance=False, expanding=False):
     """
-    Walk-forward backtester with rolling window.
-    Returns monthly picks and scores for each period.
+    Walk-forward backtester with rolling window (default) or expanding window.
+
+    expanding=False (default): rolling window of train_months months.
+    expanding=True: use all data from the start of the panel up to the
+        embargo cutoff; min_train still enforces the minimum fold size.
 
     embargo_months: months excluded between end of training and test date.
     Prevents label leakage — the last training row's fwd_ret overlaps with
@@ -1910,10 +1913,12 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24,
     fold_importances = {}  # feat -> list of per-fold IC drops
     _perm_rng = np.random.RandomState(42)
 
-    print(f"  Walk-forward: {len(dates)} months, train={train_months}m, embargo={embargo_months}m")
+    mode_str = "expanding" if expanding else f"train={train_months}m"
+    print(f"  Walk-forward: {len(dates)} months, {mode_str}, embargo={embargo_months}m")
 
     for i in range(train_months, len(dates) - 1):
-        train_start = max(0, i - train_months)
+        # Expanding window: always train from the beginning; rolling: last train_months
+        train_start = 0 if expanding else max(0, i - train_months)
         # Embargo: exclude the `embargo_months` months immediately before
         # the test date so no training label overlaps with the test period.
         train_end = max(train_start, i - embargo_months)

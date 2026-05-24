@@ -637,7 +637,7 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 |------|------|------|
 | Walk-forward validation | ✅ | `walk_forward()`, 36m train rolling window, 47 test months |
 | Rolling window validation | ✅ | 同上（固定长度滚动训练窗口） |
-| Expanding window validation | ⬜ | 未实现；可切换 `walk_forward` 的 `min_train` 参数 |
+| Expanding window validation | ✅ | 已实现 (2026-05-24)；`walk_forward(expanding=True)` 从 panel 起点扩展训练集，min_train 保持最小 fold 大小约束 |
 | Purged K-Fold cross-validation | ❌ | 已知缺口；train/test 之间无 gap，López de Prado CPCV 可修复 |
 | Combinatorial Purged Cross-Validation (CPCV) | ✅ | 已实现 (2026-05-23)；`python picker.py rigor`，15 路径，均值 Sharpe 1.35，100% 路径 > 0 |
 | TimeSeriesSplit | ✅ | DML 残差化交叉拟合中使用 (`gap=1`) |
@@ -726,8 +726,8 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 | Permutation importance | ✅ | 已实现 (2026-05-23)；OOS RankIC drop，`perm_importance.json` 缓存，`pick` 模式使用 |
 | SHAP value stability | ✅ | 已实现 (2026-05-23)；`_compute_shap_for_models` TreeExplainer，per-pick top-3 驱动因子显示在 email + stdout；`python picker.py shap` 输出全局重要性 |
 | Bootstrap test | ✅ | 已实现 (2026-05-23)；WRC (White's Reality Check) bootstrap + `compute_sharpe_ci` 95% CI in `print_overfit_report` |
-| Monte Carlo simulation | ⬜ | 未实现 |
-| Stress testing | ⬜ | 2022 熊市已覆盖部分；未系统化 |
+| Monte Carlo simulation | ⬜ | 低优先级；DSR/WRC bootstrap 已提供置信区间 |
+| Stress testing | ⚠️ | 2022 熊市已通过 per-year 表格覆盖（-0.4% vs bench +2.1%）；未做正式系统压力测试 |
 | Regime analysis | ✅ | `detect_regime()` + per-year IC breakdown |
 | Subperiod analysis | ✅ | per-year / last-6-month 表格 |
 
