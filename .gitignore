@@ -24,3 +24,6 @@ tsx_report_*.pdf
 
 # Run logs (run_monthly.sh)
 logs/
+
+# Local yfinance data cache (speeds up repeated runs)
+cache/

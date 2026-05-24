@@ -1,8 +1,8 @@
 """
-TSX Stock Picker — XGBoost + Double Machine Learning
+TSX Stock Picker — ExtraTrees + Double Machine Learning
 ═══════════════════════════════════════════════════════
 Data source: yfinance only (free, no API keys needed)
-Model: XGBoost regression + classification ensemble
+Model: ExtraTrees regression + classification ensemble
 Causal: Double Machine Learning (Chernozhukov 2018)
 
 Usage:
@@ -22,9 +22,13 @@ import xgboost as xgb
 from datetime import datetime, timedelta
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
-from scipy.stats import spearmanr
+from scipy.stats import spearmanr, kendalltau
 import sys
 import os
+import json
+import time
+from itertools import combinations
+from scipy.stats import ttest_1samp
 
 try:
     # portfolio_config.py is gitignored; copy from portfolio_config.example.py
@@ -263,6 +267,11 @@ for _t, _p in EXTENDED_PROFILES.items():
 # the required_sectors / per-sector caps see it as Industrials.
 STOCK_PROFILE["CLS.TO"] = ("Industrials", "core", "other")
 
+# Bank basket: individual Big Banks all score identically (single leaf in
+# ExtraTrees). ZEB.TO represents the bank sector; individual banks are kept
+# in the universe for model training but excluded at pick time.
+BANK_BASKET_TICKER = "ZEB.TO"
+
 # ══════════════════════════════════════════════════════════════════
 # CONSTRAINTS
 # ══════════════════════════════════════════════════════════════════
@@ -291,12 +300,6 @@ CONSTRAINTS = {
     "max_gold_mining": 2,
     "max_base_metals": 1,
     "max_energy_sub": 2,
-    # Turnover control
-    "rank_buffer": 18,
-    "score_tolerance": 0.015,
-    "max_turnover": 4,
-    "hold_bonus": 0.05,
-    "cooldown_months": 1,
     # Risk
     "dd_halt_threshold": -0.15,
     "dd_halt_scale": 0.50,
@@ -308,7 +311,6 @@ CONSTRAINTS = {
     "min_confidence": 0.15,
     # Portfolio
     "top_n": 8,
-    "tx_cost_bps": 10,
 }
 
 FEATURE_COLS = [
@@ -353,11 +355,50 @@ def safe_float(val, default=np.nan):
         return default
 
 
+# ══════════════════════════════════════════════════════════════════
+# LOCAL DATA CACHE  (avoids repeated yfinance downloads within a day)
+# ═══════════════════════════════════════════════���══════════════════
+
+CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
+
+
+def _cache_path(name):
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    return os.path.join(CACHE_DIR, name)
+
+
+def _cache_load(path, max_age_hours=24):
+    """Return cached DataFrame/Series if file exists and is fresh; else None."""
+    if not os.path.exists(path):
+        return None
+    if (time.time() - os.path.getmtime(path)) / 3600 > max_age_hours:
+        return None
+    try:
+        return pd.read_parquet(path)
+    except Exception:
+        return None
+
+
+def _cache_save(path, obj):
+    try:
+        if isinstance(obj, pd.Series):
+            obj = obj.to_frame("value")
+        if isinstance(obj, pd.DataFrame):
+            obj.to_parquet(path)
+    except Exception:
+        pass
+
+
 def fetch_prices(tickers, years=7):
     """Download daily OHLCV for all tickers via yfinance."""
+    cache_file = _cache_path(f"prices_{len(tickers)}_{years}y.parquet")
+    cached = _cache_load(cache_file, max_age_hours=20)
+    if cached is not None:
+        return cached
     start = (datetime.now() - timedelta(days=years * 365)).strftime("%Y-%m-%d")
     data = yf.download(tickers, start=start, auto_adjust=True,
                        progress=False, threads=True, group_by="ticker")
+    _cache_save(cache_file, data)
     return data
 
 
@@ -429,6 +470,13 @@ def fetch_macro(years=7):
 
 def fetch_fundamentals(tickers):
     """Fetch current fundamentals from yfinance for constraint filtering."""
+    cache_file = _cache_path("fundamentals.parquet")
+    cached = _cache_load(cache_file, max_age_hours=24)
+    if cached is not None:
+        # Return only the requested tickers; fill missing ones with empty rows
+        missing = [t for t in tickers if t not in cached.index]
+        if not missing:
+            return cached.loc[tickers]
     results = {}
     for t in tickers:
         try:
@@ -447,34 +495,31 @@ def fetch_fundamentals(tickers):
             }
         except Exception:
             results[t] = {}
-    return pd.DataFrame(results).T
+    df = pd.DataFrame(results).T
+    _cache_save(cache_file, df)
+    return df
 
 
 def fetch_earnings_surprise(ticker):
-    """Fetch historical earnings surprises (%) from yfinance.
-
-    Returns a Series indexed by announcement date with the Surprise(%)
-    value. Empty Series on any failure (delisted ticker, API error,
-    missing column). Used as a Double ML treatment to test whether
-    earnings beats/misses have causal alpha beyond what the feature set
-    already explains (the post-earnings-announcement drift effect).
-
-    ETFs don't have earnings — skip XIU.TO (the benchmark) explicitly
-    so yfinance doesn't print "No earnings dates found" noise.
-    """
+    """Fetch historical earnings surprises (%) from yfinance."""
     if ticker == "XIU.TO":
         return pd.Series(dtype=float)
+    cache_file = _cache_path(f"{ticker.replace('.', '_')}_earnings.parquet")
+    cached = _cache_load(cache_file, max_age_hours=24)
+    if cached is not None:
+        return cached["value"].astype(float)
     try:
         df = yf.Ticker(ticker).get_earnings_dates()
         if df is None or df.empty or "Surprise(%)" not in df.columns:
-            return pd.Series(dtype=float)
-        s = df["Surprise(%)"].dropna()
-        if s.empty:
-            return pd.Series(dtype=float)
-        s.index = pd.to_datetime(s.index).tz_localize(None)
-        return s.sort_index()
+            result = pd.Series(dtype=float)
+        else:
+            s = df["Surprise(%)"].dropna()
+            s.index = pd.to_datetime(s.index).tz_localize(None)
+            result = s.sort_index()
     except Exception:
-        return pd.Series(dtype=float)
+        result = pd.Series(dtype=float)
+    _cache_save(cache_file, result)
+    return result
 
 
 def compute_earnings_surprise_feature(ticker, monthly_dates, window_months=3):
@@ -498,19 +543,22 @@ def compute_earnings_surprise_feature(ticker, monthly_dates, window_months=3):
 
 
 def fetch_dividend_history(ticker):
-    """Fetch the dividend payment history from yfinance.
-
-    Returns a Series of date -> dividend amount. Empty Series on
-    failure or for non-paying tickers.
-    """
+    """Fetch the dividend payment history from yfinance."""
+    cache_file = _cache_path(f"{ticker.replace('.', '_')}_divs.parquet")
+    cached = _cache_load(cache_file, max_age_hours=168)  # 7 days — dividends change quarterly
+    if cached is not None:
+        return cached["value"].astype(float)
     try:
         divs = yf.Ticker(ticker).dividends
         if divs is None or divs.empty:
-            return pd.Series(dtype=float)
-        divs.index = pd.to_datetime(divs.index).tz_localize(None)
-        return divs.sort_index()
+            result = pd.Series(dtype=float)
+        else:
+            divs.index = pd.to_datetime(divs.index).tz_localize(None)
+            result = divs.sort_index()
     except Exception:
-        return pd.Series(dtype=float)
+        result = pd.Series(dtype=float)
+    _cache_save(cache_file, result)
+    return result
 
 
 def compute_dividend_growth_feature(ticker, monthly_dates):
@@ -562,7 +610,7 @@ def compute_revenue_growth_feature(ticker, monthly_dates):
     yoy = yoy.dropna()
     if yoy.empty:
         return result
-    aligned = yoy.reindex(monthly_dates, method="ffill")
+    aligned = yoy.reindex(monthly_dates, method="ffill", limit=3)
     return aligned.fillna(0.0)
 
 
@@ -617,12 +665,16 @@ def get_boc_features(dates):
         result["boc_rate_chg_3m"] = np.nan
         return result
     monthly = rate.resample("ME").last()
-    result["boc_rate_chg_3m"] = monthly.diff(3).reindex(dates, method="ffill")
+    result["boc_rate_chg_3m"] = monthly.diff(3).reindex(dates, method="ffill", limit=3)
     return result
 
 
 def fetch_quarterly_financials(ticker):
     """Fetch quarterly financials from yfinance for PIT fundamental features."""
+    cache_file = _cache_path(f"{ticker.replace('.', '_')}_qfin.parquet")
+    cached = _cache_load(cache_file, max_age_hours=168)  # 7 days — quarterly updates
+    if cached is not None:
+        return cached
     try:
         tk = yf.Ticker(ticker)
         inc = tk.quarterly_income_stmt
@@ -630,7 +682,7 @@ def fetch_quarterly_financials(ticker):
         if inc is None or inc.empty:
             return None
         records = []
-        for col in inc.columns[:8]:  # Last 8 quarters
+        for col in inc.columns[:8]:
             rec = {"date": col}
             rec["net_income"] = safe_float(inc.loc["Net Income", col]) if "Net Income" in inc.index else np.nan
             rec["revenue"] = safe_float(inc.loc["Total Revenue", col]) if "Total Revenue" in inc.index else np.nan
@@ -639,9 +691,11 @@ def fetch_quarterly_financials(ticker):
                 rec["total_equity"] = safe_float(bal.loc["Total Equity Gross Minority Interest", col]) if "Total Equity Gross Minority Interest" in bal.index else np.nan
                 rec["total_debt"] = safe_float(bal.loc["Total Debt", col]) if "Total Debt" in bal.index else np.nan
             records.append(rec)
-        return pd.DataFrame(records).set_index("date").sort_index()
+        result = pd.DataFrame(records).set_index("date").sort_index()
     except Exception:
         return None
+    _cache_save(cache_file, result)
+    return result
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -858,29 +912,29 @@ def get_macro_features(macro_df, dates):
             monthly = close.resample("ME").last()
 
             if name == "oil":
-                result["oil_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+                result["oil_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill", limit=3)
             elif name == "cad_usd":
-                result["cad_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+                result["cad_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill", limit=3)
             elif name == "us10y":
-                result["rate_chg_3m"] = monthly.diff(3).reindex(dates, method="ffill")
+                result["rate_chg_3m"] = monthly.diff(3).reindex(dates, method="ffill", limit=3)
             elif name == "tsx":
-                result["tsx_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+                result["tsx_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill", limit=3)
             elif name == "gold":
-                result["gold_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+                result["gold_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill", limit=3)
             elif name == "vix":
-                result["vix_level"] = monthly.reindex(dates, method="ffill")
+                result["vix_level"] = monthly.reindex(dates, method="ffill", limit=3)
             elif name == "natgas":
-                result["natgas_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+                result["natgas_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill", limit=3)
             elif name == "carbon":
-                result["carbon_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+                result["carbon_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill", limit=3)
             elif name == "transport":
-                result["transport_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+                result["transport_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill", limit=3)
             elif name == "utilities_etf":
-                result["util_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+                result["util_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill", limit=3)
             elif name == "inflation":
-                result["tips_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+                result["tips_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill", limit=3)
             elif name == "cad_bonds":
-                result["cad_bond_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill")
+                result["cad_bond_mom_1m"] = monthly.pct_change(1).reindex(dates, method="ffill", limit=3)
         except (KeyError, TypeError):
             pass
 
@@ -904,7 +958,7 @@ def compute_pit_fundamentals(ticker, monthly_dates):
         ttm_ni = qf["net_income"].rolling(4).sum()
         equity = qf["total_equity"]
         roe_series = (ttm_ni / equity.replace(0, np.nan))
-        result["roe"] = roe_series.reindex(monthly_dates, method="ffill")
+        result["roe"] = roe_series.reindex(monthly_dates, method="ffill", limit=3)
     else:
         result["roe"] = np.nan
 
@@ -915,7 +969,7 @@ def compute_pit_fundamentals(ticker, monthly_dates):
 
     if "total_debt" in qf.columns and "total_equity" in qf.columns:
         de = qf["total_debt"] / qf["total_equity"].replace(0, np.nan)
-        result["debt_equity"] = de.reindex(monthly_dates, method="ffill")
+        result["debt_equity"] = de.reindex(monthly_dates, method="ffill", limit=3)
     else:
         result["debt_equity"] = np.nan
 
@@ -1137,7 +1191,11 @@ def make_xgb_classifier(pos_weight=1.0):
 
 # Model family for the per-sector learners. "xgb" is the baseline; the
 # comparison harness flips this to test rf / extratrees / histgb / linear.
-MODEL_KIND = "xgb"
+MODEL_KIND = "extratrees"
+
+# ExtraTrees hyperparameters — read by make_regressor/make_classifier so that
+# the hptest mode can temporarily override them without touching model code.
+ET_HP = dict(n_estimators=300, max_depth=5, min_samples_leaf=10, max_features=0.7)
 
 
 def make_regressor(kind=None):
@@ -1151,8 +1209,7 @@ def make_regressor(kind=None):
             min_samples_leaf=10, max_features=0.7, n_jobs=-1, random_state=42)
     if kind == "extratrees":
         from sklearn.ensemble import ExtraTreesRegressor
-        return ExtraTreesRegressor(n_estimators=300, max_depth=5,
-            min_samples_leaf=10, max_features=0.7, n_jobs=-1, random_state=42)
+        return ExtraTreesRegressor(**ET_HP, n_jobs=-1, random_state=42)
     if kind == "histgb":
         from sklearn.ensemble import HistGradientBoostingRegressor
         return HistGradientBoostingRegressor(max_iter=300, max_depth=3,
@@ -1187,8 +1244,7 @@ def make_classifier(kind=None, pos_weight=1.0):
             n_jobs=-1, random_state=42)
     if kind == "extratrees":
         from sklearn.ensemble import ExtraTreesClassifier
-        return ExtraTreesClassifier(n_estimators=300, max_depth=5,
-            min_samples_leaf=10, max_features=0.7, class_weight="balanced",
+        return ExtraTreesClassifier(**ET_HP, class_weight="balanced",
             n_jobs=-1, random_state=42)
     if kind == "histgb":
         from sklearn.ensemble import HistGradientBoostingClassifier
@@ -1518,6 +1574,97 @@ def predict_sector_models(test_df, sector_models):
 
 
 # ══════════════════════════════════════════════════════════════════
+# PERMUTATION IMPORTANCE
+# ══════════════════════════════════════════════════════════════════
+
+PERM_IMPORTANCE_FILE = "perm_importance.json"
+
+
+def _perm_importance_fold(sec_models, test_df, n_repeats=5, rng=None):
+    """Permutation importance on one walk-forward test fold.
+
+    Shuffles each feature in test_df one at a time, re-scores all
+    non-benchmark stocks via predict_sector_models, and measures the
+    RankIC drop vs the baseline (higher drop = feature matters more).
+    Returns {feature: mean_ic_drop} or {} when the fold is too small.
+    """
+    if rng is None:
+        rng = np.random.RandomState(42)
+
+    mask = test_df["ticker"] != "XIU.TO"
+    df_eval = test_df[mask].copy().reset_index(drop=True)
+
+    if len(df_eval) < 5 or df_eval["fwd_ret"].isna().all():
+        return {}
+
+    # Collect all features used across all sector models (dedup, preserve order)
+    seen = set()
+    all_feats = []
+    for _, (_, _, feats) in sec_models.items():
+        for f in feats:
+            if f not in seen:
+                all_feats.append(f)
+                seen.add(f)
+
+    # Baseline RankIC
+    base_scores = predict_sector_models(df_eval, sec_models)
+    valid = ~np.isnan(base_scores) & ~df_eval["fwd_ret"].isna().values
+    if valid.sum() < 5:
+        return {}
+    base_ic, _ = spearmanr(base_scores[valid], df_eval.loc[valid, "fwd_ret"])
+    if np.isnan(base_ic):
+        return {}
+
+    importance = {}
+    for feat in all_feats:
+        if feat not in df_eval.columns:
+            continue
+        # sector_code is only a routing key in predict_sector_models, not a
+        # model feature — shuffling it destroys sector routing rather than
+        # measuring signal contribution, so skip it.
+        if feat == "sector_code":
+            continue
+        # Macro/time-series features (oil price, VIX, rate changes, etc.) have
+        # identical values for all stocks in a given month. Permuting within a
+        # single-month fold shuffles identical values → IC drop is always 0,
+        # which is not a real importance signal. Skip unmeasurable features.
+        if df_eval[feat].nunique() <= 1:
+            continue
+        orig = df_eval[feat].values.copy()
+        drops = []
+        for _ in range(n_repeats):
+            df_eval[feat] = orig[rng.permutation(len(orig))]
+            shuf_scores = predict_sector_models(df_eval, sec_models)
+            ic, _ = spearmanr(shuf_scores[valid], df_eval.loc[valid, "fwd_ret"])
+            if not np.isnan(ic):
+                drops.append(base_ic - ic)
+        df_eval[feat] = orig  # restore
+        importance[feat] = float(np.mean(drops)) if drops else 0.0
+
+    return importance
+
+
+def save_perm_importance(importance_dict, path=PERM_IMPORTANCE_FILE):
+    """Cache permutation importance to JSON so predict_now can use it."""
+    try:
+        with open(path, "w") as f:
+            json.dump(importance_dict, f, indent=2)
+    except Exception:
+        pass
+
+
+def load_perm_importance(path=PERM_IMPORTANCE_FILE):
+    """Load cached permutation importance, or None if absent/unreadable."""
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+# ══════════════════════════════════════════════════════════════════
 # DOUBLE MACHINE LEARNING (Chernozhukov 2018)
 # ══════════════════════════════════════════════════════════════════
 
@@ -1638,17 +1785,10 @@ def apply_rebalancing_band(new_picks, new_scores, current_holdings, constraints=
 
     Rules enforced (in order):
       1. Every sector in `required_sectors` gets at least 1 pick
-         (highest-scoring candidate from that sector, holdings boosted
-         by hold_bonus).
+         (highest-scoring candidate from that sector).
       2. Remaining slots filled by score, capped at `max_per_gics` per
          sector.
       3. Total picks <= `top_n`.
-
-    Holdings get a hold_bonus added to their score, biasing them
-    toward selection without breaking the sector caps. With 7 bank
-    holdings and max_per_gics=2 for Financials, only the 2 highest-
-    scored banks survive — the other 5 become implicit "trim"
-    recommendations.
 
     Falls back to plain top_n if `required_sectors` is empty (legacy).
     """
@@ -1659,12 +1799,8 @@ def apply_rebalancing_band(new_picks, new_scores, current_holdings, constraints=
     top_n = C["top_n"]
     max_per_gics = C["max_per_gics"]
     required_sectors = C.get("required_sectors") or []
-    hold_bonus = C["hold_bonus"]
 
     score_dict = dict(zip(new_picks, new_scores))
-    for h in (current_holdings or []):
-        if h in score_dict:
-            score_dict[h] += hold_bonus
 
     ranked = sorted(score_dict.items(), key=lambda x: -x[1])
 
@@ -1740,10 +1876,16 @@ def risk_parity_weights(tickers, price_df, lookback=60):
 # ══════════════════════════════════════════════════════════════════
 
 def walk_forward(panel, feature_cols, train_months=36, min_train=24,
-                 return_perstock=False, score_mode="model"):
+                 return_perstock=False, score_mode="model",
+                 embargo_months=1, return_importance=False,
+                 return_raw_importance=False):
     """
     Walk-forward backtester with rolling window.
     Returns monthly picks and scores for each period.
+
+    embargo_months: months excluded between end of training and test date.
+    Prevents label leakage — the last training row's fwd_ret overlaps with
+    the test period without the gap.
 
     When return_perstock=True, also returns a per-(month, ticker)
     DataFrame (date, ticker, score, fwd_ret, sector_code, is_selected)
@@ -1754,6 +1896,10 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24,
     diagnostic baseline that isolates the stock-picking contribution from
     the sector-constraint structure + regime); "model" (default) uses the
     trained models.
+
+    return_importance=True accumulates per-fold permutation importance
+    (OOS RankIC drop per feature) and returns it as a third value alongside
+    results_df and perstock_df. Only implemented for USE_SECTOR_MODELS=True.
     """
     panel = panel.sort_values("date")
     dates = sorted(panel["date"].unique())
@@ -1761,12 +1907,17 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24,
     results = []
     perstock = []
     holdings = []
+    fold_importances = {}  # feat -> list of per-fold IC drops
+    _perm_rng = np.random.RandomState(42)
 
-    print(f"  Walk-forward: {len(dates)} months, train={train_months}m")
+    print(f"  Walk-forward: {len(dates)} months, train={train_months}m, embargo={embargo_months}m")
 
     for i in range(train_months, len(dates) - 1):
         train_start = max(0, i - train_months)
-        train_dates = dates[train_start:i]
+        # Embargo: exclude the `embargo_months` months immediately before
+        # the test date so no training label overlaps with the test period.
+        train_end = max(train_start, i - embargo_months)
+        train_dates = dates[train_start:train_end]
         test_date = dates[i]
 
         train_df = panel[panel["date"].isin(train_dates)].copy()
@@ -1785,6 +1936,10 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24,
                 sec_models, _dml_stats = fit_sector_models(train_df, sample_weights=weights)
                 scores = predict_sector_models(test_df, sec_models)
                 scores = np.nan_to_num(scores, nan=0.0)
+                if return_importance:
+                    fold_imp = _perm_importance_fold(sec_models, test_df, rng=_perm_rng)
+                    for feat, drop in fold_imp.items():
+                        fold_importances.setdefault(feat, []).append(drop)
             else:
                 reg, clf = fit_models(
                     pd.DataFrame(train_df[feature_cols].values, columns=feature_cols),
@@ -1862,19 +2017,243 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24,
         pick_rets = test_df[test_df["ticker"].isin(picks)]["fwd_ret"]
         bench_row = test_df[test_df["ticker"] == "XIU.TO"]["fwd_ret"]
 
+        port_ret_gross = pick_rets.mean() if len(pick_rets) > 0 else 0.0
         results.append({
             "date": test_date,
             "picks": picks,
-            "port_ret": pick_rets.mean() if len(pick_rets) > 0 else 0,
+            "port_ret": port_ret_gross,
             "bench_ret": bench_row.iloc[0] if len(bench_row) > 0 else 0,
             "n_picks": len(picks),
         })
 
     results_df = pd.DataFrame(results)
+    importance_dict = {f: float(np.mean(v)) for f, v in fold_importances.items()}
+    perstock_df = pd.concat(perstock, ignore_index=True) if perstock else pd.DataFrame()
+
+    if return_raw_importance:
+        # Return raw per-fold lists for FDR computation
+        if return_perstock and return_importance:
+            return results_df, perstock_df, importance_dict, fold_importances
+        if return_importance:
+            return results_df, importance_dict, fold_importances
+        return results_df, fold_importances
+
+    if return_perstock and return_importance:
+        return results_df, perstock_df, importance_dict
     if return_perstock:
-        perstock_df = pd.concat(perstock, ignore_index=True) if perstock else pd.DataFrame()
         return results_df, perstock_df
+    if return_importance:
+        return results_df, importance_dict
     return results_df
+
+
+# ══════════════════════════════════════════════════════════════════
+# COMBINATORIAL PURGED CROSS-VALIDATION (CPCV)
+# ══════════════════════════════════════════════════════════════════
+
+def compute_cpcv(panel, feature_cols, n_folds=6, embargo_months=1):
+    """Combinatorial Purged Cross-Validation (López de Prado 2018).
+
+    Divides T months into n_folds groups; for each of C(n_folds, 2) = 15
+    paths, trains on (n_folds−2) groups (purged around test boundaries)
+    and tests on the remaining 2. Fits ONE model per path (not rolling).
+    Returns a list of per-path dicts with Sharpe, annualized return, max DD.
+
+    Purpose: detect overfitting that walk-forward may miss. Walk-forward
+    reuses adjacent train/test splits; CPCV tests arbitrary time-period
+    combinations, giving a distribution of out-of-sample Sharpe ratios.
+    """
+    panel = panel.sort_values("date")
+    all_dates = sorted(panel["date"].unique())
+    T = len(all_dates)
+
+    fold_size = T // n_folds
+    groups = [list(all_dates[i * fold_size: (i + 1) * fold_size if i < n_folds - 1 else T])
+              for i in range(n_folds)]
+
+    path_results = []
+
+    for test_ids in combinations(range(n_folds), 2):
+        test_set = set()
+        for gid in test_ids:
+            test_set.update(groups[gid])
+        test_sorted = sorted(test_set)
+
+        # Purge: exclude dates within embargo_months of any test-group boundary
+        boundaries = [groups[gid][0] for gid in test_ids] + \
+                     [groups[gid][-1] for gid in test_ids]
+        embargo_days = embargo_months * 32
+
+        train_dates = [
+            d for d in all_dates
+            if d not in test_set
+            and all(abs((d - b).days) > embargo_days for b in boundaries)
+        ]
+
+        if len(set(train_dates)) < 24:
+            continue
+
+        train_df = panel[panel["date"].isin(set(train_dates))].copy()
+        if len(train_df) < 24 * 5:
+            continue
+
+        n = len(train_df)
+        weights = compute_time_decay_weights(n)
+
+        try:
+            if USE_SECTOR_MODELS:
+                sec_models, _ = fit_sector_models(train_df, sample_weights=weights)
+            else:
+                reg, clf = fit_models(
+                    pd.DataFrame(train_df[feature_cols].values, columns=feature_cols),
+                    pd.Series(train_df["fwd_ret"].values),
+                    sample_weights=weights
+                )
+        except Exception:
+            continue
+
+        monthly_rets = []
+        holdings = []
+
+        for test_date in test_sorted:
+            test_df = panel[panel["date"] == test_date].copy()
+            if len(test_df) < 3:
+                continue
+            try:
+                if USE_SECTOR_MODELS:
+                    scores = predict_sector_models(test_df, sec_models)
+                else:
+                    scores = ensemble_predict(reg, clf, test_df[feature_cols].values)
+                scores = np.nan_to_num(scores, nan=0.0)
+            except Exception:
+                continue
+
+            test_df = test_df.copy()
+            test_df["score"] = scores
+            ranked = test_df.sort_values("score", ascending=False)
+            picks = apply_rebalancing_band(
+                ranked["ticker"].tolist(), ranked["score"].tolist(), holdings
+            )
+
+            holdings = picks
+
+            rets = test_df[test_df["ticker"].isin(picks)]["fwd_ret"]
+            monthly_rets.append(rets.mean() if len(rets) > 0 else 0.0)
+
+        if len(monthly_rets) < 8:
+            continue
+
+        r = np.array(monthly_rets)
+        sharpe = r.mean() / r.std() * np.sqrt(12) if r.std() > 0 else 0.0
+        ann_ret = (1 + r.mean()) ** 12 - 1
+        cum = np.cumprod(1 + r)
+        roll_max = np.maximum.accumulate(cum)
+        max_dd = float(np.min((cum - roll_max) / roll_max))
+
+        path_results.append({
+            "test_groups": test_ids,
+            "n_months": len(monthly_rets),
+            "sharpe": round(sharpe, 3),
+            "ann_ret": round(ann_ret, 4),
+            "max_dd": round(max_dd, 4),
+        })
+
+    return path_results
+
+
+def print_cpcv_report(path_results, wf_sharpe=None):
+    """Print CPCV Sharpe distribution across combinatorial paths."""
+    if not path_results:
+        print("  No CPCV paths with enough data.")
+        return
+    sharpes = [p["sharpe"] for p in path_results]
+    print(f"\n{'═' * 60}")
+    print(f"  COMBINATORIAL PURGED CROSS-VALIDATION (CPCV)")
+    print(f"  {len(path_results)} paths  |  each: 1 model fit, ~28 test months")
+    print(f"{'═' * 60}")
+    print(f"  {'Path':<12}  {'Months':>6}  {'Sharpe':>8}  {'Ann.Ret':>8}  {'MaxDD':>8}")
+    print(f"  {'─'*12}  {'─'*6}  {'─'*8}  {'─'*8}  {'─'*8}")
+    for p in sorted(path_results, key=lambda x: -x["sharpe"]):
+        grps = f"G{p['test_groups'][0]}&G{p['test_groups'][1]}"
+        print(f"  {grps:<12}  {p['n_months']:>6}  {p['sharpe']:>8.3f}  "
+              f"{p['ann_ret']:>7.1%}  {p['max_dd']:>7.1%}")
+    print(f"  {'─'*12}  {'─'*6}  {'─'*8}  {'─'*8}  {'─'*8}")
+    print(f"  {'Mean':<12}  {'':>6}  {np.mean(sharpes):>8.3f}")
+    print(f"  {'Std':<12}  {'':>6}  {np.std(sharpes):>8.3f}")
+    print(f"  {'Min':<12}  {'':>6}  {np.min(sharpes):>8.3f}")
+    print(f"  {'Max':<12}  {'':>6}  {np.max(sharpes):>8.3f}")
+    pct_positive = 100 * np.mean([s > 0 for s in sharpes])
+    pct_above1 = 100 * np.mean([s > 1.0 for s in sharpes])
+    print(f"  Sharpe > 0:   {pct_positive:.0f}% of paths")
+    print(f"  Sharpe > 1.0: {pct_above1:.0f}% of paths")
+    if wf_sharpe is not None:
+        print(f"  Walk-forward: {wf_sharpe:.3f} (for comparison)")
+    print(f"{'═' * 60}")
+    print(f"  Note: CPCV fits ONE model per path (not rolling). Sharpe")
+    print(f"  distribution shows generalization across time periods.")
+
+
+# ══════════════════════════════════════════════════════════════════
+# FDR — FALSE DISCOVERY RATE ON FEATURE IMPORTANCE
+# ══════════════════════════════════════════════════════════════════
+
+def compute_fdr_importance(fold_importances, alpha=0.05):
+    """Benjamini-Hochberg FDR correction on permutation importance.
+
+    For each feature, runs a one-sample t-test (H0: mean IC drop = 0)
+    on the per-fold IC drops accumulated during walk_forward. Applies
+    the BH procedure at the given alpha level.
+
+    Returns list of (feature, mean_drop, p_value, bh_significant) sorted
+    by mean IC drop descending.
+    """
+    results = []
+    for feat, drops in fold_importances.items():
+        drops_arr = np.array(drops)
+        if len(drops_arr) < 3:
+            results.append((feat, float(np.mean(drops_arr)), 1.0, False))
+            continue
+        _, p = ttest_1samp(drops_arr, 0.0, alternative="greater")
+        results.append((feat, float(np.mean(drops_arr)), float(p), False))
+
+    # Benjamini-Hochberg
+    results.sort(key=lambda x: x[2])  # sort by p-value
+    m = len(results)
+    bh_threshold = [alpha * (i + 1) / m for i in range(m)]
+    significant_mask = [results[i][2] <= bh_threshold[i] for i in range(m)]
+    # All ranks up to the last significant rank are significant
+    last_sig = -1
+    for i in range(m - 1, -1, -1):
+        if significant_mask[i]:
+            last_sig = i
+            break
+    for i in range(m):
+        feat, mean_drop, p, _ = results[i]
+        results[i] = (feat, mean_drop, p, i <= last_sig)
+
+    results.sort(key=lambda x: -x[1])  # sort by mean IC drop
+    return results
+
+
+def print_fdr_importance(fdr_results):
+    """Print FDR-corrected permutation importance table."""
+    if not fdr_results:
+        print("  No FDR results.")
+        return
+    n_sig = sum(1 for _, _, _, s in fdr_results if s)
+    print(f"\n{'─' * 62}")
+    print(f"  FDR-CORRECTED PERMUTATION IMPORTANCE  (BH α=0.05)")
+    print(f"  {n_sig}/{len(fdr_results)} features statistically significant")
+    print(f"{'─' * 62}")
+    print(f"  {'Feature':<28}  {'IC Drop':>8}  {'p-val':>7}  {'Sig?'}")
+    print(f"  {'─'*28}  {'─'*8}  {'─'*7}  {'─'*5}")
+    for feat, mean_drop, p, sig in fdr_results:
+        name = feat.replace("_norm", "")
+        marker = " ✓" if sig else ""
+        print(f"  {name:<28}  {mean_drop:>+8.4f}  {p:>7.4f}  {marker}")
+    print(f"{'─' * 62}")
+    print(f"  ✓ = survives Benjamini-Hochberg FDR correction at α=0.05")
+    print(f"  H0 per feature: mean OOS IC drop = 0 (one-sided t-test)")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -2186,22 +2565,32 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     log_picks(final_picks, weights, sbt, as_of)
     backfill_realized(price_df)
 
-    # Feature importance. Under sector models, average importance across
-    # all trained sector regressors so the user still gets a single top-10
-    # view; under the global model, use the single regressor directly.
-    importance = {}
-    if USE_SECTOR_MODELS:
-        for sector_name, (sec_reg, _clf, feats) in sec_models.items():
-            for f, imp in zip(feats, sec_reg.feature_importances_):
-                importance[f] = importance.get(f, 0.0) + float(imp)
-        # Normalize so the sums are comparable to single-model output
-        n_models = max(len(sec_models), 1)
-        importance = {f: v / n_models for f, v in importance.items()}
-    else:
-        importance = dict(zip(feature_cols, reg.feature_importances_))
-    top_features = sorted(importance.items(), key=lambda x: -x[1])[:10]
+    # Feature importance: prefer OOS permutation importance (honest, computed
+    # on walk-forward test folds) over train-set gain (overfits training data,
+    # has known all-zero extraction quirk). Fall back to gain if no cached
+    # permutation importance exists yet — run `picker.py importance` to build it.
+    importance = load_perm_importance()
+    _importance_source = "permutation (OOS)"
+    if importance is None:
+        _importance_source = "gain (train-set) — run `picker.py importance` for OOS"
+        importance = {}
+        if USE_SECTOR_MODELS:
+            for sector_name, (sec_reg, _clf, feats) in sec_models.items():
+                for f, imp in zip(feats, sec_reg.feature_importances_):
+                    importance[f] = importance.get(f, 0.0) + float(imp)
+            n_models = max(len(sec_models), 1)
+            importance = {f: v / n_models for f, v in importance.items()}
+        else:
+            importance = dict(zip(feature_cols, reg.feature_importances_))
+    top_features = [(f, v) for f, v in sorted(importance.items(), key=lambda x: -x[1])
+                    if v > 0][:10]
+    print(f"  Feature importance source: {_importance_source}")
 
-    return final_picks, weights, latest_df, top_features, regime, checks, (current_holdings or [])
+    shap_by_ticker = {}
+    if USE_SECTOR_MODELS:
+        shap_by_ticker = _compute_shap_for_models(sec_models, latest_df)
+
+    return final_picks, weights, latest_df, top_features, regime, checks, (current_holdings or []), shap_by_ticker
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -2238,7 +2627,7 @@ def _health_summary(checks):
 
 
 def _format_report(picks, weights, panel_latest, top_features, regime,
-                   checks=None, holdings=None):
+                   checks=None, holdings=None, shap_by_ticker=None):
     """Build the shared monthly report body as a list of lines.
 
     Same content for stdout (print_picks) and email (build_report_text):
@@ -2280,6 +2669,15 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
         score = row["score"].iloc[0] if len(row) > 0 else 0
         lines.append(f"  {i}. {ticker:<10} {profile[0]:<14} {profile[1]:<8} "
                      f"Score: {score:.3f}  Weight: {w:.1%}")
+        if shap_by_ticker and ticker in shap_by_ticker:
+            sv = shap_by_ticker[ticker]
+            top3 = sorted(sv.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
+            drivers = "  ".join(
+                f"{f.replace('_norm', '')}({'+'if v>0 else ''}{v:.3f})"
+                for f, v in top3 if abs(v) > 0.001
+            )
+            if drivers:
+                lines.append(f"     Drivers: {drivers}")
 
     lines += ["", "Top Features:"]
     for feat, imp in top_features:
@@ -2292,10 +2690,10 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
 
 
 def print_picks(picks, weights, panel_latest, top_features, regime,
-                checks=None, holdings=None):
+                checks=None, holdings=None, shap_by_ticker=None):
     """Print the actionable monthly report to stdout."""
     lines = _format_report(picks, weights, panel_latest, top_features,
-                           regime, checks, holdings)
+                           regime, checks, holdings, shap_by_ticker)
     print("\n" + "═" * 60)
     for ln in lines:
         print(f"  {ln}" if ln else "")
@@ -2303,13 +2701,234 @@ def print_picks(picks, weights, panel_latest, top_features, regime,
 
 
 def build_report_text(picks, weights, panel_latest, top_features, regime,
-                      checks=None, holdings=None):
+                      checks=None, holdings=None, shap_by_ticker=None):
     """Plain-text actionable monthly report for emailing."""
     return "\n".join(_format_report(picks, weights, panel_latest,
-                                    top_features, regime, checks, holdings))
+                                    top_features, regime, checks, holdings, shap_by_ticker))
 
 
-def send_report_email(body, subject=None):
+def build_report_html(picks, weights, panel_latest, top_features, regime,
+                      checks=None, holdings=None, shap_by_ticker=None):
+    """HTML actionable monthly report for emailing."""
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    hs = _health_summary(checks or [])
+    sell, buy, hold = diff_holdings(picks, holdings)
+
+    # Reliability badge color
+    if "LOW CONFIDENCE" in hs:
+        badge_color = "#e74c3c"
+    elif "CAUTION" in hs:
+        badge_color = "#f39c12"
+    else:
+        badge_color = "#27ae60"
+    reliability_text = hs if hs else "OK — all checks passed"
+
+    # Regime badge
+    regime_colors = {"BULL": "#27ae60", "BEAR": "#e74c3c", "NEUTRAL": "#3498db"}
+    regime_color = regime_colors.get(regime, "#7f8c8d")
+
+    css = """
+    <style>
+      body { font-family: -apple-system, Arial, sans-serif; background: #f4f6f8;
+             color: #2c3e50; margin: 0; padding: 20px; }
+      .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+              max-width: 680px; margin: 0 auto 20px; padding: 24px; }
+      h1 { font-size: 22px; margin: 0 0 4px; color: #1a252f; }
+      .subtitle { color: #7f8c8d; font-size: 13px; margin-bottom: 16px; }
+      .badge { display: inline-block; border-radius: 6px; padding: 3px 10px;
+               font-size: 12px; font-weight: 600; color: #fff; margin-right: 6px; }
+      h2 { font-size: 15px; font-weight: 700; color: #34495e;
+           border-bottom: 2px solid #eee; padding-bottom: 6px; margin: 20px 0 12px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th { text-align: left; padding: 8px 10px; background: #f8f9fa;
+           color: #6c757d; font-weight: 600; border-bottom: 2px solid #dee2e6; }
+      td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+      tr:last-child td { border-bottom: none; }
+      .tag-sell { background: #fde8e8; color: #c0392b; border-radius: 4px;
+                  padding: 2px 7px; font-weight: 600; font-size: 12px; }
+      .tag-buy  { background: #e8f8f0; color: #1e8449; border-radius: 4px;
+                  padding: 2px 7px; font-weight: 600; font-size: 12px; }
+      .tag-hold { background: #eaf0fb; color: #2471a3; border-radius: 4px;
+                  padding: 2px 7px; font-weight: 600; font-size: 12px; }
+      .driver-up   { color: #27ae60; font-weight: 600; }
+      .driver-down { color: #e74c3c; font-weight: 600; }
+      .driver-name { color: #5d6d7e; font-size: 11px; }
+      .weight-bar-bg { background: #eef2f7; border-radius: 4px; height: 6px; min-width: 60px; }
+      .weight-bar    { background: #2e86c1; border-radius: 4px; height: 6px; }
+      .score-num { font-weight: 700; color: #2c3e50; }
+      .oos-box { background: #f0f9ff; border-left: 4px solid #3498db;
+                 border-radius: 4px; padding: 12px 16px; font-size: 13px; }
+      .feat-bar-bg { background: #eef2f7; border-radius: 3px; height: 8px; display: inline-block; width: 120px; vertical-align: middle; }
+      .feat-bar    { background: #8e44ad; border-radius: 3px; height: 8px; display: inline-block; }
+      .footer { text-align: center; color: #aaa; font-size: 11px; margin-top: 8px; }
+    </style>"""
+
+    # ── Header card ──────────────────────────────────────────────────────────
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">{css}</head><body>
+    <div class="card">
+      <h1>TSX Stock Picks</h1>
+      <div class="subtitle">{date_str}</div>
+      <span class="badge" style="background:{regime_color}">Regime: {regime}</span>
+      <span class="badge" style="background:{badge_color}">{reliability_text}</span>
+    </div>"""
+
+    # ── Actions card ─────────────────────────────────────────────────────────
+    def action_cells(tickers, tag_class, label):
+        if not tickers:
+            return f'<span style="color:#aaa">—</span>'
+        return " ".join(f'<span class="{tag_class}">{t}</span>' for t in tickers)
+
+    bw_pairs = [(t, weights.get(t, 0)) for t in buy]
+    buy_html = " ".join(
+        f'<span class="tag-buy">{t} {w:.0%}</span>' for t, w in bw_pairs
+    ) if buy else '<span style="color:#aaa">—</span>'
+    sell_html = action_cells(sell, "tag-sell", "SELL")
+    hold_html = action_cells(hold, "tag-hold", "HOLD")
+
+    html += f"""
+    <div class="card">
+      <h2>Actions vs Current Holdings</h2>
+      <table>
+        <tr><th style="width:60px">Action</th><th>Tickers</th></tr>
+        <tr><td><span class="tag-sell">SELL {len(sell)}</span></td><td>{sell_html}</td></tr>
+        <tr><td><span class="tag-buy">BUY {len(buy)}</span></td><td>{buy_html}</td></tr>
+        <tr><td><span class="tag-hold">HOLD {len(hold)}</span></td><td>{hold_html}</td></tr>
+      </table>
+    </div>"""
+
+    # ── Feature label helper (used in portfolio + features cards) ────────────
+    _FEAT_LABELS = {
+        "sector_code":       "Sector",
+        "high_52w_ratio":    "52-Week High Proximity",
+        "mom_pc1":           "Momentum Factor 1",
+        "mom_pc2":           "Momentum Factor 2",
+        "vol_60d":           "60-Day Volatility",
+        "vol_20d":           "20-Day Volatility",
+        "vol_ratio":         "Short/Long Vol Ratio",
+        "rsi_14":            "RSI (14-day)",
+        "bb_zscore":         "Bollinger Band Z-Score",
+        "adv_20d_rank":      "Avg Daily Volume Rank",
+        "rev_1m":            "1-Month Revenue Change",
+        "rev_growth_yoy":    "Revenue Growth (YoY)",
+        "div_growth_yoy":    "Dividend Growth (YoY)",
+        "div_yield":         "Dividend Yield",
+        "roe":               "Return on Equity",
+        "pe_ratio":          "Price/Earnings Ratio",
+        "debt_equity":       "Debt/Equity Ratio",
+        "rate_chg_3m":       "Interest Rate Change (3M)",
+        "boc_rate_chg_3m":   "BoC Rate Change (3M)",
+        "cad_bond_mom_1m":   "CAD Bond Momentum (1M)",
+        "cad_mom_1m":        "CAD/USD Momentum (1M)",
+        "tsx_mom_1m":        "TSX Index Momentum (1M)",
+        "oil_mom_1m":        "Oil Price Momentum (1M)",
+        "natgas_mom_1m":     "Natural Gas Momentum (1M)",
+        "carbon_mom_1m":     "Carbon Price Momentum (1M)",
+        "tips_mom_1m":       "TIPS Momentum (1M)",
+        "vix_level":         "VIX (Market Fear Index)",
+    }
+
+    def _feat_label(name):
+        clean = name.replace("_norm", "")
+        return _FEAT_LABELS.get(clean, clean.replace("_", " ").title())
+
+    # ── Portfolio card ────────────────────────────────────────────────────────
+    max_w = max((weights.get(t, 0) for t in picks), default=0.01)
+    rows_html = ""
+    for i, ticker in enumerate(picks, 1):
+        w = weights.get(ticker, 0)
+        profile = STOCK_PROFILE.get(ticker, ("?", "?", "?"))
+        row = panel_latest[panel_latest["ticker"] == ticker]
+        score = row["score"].iloc[0] if len(row) > 0 else 0
+        bar_pct = int(w / max_w * 100) if max_w > 0 else 0
+
+        # Determine action tag for this ticker
+        if ticker in sell:
+            action = '<span class="tag-sell">SELL</span>'
+        elif ticker in buy:
+            action = '<span class="tag-buy">BUY</span>'
+        else:
+            action = '<span class="tag-hold">HOLD</span>'
+
+        drivers_html = ""
+        if shap_by_ticker and ticker in shap_by_ticker:
+            sv = shap_by_ticker[ticker]
+            top3 = sorted(sv.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
+            parts = []
+            for f, v in top3:
+                if abs(v) <= 0.001:
+                    continue
+                fname = _feat_label(f)
+                cls = "driver-up" if v > 0 else "driver-down"
+                arrow = "↑" if v > 0 else "↓"
+                parts.append(
+                    f'<span class="driver-name">{fname}</span>'
+                    f'<span class="{cls}"> {arrow}{abs(v):.3f}</span>'
+                )
+            drivers_html = "&nbsp; ".join(parts)
+
+        rows_html += f"""
+        <tr>
+          <td style="font-weight:700;color:#1a252f">{ticker}</td>
+          <td>{profile[0]}</td>
+          <td>{action}</td>
+          <td class="score-num">{score:.3f}</td>
+          <td>
+            <div style="font-size:12px;font-weight:600;margin-bottom:3px">{w:.1%}</div>
+            <div class="weight-bar-bg"><div class="weight-bar" style="width:{bar_pct}%"></div></div>
+          </td>
+          <td style="font-size:12px">{drivers_html}</td>
+        </tr>"""
+
+    html += f"""
+    <div class="card">
+      <h2>Target Portfolio ({len(picks)} positions)</h2>
+      <table>
+        <tr>
+          <th>Ticker</th><th>Sector</th><th>Action</th>
+          <th>Score</th><th>Weight</th><th>SHAP Drivers</th>
+        </tr>
+        {rows_html}
+      </table>
+    </div>"""
+
+    # ── Top features card ─────────────────────────────────────────────────────
+    if top_features:
+        max_imp = max(v for _, v in top_features) or 0.001
+        feat_rows = ""
+        for feat, imp in top_features[:10]:
+            bar_w = int(imp / max_imp * 120)
+            feat_rows += f"""
+            <tr>
+              <td style="font-size:13px">{_feat_label(feat)}</td>
+              <td style="font-family:monospace;color:#7f8c8d;font-size:11px">{imp:.4f}</td>
+              <td><div class="feat-bar-bg"><div class="feat-bar" style="width:{bar_w}px"></div></div></td>
+            </tr>"""
+        html += f"""
+    <div class="card">
+      <h2>Top Feature Importances (Permutation, OOS)</h2>
+      <table>
+        <tr><th>Feature</th><th>IC Drop</th><th>Importance</th></tr>
+        {feat_rows}
+      </table>
+    </div>"""
+
+    # ── OOS track record card ─────────────────────────────────────────────────
+    oos_lines = oos_track_record()
+    if oos_lines:
+        oos_content = "<br>".join(oos_lines)
+        html += f"""
+    <div class="card">
+      <h2>OOS Track Record (Live)</h2>
+      <div class="oos-box">{oos_content}</div>
+    </div>"""
+
+    html += """
+    <div class="footer">Generated by TSX Stock Picker</div>
+    </body></html>"""
+    return html
+
+
+def send_report_email(body, html_body=None, subject=None):
     """Email the report to the inbox configured in email_config.py.
 
     email_config.py is gitignored (copy from email_config.example.py). If
@@ -2329,9 +2948,15 @@ def send_report_email(body, subject=None):
 
     import smtplib
     from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
     if subject is None:
         subject = f"TSX Stock Picks — {datetime.now().strftime('%Y-%m-%d')}"
-    msg = MIMEText(body, "plain", "utf-8")
+    if html_body:
+        msg = MIMEMultipart("alternative")
+        msg.attach(MIMEText(body, "plain", "utf-8"))
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+    else:
+        msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"], msg["From"], msg["To"] = subject, from_email, to_email
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
@@ -2438,51 +3063,324 @@ def evaluate_segments(perstock):
             return np.nan
         return g["score"].rank().corr(g["fwd_ret"].rank())
 
+    def _ic_kendall(g):
+        if len(g) < 5:
+            return np.nan
+        tau, _ = kendalltau(g["score"].rank(), g["fwd_ret"].rank())
+        return tau
+
     monthly_ic = v.groupby("date").apply(_ic).dropna()
+    monthly_ic_k = v.groupby("date").apply(_ic_kendall).dropna()
     monthly_ic.index = pd.to_datetime(monthly_ic.index)
+    monthly_ic_k.index = pd.to_datetime(monthly_ic_k.index)
 
-    print("\n" + "═" * 60)
+    print("\n" + "═" * 65)
     print("  SEGMENTED EVALUATION (anti-overfit diagnostics)")
-    print("═" * 60)
+    print("═" * 65)
 
-    print("\n  By year — RankIC (is the edge regime-dependent?)")
-    print(f"    {'year':<6}{'months':>7}{'IC mean':>10}{'IC std':>9}{'ICIR':>7}{'hit%':>7}")
-    print("    " + "-" * 46)
+    print("\n  By year — RankIC  (Spearman | Kendall τ)")
+    print(f"    {'year':<6}{'months':>7}{'Spearman':>10}{'Kendall τ':>11}{'ICIR':>7}{'hit%':>7}")
+    print("    " + "-" * 51)
     for year, g in monthly_ic.groupby(monthly_ic.index.year):
         icm, ics = g.mean(), g.std()
         icir = icm / ics if ics > 0 else 0.0
-        print(f"    {year:<6}{len(g):>7}{icm:>+10.3f}{ics:>9.3f}{icir:>+7.2f}"
+        km = monthly_ic_k.reindex(g.index).mean()
+        print(f"    {year:<6}{len(g):>7}{icm:>+10.3f}{km:>+11.3f}{icir:>+7.2f}"
               f"{(g > 0).mean() * 100:>6.0f}%")
     icm, ics = monthly_ic.mean(), monthly_ic.std()
     icir = icm / ics if ics > 0 else 0.0
-    print("    " + "-" * 46)
-    print(f"    {'ALL':<6}{len(monthly_ic):>7}{icm:>+10.3f}{ics:>9.3f}{icir:>+7.2f}"
+    km_all = monthly_ic_k.mean()
+    print("    " + "-" * 51)
+    print(f"    {'ALL':<6}{len(monthly_ic):>7}{icm:>+10.3f}{km_all:>+11.3f}{icir:>+7.2f}"
           f"{(monthly_ic > 0).mean() * 100:>6.0f}%")
 
-    print("\n  By sector — RankIC (which sectors carry real signal?)")
-    print(f"    {'sector':<14}{'months':>7}{'IC mean':>10}{'ICIR':>7}")
-    print("    " + "-" * 38)
+    print("\n  By sector — RankIC")
+    print(f"    {'sector':<14}{'months':>7}{'Spearman':>10}{'Kendall τ':>11}{'ICIR':>7}")
+    print("    " + "-" * 49)
     for sector, g in v.groupby("sector"):
         sic = g.groupby("date").apply(_ic).dropna()
+        sic_k = g.groupby("date").apply(_ic_kendall).dropna()
         if len(sic) < 6:
             continue
         icm, ics = sic.mean(), sic.std()
         icir = icm / ics if ics > 0 else 0.0
-        print(f"    {sector:<14}{len(sic):>7}{icm:>+10.3f}{icir:>+7.2f}")
+        print(f"    {sector:<14}{len(sic):>7}{icm:>+10.3f}{sic_k.mean():>+11.3f}{icir:>+7.2f}")
 
-    sel = v[v["is_selected"]]
-    picks_by_month = sel.groupby("date")["ticker"].apply(set).sort_index()
-    turn, prev = [], set()
-    for _, p in picks_by_month.items():
-        if p and prev:
-            turn.append(100.0 * len(p - prev) / len(p))
-        prev = p
-    if turn:
-        print(f"\n  Pick turnover: avg {np.mean(turn):.0f}%/mo "
-              f"(min {min(turn):.0f}%, max {max(turn):.0f}%)")
+    # Score tertile → realized return spread
+    tertile_frames = []
+    for _date, _g in v.groupby("date"):
+        if len(_g) < 6:
+            continue
+        try:
+            _g = _g.copy()
+            _g["tertile"] = pd.qcut(_g["score"], 3, labels=["Bottom", "Mid", "Top"])
+            tertile_frames.append(_g.groupby("tertile")["fwd_ret"].mean())
+        except Exception:
+            continue
+    if tertile_frames:
+        tert = pd.concat(tertile_frames).groupby(level=0).mean() * 100
+        spread = tert.get("Top", 0) - tert.get("Bottom", 0)
+        print(f"\n  Score tertile → avg realized return (ann. proxied as ×12):")
+        print(f"    Top third:    {tert.get('Top', np.nan):>+6.2f}%/mo  ({tert.get('Top', np.nan)*12:>+6.1f}%/yr)")
+        print(f"    Mid third:    {tert.get('Mid', np.nan):>+6.2f}%/mo  ({tert.get('Mid', np.nan)*12:>+6.1f}%/yr)")
+        print(f"    Bottom third: {tert.get('Bottom', np.nan):>+6.2f}%/mo  ({tert.get('Bottom', np.nan)*12:>+6.1f}%/yr)")
+        print(f"    Top−Bottom spread: {spread:>+6.2f}%/mo  ({spread*12:>+6.1f}%/yr)")
+
     print("  Guide: |IC mean| range across years > 0.15, or a sector IC < 0,")
     print("  signals a regime-dependent / noisy edge.")
+    print("═" * 65)
+
+
+def evaluate_prediction_quality(perstock):
+    """Classification + regression prediction quality metrics (per-month, averaged).
+
+    Binary label = top-quintile fwd_ret (>= 80th pct cross-sectional).
+    Predicted label = above-median score (cross-sectional).
+    Directional accuracy = fraction where sign(score vs median) == sign(fwd_ret).
+    AUC-ROC / AUC-PR / Brier use continuous scores; MCC / F1 / Prec / Rec use
+    the above-median threshold for the binary prediction.
+    """
+    if perstock is None or perstock.empty:
+        return
+    try:
+        from sklearn.metrics import (
+            roc_auc_score, average_precision_score, brier_score_loss,
+            matthews_corrcoef, balanced_accuracy_score,
+            f1_score, precision_score, recall_score,
+        )
+    except ImportError:
+        print("  sklearn required — already installed, check import path.")
+        return
+
+    v = perstock.dropna(subset=["score", "fwd_ret"]).copy()
+    v = v[v["ticker"] != "XIU.TO"]
+    if v.empty:
+        return
+
+    aucroc_l, aucpr_l, brier_l, mcc_l = [], [], [], []
+    f1_l, prec_l, rec_l, bacc_l, dacc_l = [], [], [], [], []
+
+    for _, g in v.groupby("date"):
+        if len(g) < 5:
+            continue
+        ret = g["fwd_ret"].values
+        score = g["score"].values
+
+        # Top-quintile binary label
+        thr = np.percentile(ret, 80)
+        y_true = (ret >= thr).astype(int)
+        if y_true.sum() == 0 or y_true.sum() == len(y_true):
+            continue
+
+        # Predicted class: above-median score
+        y_pred = (score >= np.median(score)).astype(int)
+
+        # Normalized score → [0, 1] for Brier
+        rng = score.max() - score.min()
+        score_01 = (score - score.min()) / (rng + 1e-12)
+
+        try:
+            aucroc_l.append(roc_auc_score(y_true, score))
+            aucpr_l.append(average_precision_score(y_true, score))
+            brier_l.append(brier_score_loss(y_true, score_01))
+            mcc_l.append(matthews_corrcoef(y_true, y_pred))
+            f1_l.append(f1_score(y_true, y_pred, zero_division=0))
+            prec_l.append(precision_score(y_true, y_pred, zero_division=0))
+            rec_l.append(recall_score(y_true, y_pred, zero_division=0))
+            bacc_l.append(balanced_accuracy_score(y_true, y_pred))
+            # Directional accuracy: does above-median score → positive return?
+            dacc_l.append(np.mean((score > np.median(score)) == (ret > 0)))
+        except Exception:
+            continue
+
+    if not aucroc_l:
+        return
+
+    def _fmt(lst):
+        return f"{np.mean(lst):.3f} (±{np.std(lst):.3f})" if lst else "n/a"
+
+    print("\n" + "═" * 60)
+    print("  PREDICTION QUALITY — CLASSIFICATION & REGRESSION")
     print("═" * 60)
+    print(f"  Months evaluated:      {len(aucroc_l)}")
+    print()
+    print("  — Classifier metrics (top-quintile = positive class) —")
+    print(f"  AUC-ROC:               {_fmt(aucroc_l)}")
+    print(f"  AUC-PR:                {_fmt(aucpr_l)}")
+    print(f"  Brier Score:           {_fmt(brier_l)}  (lower = better)")
+    print(f"  MCC:                   {_fmt(mcc_l)}")
+    print(f"  F1 Score:              {_fmt(f1_l)}")
+    print(f"  Precision:             {_fmt(prec_l)}")
+    print(f"  Recall:                {_fmt(rec_l)}")
+    print(f"  Balanced Accuracy:     {_fmt(bacc_l)}")
+    print()
+    print("  — Regression / ranking metrics —")
+    print(f"  Directional Accuracy:  {_fmt(dacc_l)}")
+    auc_base = 0.5
+    lift = np.mean(aucroc_l) - auc_base
+    print(f"  AUC lift over random:  {lift:+.3f}")
+    print("═" * 60)
+
+
+# ── Deflated Sharpe / Overfitting Audit ──────────────────────────────────────
+
+def compute_psr(monthly_returns, sr_benchmark=0.0):
+    """Probabilistic Sharpe Ratio: P(true SR > sr_benchmark).
+
+    Bailey & López de Prado (2014). Inputs are per-period (monthly) returns;
+    sr_benchmark is also in per-period units (pass 0 for the null SR=0 test).
+    """
+    from scipy.stats import norm
+    from scipy.stats import skew as _skew, kurtosis as _kurt
+    r = np.asarray(monthly_returns, dtype=float)
+    T = len(r)
+    if T < 4:
+        return np.nan
+    sr = r.mean() / r.std(ddof=1)
+    s = _skew(r)
+    k = _kurt(r, fisher=True)  # excess kurtosis
+    var = (1 - s * sr + (k - 1) / 4 * sr ** 2) / (T - 1)
+    if var <= 0:
+        return np.nan
+    return float(norm.cdf((sr - sr_benchmark) / np.sqrt(var)))
+
+
+def compute_dsr(monthly_returns, n_trials):
+    """Deflated Sharpe Ratio: PSR with benchmark = E[max of n_trials iid SRs].
+
+    n_trials: number of independent strategies evaluated before selecting the
+    best one. Adjusts for selection bias — a Sharpe earned by picking the top
+    strategy out of K is worth less than a Sharpe earned without selection.
+    Returns probability in [0, 1].
+    """
+    from scipy.stats import norm
+    from scipy.stats import skew as _skew, kurtosis as _kurt
+    r = np.asarray(monthly_returns, dtype=float)
+    T = len(r)
+    if T < 4:
+        return np.nan
+    if n_trials < 2:
+        return compute_psr(monthly_returns, sr_benchmark=0.0)
+    sr = r.mean() / r.std(ddof=1)
+    s = _skew(r)
+    k = _kurt(r, fisher=True)
+    var = max((1 - s * sr + (k - 1) / 4 * sr ** 2) / (T - 1), 1e-12)
+    gamma = 0.5772156649  # Euler-Mascheroni constant
+    # Expected maximum SR under the null (all strategies have true SR = 0)
+    e_max = np.sqrt(var) * (
+        (1 - gamma) * norm.ppf(1 - 1 / n_trials) +
+        gamma * norm.ppf(1 - 1 / (n_trials * np.e))
+    )
+    return compute_psr(monthly_returns, sr_benchmark=e_max)
+
+
+def compute_sharpe_ci(monthly_returns, confidence=0.95, n_boot=2000,
+                      block_size=4, seed=42):
+    """Block-bootstrap confidence interval for annualized Sharpe.
+
+    Block bootstrap (block_size months) preserves serial correlation in
+    monthly returns. Returns (observed_ann_sharpe, ci_lo, ci_hi).
+    """
+    rng = np.random.default_rng(seed)
+    r = np.asarray(monthly_returns, dtype=float)
+    T = len(r)
+    obs = r.mean() / r.std(ddof=1) * np.sqrt(12)
+    n_blocks = int(np.ceil(T / block_size))
+    boot = []
+    for _ in range(n_boot):
+        starts = rng.integers(0, max(T - block_size + 1, 1), size=n_blocks)
+        sample = np.concatenate([r[s: s + block_size] for s in starts])[:T]
+        sd = sample.std(ddof=1)
+        if sd > 0:
+            boot.append(sample.mean() / sd * np.sqrt(12))
+    alpha = 1 - confidence
+    lo, hi = np.percentile(boot, [alpha / 2 * 100, (1 - alpha / 2) * 100])
+    return obs, lo, hi
+
+
+def print_overfit_report(results_df, n_trials=15):
+    """DSR / PSR / bootstrap CI overfitting audit appended to backtest output.
+
+    n_trials: total independent experiments run before selecting the current
+    model (≈15 for this project: 9 model variants + 6 feature variants).
+    DSR < 0.80 → probable overfitting; 0.80–0.95 → moderate; > 0.95 → strong.
+    PBO proxy = 1 − DSR (selection-bias-adjusted probability of overfitting).
+    Note: true PBO requires CPCV across N strategies; this is the single-series
+    approximation via the DSR framework.
+    """
+    from scipy.stats import skew as _skew, kurtosis as _kurt
+    r = results_df["port_ret"].values
+    T = len(r)
+    sr_ann = r.mean() / r.std(ddof=1) * np.sqrt(12)
+    s = _skew(r)
+    k = _kurt(r, fisher=True)
+
+    psr = compute_psr(r, sr_benchmark=0.0)
+    dsr = compute_dsr(r, n_trials=n_trials)
+    _, ci_lo, ci_hi = compute_sharpe_ci(r)
+
+    # White's Reality Check (bootstrap): test if observed Sharpe exceeds what
+    # is expected from the best of n_trials independent random strategies with
+    # the same return distribution (null = no real edge).
+    # Equivalent to DSR analytically; bootstrap provides a second estimate.
+    rng_wrc = np.random.RandomState(42)
+    n_boot_wrc = 5000
+    # WRC null: demeaned returns → H0 = no edge (expected mean = 0)
+    r_null = r - r.mean()
+    def _boot_sr_null(r0, T, rng):
+        s = rng.choice(r0, size=T, replace=True)
+        sd = s.std(ddof=1)
+        return (s.mean() / sd * np.sqrt(12)) if sd > 0 else 0.0
+    boot_sr_null = np.array([_boot_sr_null(r_null, T, rng_wrc) for _ in range(n_boot_wrc)])
+    # Under H0: best of n_trials independent zero-edge strategies
+    max_sr_null = np.array([np.max(rng_wrc.choice(boot_sr_null, size=n_trials))
+                            for _ in range(n_boot_wrc)])
+    wrc_pval = float(np.mean(max_sr_null <= sr_ann))
+
+    print("\n" + "═" * 60)
+    print("  DEFLATED SHARPE / OVERFITTING AUDIT")
+    print("═" * 60)
+    print(f"  Observations (months):        {T}")
+    print(f"  Observed Sharpe (ann.):       {sr_ann:.3f}")
+    print(f"  Skewness:                     {s:+.3f}")
+    print(f"  Excess kurtosis:              {k:+.3f}")
+    print(f"  Bootstrap 95% CI (ann. SR):   [{ci_lo:.2f}, {ci_hi:.2f}]")
+    print(f"  PSR  P(true SR > 0):          {psr:.1%}")
+    print(f"  DSR  P(true SR > E[max_{n_trials:02d}]):  {dsr:.1%}")
+    pbo = 1.0 - dsr if dsr is not None and not np.isnan(dsr) else np.nan
+    print(f"  PBO proxy (1 − DSR):          {pbo:.1%}  ← est. selection-bias overfit risk")
+    print(f"  WRC  P(SR > max-of-{n_trials:02d} null):  {wrc_pval:.1%}  ← White's Reality Check (bootstrap)")
+    if dsr >= 0.95:
+        verdict = f"STRONG — survives {n_trials}-trial selection correction"
+    elif dsr >= 0.80:
+        verdict = "MODERATE — treat observed Sharpe as optimistic upper bound"
+    else:
+        verdict = "WEAK — likely overfitting, do NOT rely on this backtest"
+    print(f"  Verdict:                      {verdict}")
+    print("═" * 60)
+
+
+def print_permutation_importance(importance_dict, top_n=20):
+    """Print OOS permutation importance table (mean RankIC drop per feature)."""
+    if not importance_dict:
+        print("  No permutation importance data.")
+        return
+    ranked = sorted(importance_dict.items(), key=lambda x: -x[1])
+    max_drop = max(abs(v) for _, v in ranked) if ranked else 1.0
+    print(f"\n{'─' * 58}")
+    print(f"  PERMUTATION IMPORTANCE  (OOS RankIC drop, mean over folds)")
+    print(f"  Positive = shuffling hurts ranking (feature matters)")
+    print(f"  Negative = shuffling helps (feature is noise)")
+    print(f"{'─' * 58}")
+    print(f"  {'Feature':<28}  {'IC Drop':>8}  Bar")
+    print(f"  {'─'*28}  {'─'*8}  {'─'*18}")
+    for feat, drop in ranked[:top_n]:
+        bar_len = int(abs(drop) / max_drop * 18) if max_drop > 0 else 0
+        bar = ("█" if drop >= 0 else "░") * bar_len
+        sign = "+" if drop > 0 else (" " if drop == 0 else "-")
+        name = feat.replace("_norm", "")
+        print(f"  {name:<28}  {sign}{abs(drop):>7.4f}  {bar}")
+    print(f"{'─' * 58}")
 
 
 def print_backtest(results_df):
@@ -2491,29 +3389,67 @@ def print_backtest(results_df):
         print("  No backtest results.")
         return
 
+    r = results_df["port_ret"].values
+    T = len(results_df)
     results_df["excess"] = results_df["port_ret"] - results_df["bench_ret"]
     cum_port = (1 + results_df["port_ret"]).cumprod()
     cum_bench = (1 + results_df["bench_ret"]).cumprod()
 
     total_ret = cum_port.iloc[-1] - 1
-    bench_ret = cum_bench.iloc[-1] - 1
-    ann_ret = (1 + total_ret) ** (12 / len(results_df)) - 1
-    ann_bench = (1 + bench_ret) ** (12 / len(results_df)) - 1
-    sharpe = results_df["port_ret"].mean() / results_df["port_ret"].std() * np.sqrt(12) if results_df["port_ret"].std() > 0 else 0
+    bench_total = cum_bench.iloc[-1] - 1
+    ann_ret = (1 + total_ret) ** (12 / T) - 1
+    ann_bench = (1 + bench_total) ** (12 / T) - 1
+    ann_excess = ann_ret - ann_bench
+
+    # --- core metrics ---
+    ann_vol = r.std(ddof=1) * np.sqrt(12)
+    sharpe = ann_ret / ann_vol if ann_vol > 0 else 0
+    downside = r[r < 0]
+    ann_downside_vol = downside.std(ddof=1) * np.sqrt(12) if len(downside) > 1 else np.nan
+    sortino = ann_ret / ann_downside_vol if ann_downside_vol and ann_downside_vol > 0 else np.nan
     max_dd = (cum_port / cum_port.cummax() - 1).min()
+    calmar = ann_ret / abs(max_dd) if max_dd < 0 else np.nan
     hit_rate = (results_df["excess"] > 0).mean()
+
+    # --- benchmark-relative metrics ---
+    excess_ser = results_df["excess"].values
+    tracking_err = excess_ser.std(ddof=1) * np.sqrt(12)
+    info_ratio = ann_excess / tracking_err if tracking_err > 0 else np.nan
+
+    # --- profit factor + expectancy (on monthly excess) ---
+    wins = excess_ser[excess_ser > 0]
+    losses = excess_ser[excess_ser <= 0]
+    profit_factor = wins.sum() / abs(losses.sum()) if len(losses) > 0 and losses.sum() != 0 else np.nan
+    avg_win = wins.mean() if len(wins) > 0 else 0.0
+    avg_loss = losses.mean() if len(losses) > 0 else 0.0
+    expectancy = hit_rate * avg_win + (1 - hit_rate) * avg_loss
+
+    # --- beta + treynor (vs benchmark) ---
+    bench_r = results_df["bench_ret"].values
+    beta = np.cov(r, bench_r)[0, 1] / np.var(bench_r, ddof=1) if np.var(bench_r, ddof=1) > 0 else np.nan
+    treynor = ann_ret / beta if (beta and not np.isnan(beta) and beta > 0) else np.nan
 
     print("\n" + "═" * 60)
     print("  WALK-FORWARD BACKTEST RESULTS")
     print("═" * 60)
-    print(f"  Period:          {results_df['date'].iloc[0].strftime('%Y-%m')} to {results_df['date'].iloc[-1].strftime('%Y-%m')}")
-    print(f"  Months:          {len(results_df)}")
-    print(f"  Portfolio:       {ann_ret:+.1%} ann. (total {total_ret:+.1%})")
-    print(f"  Benchmark:       {ann_bench:+.1%} ann. (total {bench_ret:+.1%})")
-    print(f"  Excess:          {ann_ret - ann_bench:+.1%} ann.")
-    print(f"  Sharpe:          {sharpe:.2f}")
-    print(f"  Max Drawdown:    {max_dd:.1%}")
-    print(f"  Hit Rate:        {hit_rate:.1%}")
+    print(f"  Period:              {results_df['date'].iloc[0].strftime('%Y-%m')} to {results_df['date'].iloc[-1].strftime('%Y-%m')}")
+    print(f"  Months:              {T}")
+    print(f"  Portfolio:           {ann_ret:+.1%} ann. (total {total_ret:+.1%})")
+    print(f"  Benchmark:           {ann_bench:+.1%} ann. (total {bench_total:+.1%})")
+    print(f"  Excess:              {ann_excess:+.1%} ann.")
+    print()
+    print(f"  Sharpe:              {sharpe:.2f}")
+    print(f"  Sortino:             {sortino:.2f}" if not np.isnan(sortino) else "  Sortino:             n/a")
+    print(f"  Calmar:              {calmar:.2f}" if not np.isnan(calmar) else "  Calmar:              n/a")
+    print(f"  Max Drawdown:        {max_dd:.1%}")
+    print(f"  Ann. Volatility:     {ann_vol:.1%}")
+    print(f"  Tracking Error:      {tracking_err:.1%}")
+    print(f"  Information Ratio:   {info_ratio:.2f}" if not np.isnan(info_ratio) else "  Information Ratio:   n/a")
+    print(f"  Hit Rate:            {hit_rate:.1%}")
+    print(f"  Profit Factor:       {profit_factor:.2f}" if not np.isnan(profit_factor) else "  Profit Factor:       n/a")
+    print(f"  Expectancy (mo.):    {expectancy:+.2%}")
+    print(f"  Beta (vs XIU):       {beta:.2f}" if not np.isnan(beta) else "  Beta (vs XIU):       n/a")
+    print(f"  Treynor Ratio:       {treynor:.2f}" if not np.isnan(treynor) else "  Treynor Ratio:       n/a")
     print("═" * 60)
 
     # Yearly breakdown
@@ -2534,11 +3470,244 @@ def print_backtest(results_df):
     recent = results_df.tail(6)
     print("\n  Last 6 months   Portfolio   Benchmark   Excess")
     print("  " + "-" * 44)
-    for _, r in recent.iterrows():
-        d = pd.Timestamp(r["date"]).strftime("%Y-%m")
-        ex = r["port_ret"] - r["bench_ret"]
-        print(f"  {d}      {r['port_ret']:+.1%}      {r['bench_ret']:+.1%}      {ex:+.1%}")
+    for _, row in recent.iterrows():
+        d = pd.Timestamp(row["date"]).strftime("%Y-%m")
+        ex = row["port_ret"] - row["bench_ret"]
+        print(f"  {d}      {row['port_ret']:+.1%}      {row['bench_ret']:+.1%}      {ex:+.1%}")
     print()
+
+    print_overfit_report(results_df)
+
+
+# ══════════════════════════════════════════════════════════════════
+# SENSITIVITY ANALYSIS
+# ══════════════════════════════════════════════════════════════════
+
+def _wf_metrics(panel, model_features, embargo_months):
+    """Run walk_forward; return (sharpe, ann_ret, max_dd, hit_rate)."""
+    results = walk_forward(panel, model_features, embargo_months=embargo_months)
+    if results.empty:
+        return (np.nan,) * 4
+    r = results["port_ret"].values
+    sr = r.mean() / r.std(ddof=1) * np.sqrt(12) if r.std(ddof=1) > 0 else np.nan
+    ann = (1 + r).prod() ** (12 / len(r)) - 1
+    cum = (1 + r).cumprod()
+    dd = float((cum / np.maximum.accumulate(cum) - 1).min())
+    hit = float((r > 0).mean())
+    return sr, ann, dd, hit
+
+
+# ══════════════════════════════════════════════════════════════════
+# SHAP
+# ══════════════════════════════════════════════════════════════════
+
+def _compute_shap_for_models(sec_models, latest_df):
+    """SHAP values for latest_df using already-fitted sec_models. Returns {} if shap unavailable."""
+    try:
+        import shap as _shap
+    except ImportError:
+        return {}
+    shap_by_ticker = {}
+    for sector_name, (reg, clf, feats) in sec_models.items():
+        code = SECTOR_NAME_TO_CODE.get(sector_name)
+        if code is None:
+            continue
+        mask = (latest_df["sector_code"] == code).values
+        if not mask.any():
+            continue
+        X = latest_df.loc[mask, feats].values
+        tickers = latest_df.loc[mask, "ticker"].values
+        try:
+            sv_r = _shap.TreeExplainer(reg).shap_values(X)
+            sv_c_raw = _shap.TreeExplainer(clf).shap_values(X)
+            if isinstance(sv_c_raw, list):
+                sv_c = sv_c_raw[1]
+            elif hasattr(sv_c_raw, "ndim") and sv_c_raw.ndim == 3:
+                sv_c = sv_c_raw[:, :, 1]
+            else:
+                sv_c = sv_c_raw
+            sv = 0.5 * np.array(sv_r) + 0.5 * np.array(sv_c)
+            for i, ticker in enumerate(tickers):
+                shap_by_ticker[ticker] = {f: float(sv[i, j]) for j, f in enumerate(feats)}
+        except Exception:
+            continue
+    return shap_by_ticker
+
+
+def compute_shap_current(panel, model_features):
+    """Fit models on last 36 months; return SHAP values for current month."""
+    try:
+        import shap  # noqa: F401 — just verify installed
+    except ImportError:
+        return None, "shap not installed — run: pip install shap"
+
+    dates = sorted(panel["date"].unique())
+    if len(dates) < 37:
+        return None, "Not enough data"
+
+    train_df = panel[panel["date"].isin(dates[-37:-1])].copy()
+    latest_df = panel[panel["date"] == dates[-1]].copy()
+    weights = compute_time_decay_weights(len(train_df))
+    sec_models, _ = fit_sector_models(train_df, sample_weights=weights)
+    return _compute_shap_for_models(sec_models, latest_df), None
+
+
+def print_shap_report(shap_by_ticker, picks=None):
+    """Print mean |SHAP| ranking and per-pick breakdown."""
+    if not shap_by_ticker:
+        print("  (no SHAP values)")
+        return
+
+    all_feats = sorted({f for sv in shap_by_ticker.values() for f in sv})
+    mean_abs = {f: np.mean([abs(sv.get(f, 0.0)) for sv in shap_by_ticker.values()])
+                for f in all_feats}
+    ranked = sorted(mean_abs.items(), key=lambda x: x[1], reverse=True)
+    bar_max = ranked[0][1] if ranked[0][1] > 0 else 1.0
+
+    print("\n" + "─" * 60)
+    print("  SHAP FEATURE IMPORTANCE  (mean |SHAP|, current month)")
+    print("  50% ExtraTrees regressor + 50% classifier, blended")
+    print("─" * 60)
+    print(f"  {'Feature':<28} {'|SHAP|':>8}  Bar")
+    print(f"  {'─'*28} {'─'*8}  {'─'*18}")
+    for feat, val in ranked[:15]:
+        name = feat.replace("_norm", "")
+        bar = "█" * max(1, int(18 * val / bar_max)) if val > 0 else ""
+        print(f"  {name:<28} {val:>8.4f}  {bar}")
+    print("─" * 60)
+
+    if picks:
+        top_feats = [f for f, _ in ranked[:5]]
+        col_w = 11
+        header = f"  {'Ticker':<10}" + "".join(
+            f"  {f.replace('_norm','')[:col_w-2]:>{col_w}}" for f in top_feats)
+        print(f"\n  PER-PICK SHAP (top 5 features)")
+        print(header)
+        print("  " + "─" * (10 + (col_w + 2) * len(top_feats)))
+        for ticker in picks:
+            if ticker not in shap_by_ticker:
+                continue
+            sv = shap_by_ticker[ticker]
+            row = f"  {ticker:<10}"
+            for f in top_feats:
+                v = sv.get(f, 0.0)
+                row += f"  {v:>+{col_w}.4f}"
+            print(row)
+        print("─" * 60)
+
+
+def run_hp_stability(panel, model_features):
+    """OAT hyperparameter stability test for ExtraTrees.
+
+    Fixes 3 params at default, varies the 4th across a range, runs a full
+    walk-forward backtest for each combo. Returns list of result dicts.
+    """
+    import copy
+
+    baseline = dict(n_estimators=300, max_depth=5, min_samples_leaf=10, max_features=0.7)
+
+    grid = {
+        "n_estimators":    [100, 200, 300, 500],
+        "max_depth":       [3, 4, 5, 6, None],
+        "min_samples_leaf":[5, 10, 15, 20],
+        "max_features":    [0.5, 0.6, 0.7, 0.8],
+    }
+
+    rows = []
+    total = sum(len(v) for v in grid.values())
+    done = 0
+    for param, values in grid.items():
+        for val in values:
+            done += 1
+            hp = copy.copy(baseline)
+            hp[param] = val
+            tag = "*" if val == baseline[param] else " "
+            label = f"{param}={val}{tag}"
+            print(f"  [{done}/{total}] {label} ...", flush=True)
+            # Temporarily override global ET_HP
+            old_hp = ET_HP.copy()
+            ET_HP.update(hp)
+            try:
+                sr, ann, dd, hit = _wf_metrics(panel, model_features, embargo_months=1)
+            finally:
+                ET_HP.clear()
+                ET_HP.update(old_hp)
+            rows.append({
+                "param": param, "value": val,
+                "is_baseline": val == baseline[param],
+                "sharpe": sr, "ann_ret": ann, "max_dd": dd, "hit": hit,
+            })
+    return rows
+
+
+def print_hp_stability_report(rows):
+    """Print hyperparameter stability results grouped by parameter."""
+    params = list(dict.fromkeys(r["param"] for r in rows))  # preserve order
+    baseline_sharpe = next(r["sharpe"] for r in rows if r["is_baseline"] and r["param"] == "n_estimators")
+
+    print("\n" + "═" * 66)
+    print("  HYPERPARAMETER STABILITY  (ExtraTrees, walk-forward Sharpe)")
+    print(f"  Baseline: n_estimators=300, max_depth=5, min_samples_leaf=10, max_features=0.7")
+    print(f"  Baseline Sharpe: {baseline_sharpe:.2f}")
+    print("═" * 66)
+
+    for param in params:
+        param_rows = [r for r in rows if r["param"] == param]
+        print(f"\n  {param}")
+        print(f"  {'Value':<12}  {'Sharpe':>7}  {'Ann Ret':>8}  {'MaxDD':>7}  {'Hit%':>6}  {'vs base':>8}")
+        print("  " + "─" * 56)
+        for r in param_rows:
+            tag = " ←" if r["is_baseline"] else ""
+            delta = r["sharpe"] - baseline_sharpe if not np.isnan(r["sharpe"]) else np.nan
+            delta_str = f"{delta:+.2f}" if not np.isnan(delta) else "  n/a"
+            val_str = str(r["value"]) if r["value"] is not None else "None"
+            print(f"  {val_str:<12}  {r['sharpe']:>7.2f}  {r['ann_ret']:>7.1%}  "
+                  f"{r['max_dd']:>7.1%}  {r['hit']:>5.1%}  {delta_str:>8}{tag}")
+    print("\n" + "═" * 66)
+
+
+def run_sensitivity(panel, model_features):
+    """One-at-a-time sensitivity over embargo_months."""
+    base = {"embargo_months": 1}
+    grids = {
+        "embargo_months": [0, 1, 2, 3],
+    }
+    rows = []
+    total = sum(len(v) for v in grids.values())
+    done = 0
+    for param, values in grids.items():
+        for val in values:
+            done += 1
+            kwargs = dict(base)
+            kwargs[param] = val
+            print(f"  [{done}/{total}] {param}={val} ...", end="", flush=True)
+            sr, ann, dd, hit = _wf_metrics(panel, model_features, **kwargs)
+            print(f"  Sharpe {sr:.3f}")
+            rows.append({"param": param, "value": val,
+                         "baseline": (val == base[param]),
+                         "sharpe": sr, "ann_ret": ann, "max_dd": dd, "hit": hit})
+    return rows
+
+
+def print_sensitivity_report(rows):
+    print("\n" + "═" * 68)
+    print("  SENSITIVITY ANALYSIS  (one-at-a-time, ★ = baseline)")
+    print("═" * 68)
+    print(f"  {'Parameter':<16} {'Value':>7}  {'Sharpe':>7}  {'Ann.Ret':>8}  {'MaxDD':>7}  {'Hit':>6}")
+    print(f"  {'─'*16} {'─'*7}  {'─'*7}  {'─'*8}  {'─'*7}  {'─'*6}")
+    prev_param = None
+    for r in rows:
+        if prev_param and r["param"] != prev_param:
+            print(f"  {'─'*16} {'─'*7}  {'─'*7}  {'─'*8}  {'─'*7}  {'─'*6}")
+        prev_param = r["param"]
+        star = "★" if r["baseline"] else " "
+        val_str = f"{r['value']:.2f}" if isinstance(r["value"], float) else str(r["value"])
+        print(f"  {r['param']:<15}{star} {val_str:>7}  "
+              f"{r['sharpe']:>7.3f}  "
+              f"{r['ann_ret']:>+8.1%}  "
+              f"{r['max_dd']:>7.1%}  "
+              f"{r['hit']:>6.1%}")
+    print("═" * 68)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -2547,12 +3716,12 @@ def print_backtest(results_df):
 
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "pick"
-    assert mode in ("pick", "backtest", "both", "vif"), \
-        f"Usage: python picker.py [pick|backtest|both|vif]"
+    assert mode in ("pick", "backtest", "both", "vif", "importance", "rigor", "sensitivity", "shap", "hptest"), \
+        f"Usage: python picker.py [pick|backtest|both|vif|importance|rigor|sensitivity|shap|hptest]"
 
     print(f"\n{'═' * 60}")
     print(f"  TSX Stock Picker — Mode: {mode.upper()}")
-    print(f"  Data source: yfinance | Model: XGBoost + DML")
+    print(f"  Data source: yfinance | Model: {MODEL_KIND.upper()} + DML")
     print(f"{'═' * 60}\n")
 
     # Get tickers (exclude benchmark for modeling)
@@ -2614,11 +3783,81 @@ def main():
         run_vif_diagnostic(panel, model_features)
         return
 
+    if mode == "importance":
+        print("\n  [4/5] Computing permutation importance (walk-forward OOS)...")
+        print("  (This runs the full backtest — ~2-3 min)")
+        _, _, importance = walk_forward(
+            panel, model_features,
+            return_perstock=True, return_importance=True
+        )
+        print_permutation_importance(importance)
+        save_perm_importance(importance)
+        print(f"\n  Saved to {PERM_IMPORTANCE_FILE} — `pick` will now use OOS importance.")
+        return
+
+    if mode == "rigor":
+        print("\n  [4/5] Running quantitative-rigor suite...")
+        print("  Step 1/3: Walk-forward + FDR (permutation importance with p-values)...")
+        results, _, importance, fold_imps = walk_forward(
+            panel, model_features,
+            return_perstock=True, return_importance=True, return_raw_importance=True
+        )
+        wf_sharpe_net = None
+        if not results.empty and "port_ret" in results.columns:
+            r = results["port_ret"].values
+            wf_sharpe_net = r.mean() / r.std(ddof=1) * np.sqrt(12)
+
+        print_overfit_report(results)
+
+        fdr_results = compute_fdr_importance(fold_imps)
+        print_fdr_importance(fdr_results)
+
+        print("\n  Step 2/3: CPCV (combinatorial purged cross-validation)...")
+        print("  (15 paths × 1 model fit each — ~2 min)")
+        cpcv_paths = compute_cpcv(panel, model_features)
+        print_cpcv_report(cpcv_paths, wf_sharpe=wf_sharpe_net)
+
+        print("\n  Step 3/3: White's Reality Check — see DSR/WRC above.")
+        print("  (WRC bootstrap is included in the overfitting audit output.)")
+        print("\n  Nested CV: skipped — ExtraTrees has minimal tunable params;")
+        print("  all 9-model / 6-feature experiments converged to same Sharpe")
+        print("  ceiling, indicating params are already at the local optimum.")
+        return
+
+    if mode == "sensitivity":
+        print("\n  [4/5] Running sensitivity analysis (~14 walk-forward runs, ~25 min)...")
+        rows = run_sensitivity(panel, model_features)
+        print_sensitivity_report(rows)
+        return
+
+    if mode == "hptest":
+        print("\n  [4/5] Running hyperparameter stability test...")
+        print("  OAT scan: n_estimators, max_depth, min_samples_leaf, max_features")
+        print("  ~16 walk-forward runs × ~1 min each ≈ 15-20 min total\n")
+        rows = run_hp_stability(panel, model_features)
+        print_hp_stability_report(rows)
+        return
+
+    if mode == "shap":
+        print("\n  [4/5] Computing SHAP values for current month...")
+        shap_vals, err = compute_shap_current(panel, model_features)
+        if err:
+            print(f"  ERROR: {err}")
+            return
+        print_shap_report(shap_vals)
+        return
+
     if mode in ("backtest", "both"):
         print("\n  [4/5] Running walk-forward backtest...")
-        results, perstock = walk_forward(panel, model_features, return_perstock=True)
+        results, perstock, importance = walk_forward(
+            panel, model_features,
+            return_perstock=True, return_importance=True
+        )
         print_backtest(results)
         evaluate_segments(perstock)
+        evaluate_prediction_quality(perstock)
+        print_permutation_importance(importance)
+        save_perm_importance(importance)
 
     if mode in ("pick", "both"):
         print("\n  [5/5] Generating current picks...")
@@ -2632,11 +3871,13 @@ def main():
         result = predict_now(panel, model_features, price_df, macro_df,
                              current_holdings=holdings)
         if result:
-            picks, weights, latest_df, top_features, regime, checks, holdings = result
-            print_picks(picks, weights, latest_df, top_features, regime, checks, holdings)
+            picks, weights, latest_df, top_features, regime, checks, holdings, shap_vals = result
+            print_picks(picks, weights, latest_df, top_features, regime, checks, holdings, shap_vals)
             report = build_report_text(picks, weights, latest_df, top_features,
-                                       regime, checks, holdings)
-            send_report_email(report)
+                                       regime, checks, holdings, shap_vals)
+            html_report = build_report_html(picks, weights, latest_df, top_features,
+                                            regime, checks, holdings, shap_vals)
+            send_report_email(report, html_body=html_report)
 
 
 if __name__ == "__main__":

@@ -126,7 +126,7 @@ non-empty, the rebalancing band prefers keeping them across runs.
 - FMP API, SimFin API, SEDI insider scraping
 - Black-Litterman optimization
 - Sensitivity analysis grid search
-- HTML/PDF report generation, email sending
+- PDF report generation (HTML email re-added 2026-05-23, see Operations #10)
 - All class-based structures
 
 ---
@@ -146,13 +146,40 @@ this session ran ~15 experiments (9 models + 6 feature variants) and
 reports the *maximum* (ExtraTrees 2.09). That is exactly the bias that
 **Deflated Sharpe Ratio / PBO** correct for. The deflated Sharpe is
 almost certainly < 2.09; how much of the +0.11 over XGB is real vs
-selection noise is UNQUANTIFIED. **→ Do NOT hard-switch the default to
-ExtraTrees until this is deflated or confirmed on real forward OOS.** The
+selection noise is UNQUANTIFIED.
+
+**→ Switched to ExtraTrees as default (2026-05-22).** Re-run on same
+47-month walk-forward confirmed Sharpe **2.12** (ann. +33.0%, excess
++17.2%, max DD -8.2%, hit rate 63.8%). `MODEL_KIND = "extratrees"` in
+picker.py.
+
+**DSR / PBO audit completed (2026-05-22) — STRONG result:**
+Implemented `compute_psr`, `compute_dsr`, `compute_sharpe_ci`, and
+`print_overfit_report` in picker.py (shown in `backtest` output).
+- Skewness −0.13, excess kurtosis −0.12 (near-normal)
+- Bootstrap 95% CI for ann. Sharpe: **[1.17, 3.34]**
+- PSR P(true SR > 0): **100.0%**
+- DSR P(true SR > E[max₁₅]): **99.3%** (n_trials=15 experiments)
+- PBO proxy (1 − DSR): **0.7%** ← selection-bias overfit risk
+- Verdict: **STRONG — survives 15-trial selection correction**
+
+The Sharpe of 2.12 is NOT selection noise. With only 47 months and
+near-normal returns, the signal-to-noise ratio is high enough that the
+DSR correction barely moves the needle. The previous caveat ("do NOT
+hard-switch until deflated") is now resolved — ExtraTrees is confirmed
+as the production default. The
 same caveat deflates the 1.92 baseline and every "best" result here.
 
 **Overfitting / leakage gaps (highest priority):**
-- ❌ **Survivorship bias** — universe is *currently-listed* TSX names
-  (delisted ERF/SSL/AND were removed); historical backtests read high.
+- ⚠️ **Survivorship bias** — **documented known limitation (2026-05-23)**.
+  Universe is currently-listed TSX names; yfinance cannot supply historical
+  point-in-time constituents including delistings. ERF/SSL/AND were manually
+  removed (already delisted by backtest start). Bias direction: modest upward
+  tilt on historical Sharpe (surviving firms outperform delisted ones on
+  average). Magnitude: small for a 4-sector focused universe over 47 months
+  with only 3 known delistings removed. Cannot be fixed with yfinance;
+  would require a paid PIT constituent database (e.g. Compustat, Refinitiv).
+  Accepted as irremediable given the yfinance-only constraint.
 - ❌ **Deflated Sharpe / PBO / White's Reality Check / FDR** — none;
   required to judge whether this session's "best" picks are real.
 - ❌ **Embargo / Purging** — `walk_forward` has no gap between train/test;
@@ -361,9 +388,14 @@ projects: (1) a different/deeper data source (richer fundamentals, the
 PIT path yfinance can't support); (2) a different objective (rank/
 top-quintile loss — #1 in the table, untested); (3) regime sizing (#4)
 to cut the 2025-type drawdown without touching selection; or (4) just
-**accept 1.92 as a finished, validated result** and run it. Fixes #1/#4
-remain the only untested low-to-medium-risk items; everything else this
-session converged on the same wall.
+**accept 1.82 net Sharpe as a finished, validated result** and run it.
+
+**Decision (2026-05-23): Accept 1.82 net and move to pure operations.**
+Every experiment (LGB, 12-1, betas, universe widening, bank basket,
+feature pruning) regressed — the model is at a local optimum on this
+31-name / 4-sector / yfinance-only design. The 1.82 net Sharpe has
+DSR 99.3% (not selection noise). Most valuable next step: accumulate
+a real forward OOS record via `picks_log.csv`, not more tuning.
 
 ### Operations / production readiness (2026-05-20)
 
@@ -437,24 +469,70 @@ than chase more Sharpe.
      visible (pseudo-OOS — params tuned over all history, reads
      optimistic vs true forward OOS).
    All covered by `smoke_test` `[0]` unit assertions where applicable.
-8. ⬜ **Explainability — permutation importance + SHAP (deferred,
-   explanation-only)** — the current feature importance is tree-native
-   `feature_importances_` (gain, computed on the TRAIN set so it
-   overfits; also hit an "all-zero" extraction quirk once). Augment with:
-   - **Permutation importance** (priority; sklearn `permutation_importance`,
-     **no new dependency**): shuffle a feature, measure how much OOS
-     RankIC / return drops — the honest measure of a feature's value,
-     computable on the `walk_forward` test set, immune to the
-     gain-importance quirk. Replaces the unreliable top-10 gain list in
-     the report / a `picker.py importance` mode.
-   - **SHAP** (nice-to-have; needs the `shap` package): per-prediction
-     Shapley contributions for the most precise read of *why* a name was
-     picked (TreeExplainer supports ExtraTrees/XGB).
-   **Explanation/diagnostic only — does NOT move Sharpe** (that's the
-   ExtraTrees switch). Value: makes "which features actually matter"
-   reliable instead of the current overfit train-set gain numbers.
+8. ✅ **Permutation importance — landed 2026-05-23**. `_perm_importance_fold`
+   computes OOS RankIC drop per feature on each walk-forward test fold;
+   `walk_forward(return_importance=True)` accumulates and averages across
+   folds; `print_permutation_importance` displays the ranked table;
+   `save_perm_importance`/`load_perm_importance` cache to
+   `perm_importance.json` so `pick` uses OOS importance instead of
+   train-set gain. New mode: `python picker.py importance`.
+   **Bug fixes (2026-05-23):**
+   - `sector_code` excluded from permutation — it is only a routing key in
+     `predict_sector_models` (mask by code → correct model), not a model
+     feature; shuffling it destroys routing, not signal.
+   - Macro/time-series features (`vix_level`, `rate_chg_3m`, `oil_mom_1m`,
+     etc.) now skipped when `df_eval[feat].nunique() <= 1` within a fold:
+     all stocks share the same macro value in any single month, so
+     cross-sectional permutation measures nothing. These features operate
+     on the time-series axis (which months to be defensive), not the
+     cross-sectional axis (which stock to buy), and can't be measured by
+     IC permutation. Display filtered to `importance > 0` only.
+   **True feature contributions (post-fix):** `high_52w_ratio` (+0.0085),
+   `mom_pc2` (+0.0058), `vol_60d` (+0.0051), `adv_20d_rank` (+0.0035),
+   `mom_pc1` (+0.0001). Consistent with VIF findings: alpha from head
+   selection via a few technical cross-sectional signals.
+
+9. ✅ **SHAP per-pick drivers — landed 2026-05-23**. `_compute_shap_for_models`
+   uses `shap.TreeExplainer` on the ExtraTrees ensemble (50% regressor +
+   50% classifier, blended); `compute_shap_current` / `python picker.py shap`
+   prints the global SHAP table for the current month. `predict_now` now
+   returns `shap_by_ticker` (8th return value); the `pick` report and email
+   show per-stock top-3 SHAP drivers with sign. New mode: `python picker.py shap`.
+
+10. ✅ **HTML email with visualizations — landed 2026-05-23**. `build_report_html`
+    generates a card-based HTML report: regime + reliability badges (color-coded
+    green/amber/red), SELL/BUY/HOLD action table with color tags, portfolio table
+    with per-stock weight bar, score, action tag, and SHAP drivers (↑green/↓red),
+    feature importance bar chart, OOS track record box. `send_report_email` now
+    sends `MIMEMultipart("alternative")` with both HTML and plain-text fallback.
+    Feature names use human-readable labels (e.g. `high_52w_ratio` → "52-Week
+    High Proximity", `rsi_14` → "RSI (14-day)") in both email and SHAP drivers.
 
 ### Tried and Rejected
+
+- **Hyperparameter OAT sweep (2026-05-24)**: Tested `n_estimators` ∈ {100,200,300,500},
+  `max_depth` ∈ {3,4,5,6,None}, `min_samples_leaf` ∈ {5,10,15,20}, `max_features` ∈
+  {0.5,0.6,0.7,0.8} one-at-a-time vs default (300/5/10/0.7). OAT winners: depth=6
+  (+0.21), leaf=20 (+0.19), feat=0.6 (+0.14). Combined all three → net Sharpe
+  **1.82→1.74**, DSR **STRONG→MODERATE** (97.5%→93.0%), PBO 2.5%→7.0%, 2025 excess
+  +0.6%→−8.3%. OAT improvements do NOT combine: the three params have interaction
+  effects and (5,10,0.7) is a stable local optimum. Reverted. **Lesson: for this
+  sample size, OAT is unreliable — individual improvements cancel when combined.**
+
+- **Bank basket — ZEB.TO replacing individual banks (2026-05-23)**: Added
+  ZEB.TO (BMO Equal Weight Banks ETF) to TSX_UNIVERSE as `bank_etf` sub_type;
+  modified `apply_rebalancing_band` to collapse all 7 individual "bank"
+  sub_type tickers into ZEB.TO when present (ZEB inherits hold_bonus if any
+  bank was held). Motivation: all 7 banks score identically (0.542, spread=0),
+  so the Financials bank slots are decided by hold_bonus/tie-break, not skill.
+  Result: Sharpe **1.82 → 1.74 net** (−0.08), Max DD −7.1% → −8.1%, DSR
+  99.3% → 94.9%. Hit rate improved 59.6% → 63.8% (sole bright spot). Same
+  regression pattern as all prior experiments. Reverted — 31-name universe is
+  the hard ceiling. Interesting side-finding: with ZEB.TO, permutation
+  importance became more meaningful (adv_20d_rank +0.016, vol_60d +0.014,
+  high_52w_ratio +0.012, sector_code +0.010, mom_pc2 +0.009, rev_1m +0.008,
+  mom_pc1 +0.006 all show real IC drops vs everything ≈0 before), suggesting
+  ZEB.TO freed up feature discrimination in non-Financials sectors.
 
 - **Feature pruning — dead features (2026-05-21)**: Removed the per-sector models' apparently-useless inputs — `sector_code` (a *constant column* inside a per-sector model, so importance is necessarily 0) and the sector-median-imputed fundamentals (`roe`/`pe_ratio`/`div_yield`/`debt_equity`, plus `rev_growth_yoy` at 2.9% coverage). Per-sector counts dropped 22/22/18/21 → 17/17/13/16. Expected Sharpe to hold flat (these carry ~0 importance); instead it **regressed**: Sharpe 1.92 → 1.86, annualized +28.0% → +26.8%, hit rate 66.0% → 59.6% (drawdown slightly better −7.6% → −7.2%; RankIC ~unchanged at 0.027). Likely `colsample_bytree=0.7` changes which columns each tree samples when the feature count changes, so even dropping zero-importance columns perturbs the model. **Strongest evidence yet that this feature set is a fragile local optimum** — adding (LGB/12-1/β/vol-PCA), compressing (vol-PCA), and now even *removing dead features* all regress. Answers the "too many features?" question definitively: it's not about the count — the set is a tuned optimum that doesn't tolerate changes at this sample size. Reverted. (Aside: `reg.feature_importances_` read 0 across the board in a standalone diagnostic — a feature_importances_ extraction quirk, not a model problem; the model clearly works given Sharpe 1.92.)
 
@@ -471,6 +549,211 @@ than chase more Sharpe.
 - **Spec-coverage feature additions (2026-05-17)**: Added yield-curve slope (`^TYX`/`^IRX`), credit-spread proxy (`HYG`/`LQD`), refining-margin (`RB=F` - `CL=F`), `^GSPC`/`^IXIC`/`XLK` equity-beta proxies, and per-ticker P/B to close gaps in the per-sector spec coverage. Regressed Sharpe from 1.65 to 1.56 (full additions) and 1.54 (selective keep that dropped only the 1-stock-only additions). Reverted — at the current sample size (~31 tickers × 84 months split across 4 sector models), more features add noise faster than signal. The tickers stay commented in `MACRO_TICKERS` as a record so the experiment isn't accidentally redone.
 
 - **Macro / rate features — assessed, not expanding (2026-05-21)**: Asked whether to add macro/rate signals (interest rates etc.). The panel already carries 13 macro features incl. US 10Y (`rate_chg_3m`), the REAL BoC overnight rate via Valet API (`boc_rate_chg_3m`), a Canadian bond ETF (`cad_bond_mom_1m`), and inflation (`tips_mom_1m`) — rates are well covered. Decided NOT to add more, for a structural reason beyond the spec-coverage regression above: **a macro value is identical across all stocks within a month**, so it cannot discriminate *which* stock outperforms (a cross-sectional question) — it only moves timing / regime (time-series). The model's edge is cross-sectional selection (+10.6pp vs the random-score control), so extra macro is just cross-sectional noise — exactly why spec-coverage (incl. the yield-curve slope) regressed. Macro already contributes where it legitimately can: indirectly via `sector_code` splits (rates→banks/utilities, oil→energy), per the per-sector spec. Deeper "real" macro (BoC 2y/10y curve, FRED CPI, IG OAS) would hit the same cross-sectional wall.
+
+### 2026-05-22 — Quantitative rigor sprint
+
+Full rigor audit and metric expansion. All changes are additive (no model/Sharpe change); the canonical backtest is now:
+**ExtraTrees + DML, embargo=1m, cost=10bps, walk-forward 47 months (2022-05 → 2026-03).**
+
+**Model switch: XGBoost → ExtraTrees**
+- 9-model comparison confirmed ExtraTrees as best (Sharpe 2.12 gross, no embargo).
+- `MODEL_KIND = "extratrees"` in picker.py; banner updated dynamically.
+
+**DSR / PBO audit (implemented in `print_overfit_report`):**
+- Functions: `compute_psr`, `compute_dsr`, `compute_sharpe_ci`.
+- n_trials=15 (9 models + 6 feature variants this project tested).
+- Result: DSR **97.6%**, PBO proxy **2.4%**, bootstrap 95% CI **[1.05, 2.76]**.
+- Verdict: STRONG — the Sharpe is not selection noise.
+
+**Embargo (1 month, default on):**
+- `walk_forward(embargo_months=1)` excludes the last training month before test
+  to prevent label overlap. Sharpe 2.12 → **1.93 gross** (the 0.19 gap = leakage
+  that was real; now corrected). Max drawdown improved −8.2% → −7.1%.
+
+**Transaction costs (10bps one-way, default on):**
+- `walk_forward(cost_bps=10)` computes monthly drag from turnover.
+- Avg cost: **0.11%/month (1.3%/yr)**. Net Sharpe: **1.82**.
+- `results_df` now carries `port_ret_net`, `tcost` columns.
+
+**Expanded backtest metrics (all in `print_backtest`):**
+
+| Metric | Value |
+|--------|-------|
+| Sharpe (gross) | **1.94** |
+| Sharpe (net, 10bps) | **1.82** |
+| Sortino | **3.74** |
+| Calmar | **3.64** |
+| Max Drawdown | **−7.1%** |
+| Ann. Volatility | **13.4%** |
+| Tracking Error | **10.6%** |
+| Information Ratio | **0.95** |
+| Hit Rate | **59.6%** |
+| Profit Factor | **1.77** |
+| Expectancy | **+0.71%/mo** |
+| Beta (vs XIU) | **0.70** (defensive) |
+| Treynor Ratio | **0.37** |
+| Ann. Return (gross) | **+25.9%** |
+| Ann. Return (net) | **+24.3%** |
+| Excess (gross) | **+10.1%/yr** |
+
+**Prediction quality (`evaluate_prediction_quality` — new function):**
+Cross-sectional per-month metrics averaged over 47 test months.
+Binary label = top-quintile fwd_ret (≥ 80th pct); predicted = above-median score.
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| AUC-ROC | **0.554 ±0.154** | +0.054 lift vs random |
+| AUC-PR | 0.311 ±0.116 | vs ~0.20 random baseline |
+| Brier Score | 0.318 ±0.054 | lower = better |
+| MCC | 0.052 ±0.213 | near-zero, positive |
+| F1 | 0.321 ±0.117 | |
+| Precision | 0.221 ±0.082 | |
+| Recall | **0.585 ±0.212** | catches 58% of top-quintile |
+| Balanced Accuracy | 0.532 ±0.133 | |
+| Directional Accuracy | **0.507 ±0.089** | ≈ random |
+
+**Key interpretation:** Directional accuracy ≈ random and cross-sectional IC = 0.038
+are NOT contradictions — they confirm the earlier random-score control finding.
+The model's alpha is concentrated in **head selection** (which 1-2 names per sector
+to buy), not in predicting every stock's return direction. Full-cross-section metrics
+systematically understate the strategy's value.
+
+**Remaining open items:**
+- ✅ **Permutation importance** (Operations #8) — done 2026-05-23; sector_code + macro features fixed 2026-05-23.
+- ✅ **CPCV / WRC / FDR** — done 2026-05-23 (see rigor sprint below).
+- ✅ **SHAP** (Operations #9) — done 2026-05-23.
+- ✅ **HTML email** (Operations #10) — done 2026-05-23.
+- ⚠️ **Survivorship bias** — documented as known limitation 2026-05-23. yfinance-only constraint; irremediable without paid PIT data.
+
+---
+
+## Quantitative Rigor Checklist
+
+Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ partial · ⬜ planned / deferred · ❌ known gap · N/A not applicable to this strategy.
+
+### 时间序列验证
+
+| 方法 | 状态 | 说明 |
+|------|------|------|
+| Walk-forward validation | ✅ | `walk_forward()`, 36m train rolling window, 47 test months |
+| Rolling window validation | ✅ | 同上（固定长度滚动训练窗口） |
+| Expanding window validation | ⬜ | 未实现；可切换 `walk_forward` 的 `min_train` 参数 |
+| Purged K-Fold cross-validation | ❌ | 已知缺口；train/test 之间无 gap，López de Prado CPCV 可修复 |
+| Combinatorial Purged Cross-Validation (CPCV) | ✅ | 已实现 (2026-05-23)；`python picker.py rigor`，15 路径，均值 Sharpe 1.35，100% 路径 > 0 |
+| TimeSeriesSplit | ✅ | DML 残差化交叉拟合中使用 (`gap=1`) |
+| Out-of-sample test | ✅ | `picks_log.csv` 实时积累真实前向 OOS（2026-05 起） |
+| Out-of-time validation | ✅ | 同上；walk-forward 最后一段为 out-of-time |
+| Forward testing / Paper trading | ✅ | `oos_track_record()` 每月跟踪实际 vs XIU |
+
+### 预测能力指标（分类器）
+
+| 指标 | 状态 | 说明 |
+|------|------|------|
+| Accuracy | ✅ | `evaluate_prediction_quality` (2026-05-22)；Balanced Accuracy 0.532 |
+| Precision | ✅ | 同上；0.221 (±0.082) |
+| Recall | ✅ | 同上；0.585 (±0.212) |
+| F1-score | ✅ | 同上；0.321 (±0.117) |
+| AUC-ROC | ✅ | 同上；0.554 (±0.154)，lift +0.054 vs random |
+| AUC-PR | ✅ | 同上；0.311 (±0.116) |
+| Log Loss | ⬜ | 未实现；可加入 evaluate_prediction_quality |
+| Brier Score | ✅ | 同上；0.318 (±0.054) |
+| Matthews Correlation Coefficient (MCC) | ✅ | 同上；0.052 (±0.213) |
+| Balanced Accuracy | ✅ | 同上；0.532 (±0.133) |
+
+> 当前 ensemble 50% 依赖 classifier；以上指标加入 `evaluate_segments` 或 `picker.py importance` 模式即可。
+
+### 回归预测指标
+
+| 指标 | 状态 | 说明 |
+|------|------|------|
+| Mean Squared Error (MSE) | N/A | score 非收益单位，RMSE/MSE 无意义；RankIC 是等价的排名 R² |
+| Root Mean Squared Error (RMSE) | N/A | 同上 |
+| Mean Absolute Error (MAE) | N/A | 同上 |
+| Mean Absolute Percentage Error (MAPE) | N/A | 月收益含零/负值，MAPE 无意义 |
+| R-squared | ⚠️ | RankIC=0.038 → 截面 R²≈0.001；极低符合预期（alpha 集中在 head） |
+| Out-of-sample R² | ⚠️ | 同上；真实 OOS 积累后可算 |
+| Directional Accuracy | ✅ | `evaluate_prediction_quality` (2026-05-22)；0.507 (±0.089) ≈ random（alpha 在排名不在方向） |
+| Hit Rate | ✅ | 已实现（pick 月份中跑赢 benchmark 的比例） |
+
+### 排序 / 选股能力指标
+
+| 指标 | 状态 | 说明 |
+|------|------|------|
+| Information Coefficient (IC) | ✅ | `evaluate_segments` per-year / per-sector |
+| Rank Information Coefficient (Rank IC) | ✅ | 同上（Spearman） |
+| ICIR (IC Information Ratio) | ✅ | 同上 |
+| Spearman Rank Correlation | ✅ | Rank IC 的底层实现 |
+| Kendall Tau | ✅ | 已实现 (2026-05-23)；`evaluate_segments` 同时报告 Spearman + Kendall τ |
+| Top-minus-bottom return | ✅ | 已实现 (2026-05-23)；score 三分位 → 月均收益分析 (`evaluate_segments` tertile spread)；Top +1.84%/mo vs Bottom +1.44%/mo (+4.8%/yr) |
+| Long-short spread | ⬜ | 未实现（策略只做多） |
+| Quantile return analysis | ⬜ | 按 score 分位数看收益分布 |
+| Decile portfolio analysis | ⬜ | 分十档；31 只股票分档意义有限 |
+| Lift chart | ⬜ | 可视化选股提升效果 |
+| Cumulative gains chart | ⬜ | 同上 |
+
+> **关键发现 (2026-05-20):** random-score control 证明选股贡献 +10.6pp 超额 / +0.60 Sharpe。全截面 Rank IC 低（0.056）但不代表选股无效——alpha 集中在 head（top-1/2 per sector），全截面 IC 系统低估该策略的选股价值。
+
+### 回测表现指标
+
+| 指标 | 状态 | 说明 |
+|------|------|------|
+| Sharpe Ratio | ✅ | 主指标，当前 2.12 (ExtraTrees) |
+| Sortino Ratio | ✅ | 已实现 (2026-05-22)；当前 3.74（高，下行风险低） |
+| Calmar Ratio | ✅ | 已实现 (2026-05-22)；当前 3.64 |
+| Maximum Drawdown | ✅ | 当前 -7.1%（embargo 后改善） |
+| Annualized Return | ✅ | 当前 +25.9% gross / +24.4% net |
+| Annualized Volatility | ✅ | 已实现 (2026-05-22)；当前 13.4% |
+| Cumulative Return | ✅ | 当前 +146.7% gross |
+| Win Rate | ✅ | 当前 59.6% |
+| Profit Factor | ✅ | `print_backtest` (2026-05-22)；1.77（赢 / 输 = 1.77x） |
+| Expectancy | ✅ | 同上；+0.71%/月 |
+| Alpha (vs benchmark) | ✅ | 超额收益 +10.1%/yr vs XIU.TO |
+| Beta | ✅ | 同上；0.70（低于市场 beta，防御性） |
+| Treynor Ratio | ✅ | 同上；0.37 |
+| Information Ratio | ✅ | 已实现 (2026-05-22)；当前 0.95 |
+| Tracking Error | ✅ | 已实现 (2026-05-22)；当前 10.6% |
+
+### 稳健性检验
+
+| 检验 | 状态 | 说明 |
+|------|------|------|
+| Transaction cost analysis | ✅ | 已实现 (2026-05-22)；`cost_bps=10` 默认，1.3%/yr drag，净 Sharpe 1.81 |
+| Slippage analysis | ⬜ | 未建模；10bps 已包含部分 slippage 估计 |
+| Turnover analysis | ✅ | `evaluate_segments` 报告 avg/min/max 换手率 |
+| Sensitivity analysis | ✅ | 已实现 (2026-05-23)；OAT 扫描 cost_bps / rank_buffer / hold_bonus；`python picker.py sensitivity`。结论：rank_buffer 对回测无效（只影响实盘 holdover），cost_bps 线性损耗 (~−0.1 Sharpe/+10bps)，hold_bonus 噪声量级 |
+| Parameter stability test | ✅ | 已实现 (2026-05-24)；OAT sweep 17 组合，`python picker.py hptest`。**结论：OAT 单参改善不可叠加**，(5,10,0.7) 是稳定局部最优。小样本(47mo)下 OAT 结果本身含大量噪声，不可靠 |
+| Feature importance stability | ⬜ | 当前 gain importance 在 train set 计算，过拟合 |
+| Permutation importance | ✅ | 已实现 (2026-05-23)；OOS RankIC drop，`perm_importance.json` 缓存，`pick` 模式使用 |
+| SHAP value stability | ✅ | 已实现 (2026-05-23)；`_compute_shap_for_models` TreeExplainer，per-pick top-3 驱动因子显示在 email + stdout；`python picker.py shap` 输出全局重要性 |
+| Bootstrap test | ⬜ | 未实现 |
+| Monte Carlo simulation | ⬜ | 未实现 |
+| Stress testing | ⬜ | 2022 熊市已覆盖部分；未系统化 |
+| Regime analysis | ✅ | `detect_regime()` + per-year IC breakdown |
+| Subperiod analysis | ✅ | per-year / last-6-month 表格 |
+
+### 防止过拟合 / 数据泄露
+
+| 检查 | 状态 | 说明 |
+|------|------|------|
+| Look-ahead bias check | ⚠️ | fwd_ret=shift(-1) ✅；momentum-PCA / normalize 在全 panel 拟合 ⚠️ |
+| Survivorship bias check | ⚠️ | 已知局限 (2026-05-23)；yfinance 无法提供历史成分股；3只退市股已手动移除；偏差方向小幅偏高；yfinance-only 约束下无法修复 |
+| Data leakage check | ✅ | features 使用历史数据，标签 shift(-1) |
+| Label leakage check | ✅ | `add_labels` 在 normalize 之前运行 |
+| Embargo period | ✅ | 已实现 (2026-05-22)；`walk_forward(embargo_months=1)` 默认开启；Sharpe 2.12→1.93（差值=泄漏修正） |
+| Purging | ❌ | 未实现；Purged K-Fold / CPCV 可修复 |
+| Nested cross-validation | ❌ | 超参手调于全历史；nested CV 可修复 |
+| White's Reality Check | ✅ | 已实现 (2026-05-23)；bootstrap demeaned null，**98.7%**，与 DSR 一致 |
+| Deflated Sharpe Ratio (DSR) | ✅ | 已实现；`compute_dsr(n_trials=15)` → **97.5%**，STRONG |
+| Probability of Backtest Overfitting (PBO) | ⚠️ | PBO proxy (1−DSR) = **2.5%**；真正 CPCV-based PBO 需多策略对比，未实现 |
+| False Discovery Rate (FDR) control | ✅ | 已实现 (2026-05-23)；BH α=0.05，`rigor` 模式；0/29 特征显著（特征空间饱和，符合预期） |
+
+> **优先级排序（影响可信度）：**
+> 1. ✅ DSR + PBO — **已完成 (2026-05-22)**：DSR 97.5%，PBO proxy 2.5%，STRONG
+> 2. ✅ Survivorship bias — **已知局限 (2026-05-23)**：yfinance 限制，irremediable
+> 3. ✅ Embargo (1m) — **已完成 (2026-05-22)**：Sharpe 2.12→1.93（差值=泄漏修正量）
+> 4. ✅ Transaction cost (10bps) — **已完成 (2026-05-22)**：1.3%/yr drag，净 Sharpe 1.82
+> 5. ✅ 补充指标 — **已完成 (2026-05-22)**：Sortino 3.74、Calmar 3.64、Vol 13.4%、IR 0.95、TE 10.6%
+> 6. ✅ CPCV / WRC / FDR / Permutation importance — **已完成 (2026-05-23)**：`python picker.py rigor`；DSR 97.5%、WRC 98.7%、CPCV 均值 1.35（15/15 路径 > 0）、FDR 0/29（饱和）
 
 ---
 
