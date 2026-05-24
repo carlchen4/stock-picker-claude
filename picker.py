@@ -3005,10 +3005,10 @@ def send_report_email(body, html_body=None, subject=None):
 def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
                          checks, shap_by_ticker, te_estimate,
                          portfolio_value=0.0, prices=None):
-    """Write vercel/data.json for the Vercel dashboard."""
+    """Write docs/data.json for the GitHub Pages dashboard."""
     import json, os
     root = os.path.dirname(os.path.abspath(__file__))
-    out_dir = os.path.join(root, "vercel")
+    out_dir = os.path.join(root, "docs")
     os.makedirs(out_dir, exist_ok=True)
 
     sell, buy, hold = diff_holdings(picks, [])
@@ -3098,11 +3098,11 @@ def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
 
 
 def _push_dashboard(as_of):
-    """Commit vercel/data.json and push to GitHub for Vercel auto-deploy."""
+    """Commit docs/data.json and push to GitHub Pages."""
     import subprocess, os
     root = os.path.dirname(os.path.abspath(__file__))
     cmds = [
-        ["git", "add", "vercel/data.json"],
+        ["git", "add", "docs/data.json"],
         ["git", "commit", "-m", f"dashboard: update picks {as_of}"],
         ["git", "push"],
     ]
