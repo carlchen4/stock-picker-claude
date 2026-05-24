@@ -29,6 +29,7 @@ import json
 import time
 from itertools import combinations
 from scipy.stats import ttest_1samp
+from concurrent.futures import ThreadPoolExecutor
 
 try:
     # portfolio_config.py is gitignored; copy from portfolio_config.example.py
@@ -82,7 +83,7 @@ SECTOR_ETF = {
 _BASE_SECTOR_FEATURES = [
     "mom_pc1", "mom_pc2",
     "rev_1m",  # short-term reversal, independent of the momentum PCs
-    "vol_20d", "vol_60d", "vol_ratio",
+    "vol_20d", "vol_60d",
     "rsi_14", "bb_zscore", "high_52w_ratio",
     "adv_20d_rank",
 ]
@@ -317,7 +318,7 @@ FEATURE_COLS = [
     "mom_1m", "mom_3m", "mom_6m", "mom_12m",
     "rev_1m",  # short-term reversal (-mom_1m); independent of momentum PCA
     "mom_pc1", "mom_pc2",  # only present when USE_MOMENTUM_PCA is True
-    "vol_20d", "vol_60d", "vol_ratio",
+    "vol_20d", "vol_60d",
     "rsi_14", "bb_zscore", "high_52w_ratio",
     "adv_20d_rank",
     "oil_mom_1m", "cad_mom_1m", "rate_chg_3m",
@@ -473,15 +474,14 @@ def fetch_fundamentals(tickers):
     cache_file = _cache_path("fundamentals.parquet")
     cached = _cache_load(cache_file, max_age_hours=24)
     if cached is not None:
-        # Return only the requested tickers; fill missing ones with empty rows
         missing = [t for t in tickers if t not in cached.index]
         if not missing:
             return cached.loc[tickers]
-    results = {}
-    for t in tickers:
+
+    def _fetch_one(t):
         try:
             info = yf.Ticker(t).info
-            results[t] = {
+            return t, {
                 "pe": safe_float(info.get("trailingPE")),
                 "fwd_pe": safe_float(info.get("forwardPE")),
                 "roe": safe_float(info.get("returnOnEquity")),
@@ -494,7 +494,11 @@ def fetch_fundamentals(tickers):
                 "name": info.get("shortName", t),
             }
         except Exception:
-            results[t] = {}
+            return t, {}
+
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        results = dict(ex.map(lambda t: _fetch_one(t), tickers))
+
     df = pd.DataFrame(results).T
     _cache_save(cache_file, df)
     return df
@@ -941,50 +945,11 @@ def get_macro_features(macro_df, dates):
     return result
 
 
-def compute_pit_fundamentals(ticker, monthly_dates):
-    """Point-in-time fundamentals with 45-day reporting lag."""
-    qf = fetch_quarterly_financials(ticker)
-    if qf is None or len(qf) < 4:
-        return pd.DataFrame(index=monthly_dates, columns=["roe", "pe_ratio", "div_yield", "ev_ebitda", "debt_equity"])
-
-    # Apply 45-day lag for point-in-time
-    qf.index = qf.index + timedelta(days=45)
-    qf = qf.sort_index()
-
-    result = pd.DataFrame(index=monthly_dates)
-
-    # TTM metrics via rolling 4-quarter sum
-    if "net_income" in qf.columns and "total_equity" in qf.columns:
-        ttm_ni = qf["net_income"].rolling(4).sum()
-        equity = qf["total_equity"]
-        roe_series = (ttm_ni / equity.replace(0, np.nan))
-        result["roe"] = roe_series.reindex(monthly_dates, method="ffill", limit=3)
-    else:
-        result["roe"] = np.nan
-
-    # Simplified PE, div_yield, ev/ebitda - will be filled cross-sectionally
-    result["pe_ratio"] = np.nan
-    result["div_yield"] = np.nan
-    result["ev_ebitda"] = np.nan
-
-    if "total_debt" in qf.columns and "total_equity" in qf.columns:
-        de = qf["total_debt"] / qf["total_equity"].replace(0, np.nan)
-        result["debt_equity"] = de.reindex(monthly_dates, method="ffill", limit=3)
-    else:
-        result["debt_equity"] = np.nan
-
-    return result
-
 
 def encode_sector(ticker):
     """Numeric sector code for the model."""
-    sector_map = {
-        "Financials": 1, "Energy": 2, "Materials": 3, "Industrials": 4,
-        "ConsumerDisc": 5, "ConsumerStaples": 6, "Technology": 7,
-        "Communication": 8, "Utilities": 9, "RealEstate": 10, "HealthCare": 11,
-    }
     profile = STOCK_PROFILE.get(ticker, ("Unknown", "core", "other"))
-    return sector_map.get(profile[0], 0)
+    return SECTOR_NAME_TO_CODE.get(profile[0], 0)
 
 
 def _attach_sector_etf_forward_returns(panel, macro_df):
@@ -1027,13 +992,10 @@ def build_panel(price_df, macro_df, tickers):
     print("  Building feature panel...")
     all_frames = []
 
-    macro_sample = None
     for t in tickers:
         feat = compute_monthly_features(price_df, t)
         if feat is None:
             continue
-        if macro_sample is None:
-            macro_sample = feat.index
         all_frames.append(feat)
 
     if not all_frames:
