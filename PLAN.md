@@ -395,6 +395,11 @@ feature pruning) regressed — the model is at a local optimum on this
 DSR 99.3% (not selection noise). Most valuable next step: accumulate
 a real forward OOS record via `picks_log.csv`, not more tuning.
 
+**Update (2026-05-24): vol_ratio removal improved Sharpe 1.81 → 1.99.**
+OOS permutation IC for vol_ratio was -0.0153 (strongest negative feature).
+Removing it freed the vol_60d signal (+0.0046→+0.0164) and mom_pc2 (-0.0051→+0.0122).
+Hit rate 57%→66%, IR 0.81→0.97, Vol 13.7%→12.8%. DSR still STRONG (96.7%). Accepted.
+
 ### Operations / production readiness (2026-05-20)
 
 Direction chosen once model tuning hit the 1.92 ceiling: make the
@@ -514,6 +519,15 @@ than chase more Sharpe.
     3 params; `run_sensitivity` now sweeps only `embargo_months`. The
     sector min-1/max-2 rebalancing band (`apply_rebalancing_band`) is kept —
     that is portfolio construction, not turnover control.
+
+### Tried and Accepted
+
+- **vol_ratio removal (2026-05-24)**: OOS permutation IC was -0.0153 (strongest negative
+  feature — shuffling it *improved* OOS ranking). `vol_ratio = vol_20d / vol_60d` was redundant
+  given both components are present, and was actively suppressing `vol_60d`'s signal.
+  Removed from `_BASE_SECTOR_FEATURES` and `FEATURE_COLS`. Result: **Sharpe 1.81 → 1.99**,
+  Hit Rate 57% → 66%, IR 0.81 → 0.97, Vol 13.7% → 12.8%. DSR STRONG (96.7%). WRC 99.7%.
+  `vol_60d` importance: +0.0046 → +0.0164; `mom_pc2`: -0.0051 → +0.0122.
 
 ### Tried and Rejected
 
@@ -697,7 +711,7 @@ Complete reference for ML-finance validation. Status: ✅ implemented · ⚠️ 
 
 | 指标 | 状态 | 说明 |
 |------|------|------|
-| Sharpe Ratio | ✅ | 主指标，当前 2.12 (ExtraTrees) |
+| Sharpe Ratio | ✅ | 主指标，当前 1.99 (ExtraTrees, vol_ratio removed 2026-05-24) |
 | Sortino Ratio | ✅ | 已实现 (2026-05-22)；当前 3.74（高，下行风险低） |
 | Calmar Ratio | ✅ | 已实现 (2026-05-22)；当前 3.64 |
 | Maximum Drawdown | ✅ | 当前 -7.1%（embargo 后改善） |
