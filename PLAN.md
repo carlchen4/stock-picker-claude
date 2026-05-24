@@ -47,7 +47,7 @@ picker.py
 | Regressor | Predict next-month return | 50% |
 | Classifier | Predict top-quintile membership | 50% |
 
-Both use time-decay sample weights (half-life 12 months).
+Both use time-decay sample weights (half-life **6 months**, updated 2026-05-24 — see Experiment C).
 
 ### Double Machine Learning
 
@@ -522,6 +522,14 @@ than chase more Sharpe.
 
 ### Tried and Accepted
 
+- **half_life=6m (Experiment C, 2026-05-24)**: Half-life sweep over {6,9,12,18,24} months.
+  half_life=6m was best (Δ Sharpe +0.112 vs baseline 12m in the sweep). Full backtest
+  with half_life=6m: **Sharpe 1.99 → 2.13**, Ann. +25.4% → +27.0%, Max DD −7.7% → −8.3%,
+  Hit Rate 66% → 68.1%, IR 0.97 → 1.08. Quintile monotonicity: No → **Yes ✓** (first time).
+  DSR STRONG (95.6%). `walk_forward(half_life=6)` is now the default. The shorter half-life
+  upweights recent data more aggressively — ExtraTrees with smaller train windows benefits
+  from recency emphasis. Max DD traded off slightly (−0.6pp) but Sharpe gain (+0.14) justified.
+
 - **vol_ratio removal (2026-05-24)**: OOS permutation IC was -0.0153 (strongest negative
   feature — shuffling it *improved* OOS ranking). `vol_ratio = vol_20d / vol_60d` was redundant
   given both components are present, and was actively suppressing `vol_60d`'s signal.
@@ -530,6 +538,19 @@ than chase more Sharpe.
   `vol_60d` importance: +0.0046 → +0.0164; `mom_pc2`: -0.0051 → +0.0122.
 
 ### Tried and Rejected
+
+- **Experiment B — rev_growth_yoy removal from Industrials (2026-05-24)**: OOS IC was 0.0000
+  across 47 months, and yfinance coverage is ~5% for Industrials names. Removing it from
+  `SECTOR_FEATURES["Industrials"]` (keeping in FEATURE_COLS) regressed: Sharpe 1.99 → 1.92
+  (below threshold 1.97), Sortino 3.37 → 3.26. Side-effect: vol_20d IC dropped from −0.0054
+  to −0.0089, suggesting rev_growth_yoy suppresses spurious vol_20d signals in Industrials
+  despite its near-zero IC. Reverted.
+
+- **Experiment A — vol_20d removal (2026-05-24)**: OOS permutation IC was −0.0054 (negative —
+  shuffling slightly improved ranking). Removed from `_BASE_SECTOR_FEATURES` and `FEATURE_COLS`.
+  Result: Sharpe 1.99 → 1.92 (below threshold 1.97). Max DD improved (−7.7% → −6.5%), Sortino
+  improved, but Sharpe missed. Side-effect: `div_growth_yoy` IC became −0.0118 (strongly negative),
+  suggesting vol_20d stabilizes the model by suppressing spurious div_growth_yoy signals. Reverted.
 
 - **Hyperparameter OAT sweep (2026-05-24)**: Tested `n_estimators` ∈ {100,200,300,500},
   `max_depth` ∈ {3,4,5,6,None}, `min_samples_leaf` ∈ {5,10,15,20}, `max_features` ∈

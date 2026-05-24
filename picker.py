@@ -1840,7 +1840,8 @@ def risk_parity_weights(tickers, price_df, lookback=60):
 def walk_forward(panel, feature_cols, train_months=36, min_train=24,
                  return_perstock=False, score_mode="model",
                  embargo_months=1, return_importance=False,
-                 return_raw_importance=False, expanding=False):
+                 return_raw_importance=False, expanding=False,
+                 half_life=6):
     """
     Walk-forward backtester with rolling window (default) or expanding window.
 
@@ -1895,7 +1896,7 @@ def walk_forward(panel, feature_cols, train_months=36, min_train=24,
 
         # Time decay weights
         n = len(train_df)
-        weights = compute_time_decay_weights(n)
+        weights = compute_time_decay_weights(n, half_life_months=half_life)
 
         # Fit and predict — per-sector or global depending on the flag
         try:
@@ -3512,9 +3513,10 @@ def _print_equity_curve(results_df, width=50):
 # SENSITIVITY ANALYSIS
 # ══════════════════════════════════════════════════════════════════
 
-def _wf_metrics(panel, model_features, embargo_months):
+def _wf_metrics(panel, model_features, embargo_months=1, half_life=12):
     """Run walk_forward; return (sharpe, ann_ret, max_dd, hit_rate)."""
-    results = walk_forward(panel, model_features, embargo_months=embargo_months)
+    results = walk_forward(panel, model_features, embargo_months=embargo_months,
+                           half_life=half_life)
     if results.empty:
         return (np.nan,) * 4
     r = results["port_ret"].values
@@ -3739,14 +3741,57 @@ def print_sensitivity_report(rows):
     print("═" * 68)
 
 
+def run_halflife_sweep(panel, model_features):
+    """Sweep time-decay half-life over {6, 9, 12, 18, 24} months."""
+    values = [6, 9, 12, 18, 24]
+    baseline = 12
+    rows = []
+    for i, hl in enumerate(values):
+        print(f"  [{i+1}/{len(values)}] half_life={hl}m ...", end="", flush=True)
+        sr, ann, dd, hit = _wf_metrics(panel, model_features, half_life=hl)
+        print(f"  Sharpe {sr:.3f}")
+        rows.append({"half_life": hl, "baseline": (hl == baseline),
+                     "sharpe": sr, "ann_ret": ann, "max_dd": dd, "hit": hit})
+    return rows
+
+
+def print_halflife_report(rows):
+    print("\n" + "═" * 62)
+    print("  HALF-LIFE SWEEP  (time-decay weight, ★ = current default)")
+    print("═" * 62)
+    print(f"  {'Half-life':>10}  {'Sharpe':>7}  {'Ann.Ret':>8}  {'MaxDD':>7}  {'Hit':>6}")
+    print(f"  {'─'*10}  {'─'*7}  {'─'*8}  {'─'*7}  {'─'*6}")
+    best_sr = max(r["sharpe"] for r in rows if not np.isnan(r["sharpe"]))
+    for r in rows:
+        star = "★" if r["baseline"] else " "
+        best = "◀ best" if abs(r["sharpe"] - best_sr) < 1e-9 else ""
+        print(f"  {r['half_life']:>9}m{star}  "
+              f"{r['sharpe']:>7.3f}  "
+              f"{r['ann_ret']:>+8.1%}  "
+              f"{r['max_dd']:>7.1%}  "
+              f"{r['hit']:>6.1%}  {best}")
+    print("═" * 62)
+    best_row = max(rows, key=lambda r: r["sharpe"])
+    if not best_row["baseline"]:
+        delta = best_row["sharpe"] - next(r["sharpe"] for r in rows if r["baseline"])
+        print(f"\n  Best: half_life={best_row['half_life']}m  "
+              f"(Δ Sharpe {delta:+.3f} vs baseline 12m)")
+        if delta >= 0.05:
+            print(f"  → Meets adoption threshold (≥ 0.05) — consider updating default.")
+        else:
+            print(f"  → Below adoption threshold (< 0.05) — keep default 12m.")
+    else:
+        print(f"\n  Baseline (12m) is already optimal.")
+
+
 # ══════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════
 
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "pick"
-    assert mode in ("pick", "backtest", "both", "vif", "importance", "rigor", "sensitivity", "shap", "hptest"), \
-        f"Usage: python picker.py [pick|backtest|both|vif|importance|rigor|sensitivity|shap|hptest]"
+    assert mode in ("pick", "backtest", "both", "vif", "importance", "rigor", "sensitivity", "shap", "hptest", "halflife"), \
+        f"Usage: python picker.py [pick|backtest|both|vif|importance|rigor|sensitivity|shap|hptest|halflife]"
 
     print(f"\n{'═' * 60}")
     print(f"  TSX Stock Picker — Mode: {mode.upper()}")
@@ -3865,6 +3910,12 @@ def main():
         print("  ~16 walk-forward runs × ~1 min each ≈ 15-20 min total\n")
         rows = run_hp_stability(panel, model_features)
         print_hp_stability_report(rows)
+        return
+
+    if mode == "halflife":
+        print("\n  [4/5] Running half-life sweep (5 values × ~1 min each ≈ 5 min)...")
+        rows = run_halflife_sweep(panel, model_features)
+        print_halflife_report(rows)
         return
 
     if mode == "shap":
