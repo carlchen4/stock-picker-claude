@@ -1,0 +1,274 @@
+{
+  "generated_at": "2026-05-24T18:43:39",
+  "as_of": "2026-05-24",
+  "regime": "NEUTRAL",
+  "reliability": "CAUTION",
+  "reliability_detail": "CAUTION \u2014 1 warning \u2014 Feature drift: 1 regime-shifted (|z|>3): rev_growth_yoy(z=9.0)",
+  "portfolio_value": 10000.0,
+  "te_estimate": 0.1038,
+  "picks": [
+    {
+      "rank": 1,
+      "ticker": "BMO.TO",
+      "sector": "Financials",
+      "style": "core",
+      "score": 0.792,
+      "weight": 0.1416,
+      "action": "BUY",
+      "price": 222.46,
+      "shares": 6,
+      "dollar_value": 1415,
+      "drivers": [
+        {
+          "label": "RSI (14-day)",
+          "shap": -0.0684
+        },
+        {
+          "label": "52-Week High Proximity",
+          "shap": 0.0185
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": 0.012
+        }
+      ]
+    },
+    {
+      "rank": 2,
+      "ticker": "CVE.TO",
+      "sector": "Energy",
+      "style": "value",
+      "score": 0.875,
+      "weight": 0.0871,
+      "action": "BUY",
+      "price": 41.48,
+      "shares": 21,
+      "dollar_value": 871,
+      "drivers": [
+        {
+          "label": "Volatility 60d",
+          "shap": 0.1067
+        },
+        {
+          "label": "Short-Term Reversal",
+          "shap": -0.0465
+        },
+        {
+          "label": "Momentum PC1",
+          "shap": 0.0289
+        }
+      ]
+    },
+    {
+      "rank": 3,
+      "ticker": "CNR.TO",
+      "sector": "Industrials",
+      "style": "core",
+      "score": 0.833,
+      "weight": 0.1239,
+      "action": "BUY",
+      "price": 157.79,
+      "shares": 7,
+      "dollar_value": 1238,
+      "drivers": [
+        {
+          "label": "Momentum PC1",
+          "shap": -0.0503
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.0344
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": 0.0309
+        }
+      ]
+    },
+    {
+      "rank": 4,
+      "ticker": "AQN.TO",
+      "sector": "Utilities",
+      "style": "value",
+      "score": 1.0,
+      "weight": 0.1068,
+      "action": "BUY",
+      "price": 8.25,
+      "shares": 129,
+      "dollar_value": 1068,
+      "drivers": [
+        {
+          "label": "RSI (14-day)",
+          "shap": 0.0752
+        },
+        {
+          "label": "Momentum PC2",
+          "shap": 0.0392
+        },
+        {
+          "label": "Volatility 60d",
+          "shap": 0.0327
+        }
+      ]
+    },
+    {
+      "rank": 5,
+      "ticker": "CNQ.TO",
+      "sector": "Energy",
+      "style": "core",
+      "score": 0.75,
+      "weight": 0.0895,
+      "action": "BUY",
+      "price": 67.24,
+      "shares": 13,
+      "dollar_value": 895,
+      "drivers": [
+        {
+          "label": "Volatility 60d",
+          "shap": 0.0534
+        },
+        {
+          "label": "Momentum PC1",
+          "shap": 0.0296
+        },
+        {
+          "label": "Dividend Growth YoY",
+          "shap": -0.018
+        }
+      ]
+    },
+    {
+      "rank": 6,
+      "ticker": "EMA.TO",
+      "sector": "Utilities",
+      "style": "value",
+      "score": 0.75,
+      "weight": 0.2339,
+      "action": "BUY",
+      "price": 73.39,
+      "shares": 31,
+      "dollar_value": 2339,
+      "drivers": [
+        {
+          "label": "RSI (14-day)",
+          "shap": 0.0453
+        },
+        {
+          "label": "52-Week High Proximity",
+          "shap": 0.0202
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": 0.0187
+        }
+      ]
+    },
+    {
+      "rank": 7,
+      "ticker": "TRI.TO",
+      "sector": "Industrials",
+      "style": "core",
+      "score": 0.667,
+      "weight": 0.0708,
+      "action": "BUY",
+      "price": 118.6,
+      "shares": 5,
+      "dollar_value": 708,
+      "drivers": [
+        {
+          "label": "Momentum PC1",
+          "shap": -0.1281
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": 0.0437
+        },
+        {
+          "label": "Short-Term Reversal",
+          "shap": -0.0377
+        }
+      ]
+    },
+    {
+      "rank": 8,
+      "ticker": "CM.TO",
+      "sector": "Financials",
+      "style": "value",
+      "score": 0.625,
+      "weight": 0.1463,
+      "action": "BUY",
+      "price": 159.57,
+      "shares": 9,
+      "dollar_value": 1463,
+      "drivers": [
+        {
+          "label": "RSI (14-day)",
+          "shap": -0.0742
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.0297
+        },
+        {
+          "label": "52-Week High Proximity",
+          "shap": 0.0238
+        }
+      ]
+    }
+  ],
+  "actions": {
+    "sell": [],
+    "buy": [
+      "BMO.TO",
+      "CVE.TO",
+      "CNR.TO",
+      "AQN.TO",
+      "CNQ.TO",
+      "EMA.TO",
+      "TRI.TO",
+      "CM.TO"
+    ],
+    "hold": []
+  },
+  "top_features": [
+    {
+      "name": "ADV 20-day Rank",
+      "importance": 0.0181
+    },
+    {
+      "name": "Momentum PC2",
+      "importance": 0.0169
+    },
+    {
+      "name": "Volatility 60d",
+      "importance": 0.0105
+    },
+    {
+      "name": "52-Week High Proximity",
+      "importance": 0.0091
+    },
+    {
+      "name": "Dividend Growth YoY",
+      "importance": 0.0076
+    },
+    {
+      "name": "RSI (14-day)",
+      "importance": 0.0055
+    },
+    {
+      "name": "Short-Term Reversal",
+      "importance": 0.0017
+    }
+  ],
+  "backtest": {
+    "sharpe": 2.13,
+    "ir": 1.08,
+    "ann_ret": 0.27,
+    "max_dd": -0.083,
+    "period": "2022-05 to 2026-03"
+  },
+  "oos": {
+    "months": 1,
+    "avg_monthly": 0.0271
+  }
+}
