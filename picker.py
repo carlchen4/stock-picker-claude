@@ -2179,9 +2179,11 @@ def walk_forward(panel, feature_cols, train_months=28, min_train=24,
         if len(train_df) < min_train * 5 or len(test_df) < 3:
             continue
 
-        # Time decay weights
-        n = len(train_df)
-        weights = compute_time_decay_weights(n, half_life_months=half_life)
+        # Time decay weights — per unique date so all tickers in a month share the same weight
+        _ud = sorted(train_df["date"].unique())
+        _dw = compute_time_decay_weights(len(_ud), half_life_months=half_life)
+        _d2w = dict(zip(_ud, _dw))
+        weights = np.array([_d2w[d] for d in train_df["date"]])
 
         # Fit and predict — per-sector or global depending on the flag
         try:
@@ -2361,8 +2363,10 @@ def compute_cpcv(panel, feature_cols, n_folds=6, embargo_months=1):
         if len(train_df) < 24 * 5:
             continue
 
-        n = len(train_df)
-        weights = compute_time_decay_weights(n)
+        _ud2 = sorted(train_df["date"].unique())
+        _dw2 = compute_time_decay_weights(len(_ud2))
+        _d2w2 = dict(zip(_ud2, _dw2))
+        weights = np.array([_d2w2[d] for d in train_df["date"]])
 
         try:
             if USE_SECTOR_MODELS:
@@ -2725,7 +2729,10 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
         print("  ERROR: Insufficient data for prediction")
         return []
 
-    weights = compute_time_decay_weights(len(train_df))
+    _ud3 = sorted(train_df["date"].unique())
+    _dw3 = compute_time_decay_weights(len(_ud3))
+    _d2w3 = dict(zip(_ud3, _dw3))
+    weights = np.array([_d2w3[d] for d in train_df["date"]])
 
     sec_dml_stats = {}
     if USE_SECTOR_MODELS:
@@ -4274,7 +4281,7 @@ def _wf_metrics(panel, model_features, embargo_months=1, half_life=12, train_mon
     ir  = ann_excess / te if te > 0 else np.nan
     cum = (1 + r).cumprod()
     dd  = float((cum / np.maximum.accumulate(cum) - 1).min())
-    hit = float((r > 0).mean())
+    hit = float((excess > 0).mean())
     return sr, ir, ann, dd, hit
 
 
@@ -4328,7 +4335,10 @@ def compute_shap_current(panel, model_features):
 
     train_df = panel[panel["date"].isin(dates[-37:-1])].copy()
     latest_df = panel[panel["date"] == dates[-1]].copy()
-    weights = compute_time_decay_weights(len(train_df))
+    _ud4 = sorted(train_df["date"].unique())
+    _dw4 = compute_time_decay_weights(len(_ud4))
+    _d2w4 = dict(zip(_ud4, _dw4))
+    weights = np.array([_d2w4[d] for d in train_df["date"]])
     sec_models, _ = fit_sector_models(train_df, sample_weights=weights)
     return _compute_shap_for_models(sec_models, latest_df), None
 
