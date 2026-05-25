@@ -176,10 +176,10 @@
     .stat-num { font-size: 22px; }
     .stat-box { padding: 12px 8px; }
 
-    /* Changes: stack to 1 col when sell/buy/hold are all long */
-    .chg-grid { grid-template-columns: 1fr; gap: 6px; }
-    .chg-col  { display: flex; align-items: center; gap: 8px; padding: 8px 10px; text-align: left; }
-    .chg-lbl  { min-width: 56px; margin-bottom: 0; }
+    /* Changes: keep 3 cols, smaller chips that wrap */
+    .chg-grid { gap: 6px; }
+    .chg-col  { padding: 8px 6px; }
+    .chg-chip { font-size: 10px; display: inline-block; margin: 1px 2px 1px 0; }
 
     /* Pick row: tighten up */
     .pick-ticker { font-size: 15px; }
@@ -307,8 +307,8 @@ function render(d) {
   const hold = (d.actions && d.actions.hold) || [];
   function chgCol(tickers, label, cls) {
     const inner = tickers.length
-      ? tickers.map(t => `<span class="chg-chip">${t}</span>`).join('')
-      : `<span class="chg-empty">None</span>`;
+      ? tickers.map(t => `<span class="chg-chip">${t.replace('.TO','')}</span>`).join('')
+      : `<span class="chg-empty">—</span>`;
     return `<div class="chg-col ${cls}"><div class="chg-lbl">${label} (${tickers.length})</div>${inner}</div>`;
   }
   // Regime + Changes merged into one card
