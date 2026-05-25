@@ -3191,6 +3191,48 @@ def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
                 except Exception:
                     pass
 
+    # Build richer OOS series from picks_log for dashboard charts
+    if os.path.exists(PICKS_LOG_FILE):
+        try:
+            log = pd.read_csv(PICKS_LOG_FILE, parse_dates=["as_of"])
+            filled = log.dropna(subset=["fwd_realized"])
+            picks_f = filled[filled["weight"] > 0]
+            bench_f = filled[filled["ticker"] == "XIU.TO"].set_index("as_of")["fwd_realized"]
+
+            if not picks_f.empty:
+                # Per-month portfolio and benchmark returns
+                port_mo = picks_f.groupby("as_of").apply(
+                    lambda g: (g["weight"] * g["fwd_realized"]).sum() / g["weight"].sum()
+                ).sort_index()
+                monthly_series = []
+                port_cum, bench_cum = 1.0, 1.0
+                for dt, pr in port_mo.items():
+                    br = float(bench_f.get(dt, np.nan))
+                    port_cum *= (1 + pr)
+                    if not np.isnan(br):
+                        bench_cum *= (1 + br)
+                    monthly_series.append({
+                        "date": dt.strftime("%Y-%m"),
+                        "port": round(float(pr), 4),
+                        "bench": round(br, 4) if not np.isnan(br) else None,
+                        "port_cum": round(port_cum - 1, 4),
+                        "bench_cum": round(bench_cum - 1, 4),
+                    })
+                oos_summary["monthly_series"] = monthly_series
+
+                # Most recent month's per-stock returns for bar chart
+                latest_dt = picks_f["as_of"].max()
+                latest = picks_f[picks_f["as_of"] == latest_dt].copy()
+                oos_summary["latest_month"] = latest_dt.strftime("%Y-%m")
+                oos_summary["stock_returns"] = [
+                    {"ticker": row["ticker"], "ret": round(float(row["fwd_realized"]), 4)}
+                    for _, row in latest.sort_values("fwd_realized", ascending=False).iterrows()
+                ]
+                bret = bench_f.get(latest_dt)
+                oos_summary["bench_return"] = round(float(bret), 4) if bret is not None and not np.isnan(bret) else None
+        except Exception:
+            pass
+
     data = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "as_of": datetime.now().strftime("%Y-%m-%d"),

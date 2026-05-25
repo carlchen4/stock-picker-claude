@@ -182,6 +182,27 @@
   },
   "oos": {
     "months": 1,
-    "avg_monthly": 0.0271
+    "avg_monthly": 0.0271,
+    "latest_month": "2026-04",
+    "bench_return": 0.0172,
+    "stock_returns": [
+      {"ticker": "BMO.TO",  "ret":  0.0755},
+      {"ticker": "CM.TO",   "ret":  0.0528},
+      {"ticker": "CNQ.TO",  "ret":  0.0370},
+      {"ticker": "CVE.TO",  "ret":  0.0438},
+      {"ticker": "CNR.TO",  "ret":  0.0342},
+      {"ticker": "EMA.TO",  "ret":  0.0230},
+      {"ticker": "AQN.TO",  "ret": -0.0317},
+      {"ticker": "TRI.TO",  "ret": -0.0662}
+    ],
+    "monthly_series": [
+      {
+        "date": "2026-04",
+        "port":  0.0271,
+        "bench": 0.0172,
+        "port_cum":  0.0271,
+        "bench_cum": 0.0172
+      }
+    ]
   }
 }
