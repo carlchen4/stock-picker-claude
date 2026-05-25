@@ -2085,7 +2085,7 @@ def estimate_portfolio_risk(picks, weights, price_df, benchmark="XIU.TO",
 # WALK-FORWARD BACKTEST
 # ══════════════════════════════════════════════════════════════════
 
-def walk_forward(panel, feature_cols, train_months=30, min_train=24,
+def walk_forward(panel, feature_cols, train_months=28, min_train=24,
                  return_perstock=False, score_mode="model",
                  embargo_months=1, return_importance=False,
                  return_raw_importance=False, expanding=False,
