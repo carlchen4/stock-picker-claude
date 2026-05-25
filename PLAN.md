@@ -543,6 +543,12 @@ than chase more Sharpe.
 
 ### Tried and Rejected
 
+- **Integration Plan #4 — PIT 年报基本面（2026-05-24）**: 两个子实验，全部拒绝。
+  根因诊断：`roe`/`pe_ratio`/`div_yield`/`debt_equity` 在 panel 里一直是全 NaN（`fetch_fundamentals` 从未被 `build_panel` 调用），ExtraTrees 静默忽略这些列的内容（sklearn 1.6.1 接受全 NaN 列，importance=0），但这些列的**存在**影响 `max_features=0.7` 的随机采样分布，是模型局部最优的结构组成部分。
+  - **子实验 A — PIT 年报 ROE + asset_growth_yoy**: 新增 `fetch_annual_fundamentals` + `compute_pit_annual_features`，用 5 年年报 BS 计算逐股 roe_annual 替换 `roe`，新增 `asset_growth_yoy`。结果：IR **1.08→0.60**，Sharpe 2.13→1.79，hit rate 68.1%→53.2%，quintile 单调性 Yes→No。`roe_annual` importance 升至 +0.0036（确实被使用），但把"板块时序信号"（稳定噪声）替换为"逐股截面信号"，打乱了所有依赖 `roe` 的分裂节点。最大跌幅实验之一。
+  - **子实验 B — snapshot 合并进 panel**: 将 `fetch_fundamentals` snapshot 通过 merge 写入 panel，每只股票在所有月份持有恒定的当前快照值（轻微 look-ahead）。结果：IR **1.08→0.92**（低于阈值 1.06），Sharpe 2.13→2.04，hit rate 68.1%→57.4%。把全 NaN（ExtraTrees 忽略）变成恒定逐股值（改变 max_features 采样）同样破坏局部最优。
+  - **结论（2026-05-24）**：这些 NaN 占位符既不能删（Sharpe 1.92→1.86，2026-05-21 feature pruning），也不能赋真实值（两种方式均回归）。模型已在这些占位符存在的前提下收敛，无法通过基本面路径改进。
+
 - **Experiment D — bb_zscore removal (2026-05-24)**: OOS permutation IC was −0.0035 under
   half_life=6m baseline. Removed from `_BASE_SECTOR_FEATURES` (kept in FEATURE_COLS).
   Result: Sharpe 2.13 → 1.92, Ann. +27.0% → +23.7%, 2025 excess +0.3% → **−8.5%** (large),

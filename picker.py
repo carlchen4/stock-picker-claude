@@ -702,6 +702,118 @@ def fetch_quarterly_financials(ticker):
     return result
 
 
+def fetch_annual_fundamentals(ticker):
+    """Fetch 5-year annual BS + income statement for PIT growth features.
+
+    Annual data (vs quarterly) gives ~5 years of coverage, spanning the
+    full backtest period. Cached 7 days since fundamentals update yearly.
+    Returns DataFrame indexed by fiscal year-end date, or None on failure.
+    """
+    if ticker == "XIU.TO":
+        return None
+    cache_file = _cache_path(f"{ticker.replace('.', '_')}_annual.parquet")
+    cached = _cache_load(cache_file, max_age_hours=168)
+    if cached is not None:
+        return cached
+    try:
+        tk = yf.Ticker(ticker)
+        bs  = tk.balance_sheet   # annual, up to 5 years
+        inc = tk.financials      # annual income statement
+        if bs is None or bs.empty:
+            return None
+        equity_row = next(
+            (r for r in ["Stockholders Equity", "Total Equity Gross Minority Interest"]
+             if r in bs.index), None
+        )
+        records = []
+        for col in bs.columns:
+            rec = {"date": pd.Timestamp(col)}
+            rec["total_assets"] = (
+                safe_float(bs.loc["Total Assets", col])
+                if "Total Assets" in bs.index else np.nan
+            )
+            rec["total_equity"] = (
+                safe_float(bs.loc[equity_row, col])
+                if equity_row else np.nan
+            )
+            if inc is not None and not inc.empty and col in inc.columns:
+                rec["net_income"] = (
+                    safe_float(inc.loc["Net Income", col])
+                    if "Net Income" in inc.index else np.nan
+                )
+            else:
+                rec["net_income"] = np.nan
+            records.append(rec)
+        result = pd.DataFrame(records).set_index("date").sort_index()
+    except Exception:
+        return None
+    _cache_save(cache_file, result)
+    return result
+
+
+def compute_pit_annual_features(panel, tickers, pit_lag_days=45):
+    """Add PIT growth features derived from annual balance sheet data.
+
+    For each (month, ticker) row, finds the most recent annual report
+    whose fiscal year-end + pit_lag_days <= month (i.e., already filed
+    and publicly available), then computes:
+      - asset_growth_yoy: (assets[t] / assets[t-1]) - 1  (balance sheet quality)
+      - roe_annual: net_income[t] / total_equity[t]       (per-stock ROE, replaces
+                    the current snapshot value from yfinance.info)
+
+    Using annual data gives 5-year coverage (vs 6-8 quarters for quarterly),
+    so nearly every backtest month has a non-NaN value. Remaining NaN rows
+    fall through to smart_impute (sector-median), same as before.
+    """
+    records = []
+    for ticker in tickers:
+        if ticker == "XIU.TO":
+            continue
+        ann = fetch_annual_fundamentals(ticker)
+        if ann is None or ann.empty:
+            continue
+        ticker_mask = panel["ticker"] == ticker
+        if not ticker_mask.any():
+            continue
+        ticker_dates = panel.loc[ticker_mask, "date"].values
+
+        for month_date in ticker_dates:
+            month_ts = pd.Timestamp(month_date)
+            cutoff = month_ts - pd.Timedelta(days=pit_lag_days)
+            avail = ann[ann.index <= cutoff].sort_index()
+
+            asset_growth = np.nan
+            roe = np.nan
+            if len(avail) >= 2:
+                latest = avail.iloc[-1]
+                prev   = avail.iloc[-2]
+                if prev["total_assets"] > 0:
+                    asset_growth = latest["total_assets"] / prev["total_assets"] - 1
+                if latest["total_equity"] != 0 and not np.isnan(latest["net_income"]):
+                    roe = latest["net_income"] / abs(latest["total_equity"])
+            elif len(avail) == 1:
+                latest = avail.iloc[-1]
+                if latest["total_equity"] != 0 and not np.isnan(latest["net_income"]):
+                    roe = latest["net_income"] / abs(latest["total_equity"])
+
+            records.append({
+                "date":             month_ts,
+                "ticker":           ticker,
+                "asset_growth_yoy": asset_growth,
+                "roe_annual":       roe,
+            })
+
+    if not records:
+        return panel
+
+    pit_df = pd.DataFrame(records)
+    panel  = panel.merge(pit_df, on=["date", "ticker"], how="left")
+    # Replace snapshot roe with PIT roe_annual (per-stock discrimination vs
+    # the previous sector-median constant).  NaN falls through to smart_impute.
+    panel["roe"] = panel.pop("roe_annual")
+    return panel
+
+
 # ══════════════════════════════════════════════════════════════════
 # CONSTRAINT FILTERING
 # ══════════════════════════════════════════════════════════════════
@@ -1022,13 +1134,14 @@ def build_panel(price_df, macro_df, tickers):
     # from t to t+1 (matching how add_labels constructs fwd_ret).
     panel = _attach_sector_etf_forward_returns(panel, macro_df)
 
-    # Fundamental placeholders. compute_pit_fundamentals is intentionally
-    # NOT wired up here: yfinance only returns 5-8 quarters of history
-    # per ticker, so PIT data would only populate the last ~12-15 months
-    # of each training window. That mixed-coverage signal hurt backtest
-    # results (-3pp annualized) versus uniform sector-median imputation.
-    # The function stays defined for future use if a deeper fundamentals
-    # source becomes available.
+    # Fundamental placeholders.
+    # Tried (2026-05-24): PIT annual (IR 1.08→0.60, Sharpe 2.13→1.79) — rejected.
+    # Tried (2026-05-24): snapshot merge via fetch_fundamentals (IR 1.08→0.92,
+    #   Sharpe 2.13→2.04) — rejected (below IR threshold 1.06).
+    # Tried (2026-05-21): remove dead features entirely (Sharpe 1.92→1.86) — rejected.
+    # All-NaN + sector-median imputation is the stable local optimum for this
+    # feature set. These columns stay as NaN placeholders; ExtraTrees ignores
+    # their content but their presence affects max_features random sampling.
     for col in ["roe", "pe_ratio", "div_yield", "ev_ebitda", "debt_equity"]:
         if col not in panel.columns:
             panel[col] = np.nan
