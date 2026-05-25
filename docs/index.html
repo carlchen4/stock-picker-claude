@@ -184,9 +184,11 @@
     /* Driver tags: slightly bigger touch area */
     .d-tag { font-size: 11px; padding: 3px 9px; }
 
-    /* Regime emoji smaller */
-    .regime-emoji { font-size: 38px; }
-    .regime-title { font-size: 18px; }
+    /* Regime: compact single row, hide description */
+    .regime-emoji { font-size: 32px; }
+    .regime-title { font-size: 17px; }
+    .regime-desc  { display: none; }
+    .regime-row   { gap: 10px; }
 
     /* Charts: slightly taller on narrow screens for readability */
     .chart-wrap[style*="height:200px"] { height: 220px !important; }
@@ -225,9 +227,9 @@ const SECTOR_COLORS = {
 };
 
 const REGIME_INFO = {
-  BULL:    { emoji: "🟢", title: "Bullish Market",  desc: "Macro signals favour risk-on stocks. Model is running in growth mode.", cls: "badge-bull" },
-  BEAR:    { emoji: "🔴", title: "Bearish Market",  desc: "Macro headwinds detected. Model tilts defensive, tracking closely.", cls: "badge-bear" },
-  NEUTRAL: { emoji: "🟡", title: "Neutral Market",  desc: "Mixed signals. Model runs its standard balanced strategy.", cls: "badge-neutral" },
+  BULL:    { emoji: "🟢", title: "Bullish", desc: "Macro signals favour risk-on. Model in growth mode.", cls: "badge-bull" },
+  BEAR:    { emoji: "🔴", title: "Bearish", desc: "Macro headwinds detected. Model tilts defensive.", cls: "badge-bear" },
+  NEUTRAL: { emoji: "🟡", title: "Neutral", desc: "Mixed signals. Standard balanced strategy.", cls: "badge-neutral" },
 };
 
 function pct(v, plus = true) {
