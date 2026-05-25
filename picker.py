@@ -1345,11 +1345,16 @@ def make_classifier(kind=None, pos_weight=1.0):
 
 def fit_models(X_train, y_train, sample_weights=None):
     """Train a regressor + top-quintile classifier ensemble (MODEL_KIND)."""
+    # F5: skip fold if training labels are all one class
+    y_cls = (y_train > y_train.quantile(0.8)).astype(int)
+    if len(np.unique(y_cls)) < 2:
+        return None
+
     reg = make_regressor()
     reg.fit(X_train, y_train, sample_weight=sample_weights)
 
-    y_cls = (y_train > y_train.quantile(0.8)).astype(int)
-    pos_w = (len(y_cls) - y_cls.sum()) / max(y_cls.sum(), 1)
+    # F4: cap pos_weight to prevent extreme minority-class over-weighting
+    pos_w = min((len(y_cls) - y_cls.sum()) / max(y_cls.sum(), 1), 10.0)
     clf = make_classifier(pos_weight=pos_w)
     clf.fit(X_train, y_cls, sample_weight=sample_weights)
 
@@ -1690,20 +1695,17 @@ def _perm_importance_fold(sec_models, test_df, n_repeats=5, rng=None):
     if np.isnan(base_ic):
         return {}
 
-    importance = {}
+    # F3: pre-fill all features with 0 so macro/constant features appear in output
+    importance = {f: 0.0 for f in all_feats}
     for feat in all_feats:
         if feat not in df_eval.columns:
             continue
-        # sector_code is only a routing key in predict_sector_models, not a
-        # model feature — shuffling it destroys sector routing rather than
-        # measuring signal contribution, so skip it.
         if feat == "sector_code":
             continue
-        # Macro/time-series features (oil price, VIX, rate changes, etc.) have
-        # identical values for all stocks in a given month. Permuting within a
-        # single-month fold shuffles identical values → IC drop is always 0,
-        # which is not a real importance signal. Skip unmeasurable features.
+        # Macro features have identical values for all stocks in a single month;
+        # permuting them is meaningless — record as 0 (not missing).
         if df_eval[feat].nunique() <= 1:
+            importance[feat] = 0.0
             continue
         orig = df_eval[feat].values.copy()
         drops = []
@@ -1826,6 +1828,9 @@ def estimate_dml_alpha(panel, feature_cols, treatment_col, outcome_col="fwd_ret"
 
     if np.std(e_t) < 1e-8:
         return 0.0
+    # F6: guard against near-zero denominator before division
+    if np.sum(e_t ** 2) < 1e-12:
+        return 0.0
 
     theta = np.sum(e_t * e_y) / np.sum(e_t ** 2)
     return np.clip(theta, -0.20, 0.20)
@@ -1946,6 +1951,9 @@ def apply_rebalancing_band(new_picks, new_scores, current_holdings, constraints=
         final.append(t)
         sector_count[sec] = sector_count.get(sec, 0) + 1
 
+    # F8: warn if constraints produced no picks rather than silently returning []
+    if not final:
+        print(f"  WARNING: sector constraints produced 0 picks — check required_sectors vs universe")
     return final[:top_n]
 
 
@@ -2110,6 +2118,13 @@ def walk_forward(panel, feature_cols, train_months=30, min_train=24,
     panel = panel.sort_values("date")
     dates = sorted(panel["date"].unique())
 
+    # F7: fail loudly when there isn't enough history to run a single fold
+    if len(dates) < train_months + 2:
+        raise ValueError(
+            f"Not enough months ({len(dates)}) for train_months={train_months}. "
+            f"Need at least {train_months + 2}."
+        )
+
     results = []
     perstock = []
     holdings = []
@@ -2149,11 +2164,14 @@ def walk_forward(panel, feature_cols, train_months=30, min_train=24,
                     for feat, drop in fold_imp.items():
                         fold_importances.setdefault(feat, []).append(drop)
             else:
-                reg, clf = fit_models(
+                result = fit_models(
                     pd.DataFrame(train_df[feature_cols].values, columns=feature_cols),
                     pd.Series(train_df["fwd_ret"].values),
                     sample_weights=weights
                 )
+                if result is None:
+                    continue
+                reg, clf = result
                 scores = ensemble_predict(reg, clf, test_df[feature_cols].values)
         except Exception:
             continue
@@ -2201,15 +2219,23 @@ def walk_forward(panel, feature_cols, train_months=30, min_train=24,
 
         if dml_thetas:
             print(f"    {test_date.strftime('%Y-%m')}: DML alphas = {dml_thetas}")
-            pick_mask = test_df["ticker"].isin(picks)
+            # Apply DML adjustment across all candidates (not just pre-filtered picks)
+            # so re-ranking can promote/demote freely before sector constraints.
+            all_mask = test_df["ticker"] != "XIU.TO"
             dml_adj = apply_dml_adjustment(
-                test_df.loc[pick_mask, "score"].values,
-                test_df.loc[pick_mask],
+                test_df.loc[all_mask, "score"].values,
+                test_df.loc[all_mask],
                 dml_thetas
             )
-            pick_df = test_df.loc[pick_mask].copy()
-            pick_df["adj_score"] = dml_adj
-            picks = pick_df.sort_values("adj_score", ascending=False)["ticker"].tolist()[:CONSTRAINTS["top_n"]]
+            full_df = test_df.loc[all_mask].copy()
+            full_df["adj_score"] = dml_adj
+            full_df = full_df.sort_values("adj_score", ascending=False)
+            # F1: re-apply sector constraints after DML re-ranking
+            picks = apply_rebalancing_band(
+                full_df["ticker"].tolist(),
+                full_df["adj_score"].tolist(),
+                holdings,
+            )
 
         holdings = picks
 
@@ -2353,7 +2379,7 @@ def compute_cpcv(panel, feature_cols, n_folds=6, embargo_months=1):
 
         r = np.array(monthly_rets)
         sharpe = r.mean() / r.std() * np.sqrt(12) if r.std() > 0 else 0.0
-        ann_ret = (1 + r.mean()) ** 12 - 1
+        ann_ret = (1 + r).prod() ** (12 / len(r)) - 1
         cum = np.cumprod(1 + r)
         roll_max = np.maximum.accumulate(cum)
         max_dd = float(np.min((cum - roll_max) / roll_max))
@@ -3675,9 +3701,11 @@ def evaluate_prediction_quality(perstock):
         # Predicted class: above-median score
         y_pred = (score >= np.median(score)).astype(int)
 
-        # Normalized score → [0, 1] for Brier / LogLoss
+        # F9: skip fold when all scores are identical — normalization is meaningless
         rng = score.max() - score.min()
-        score_01 = (score - score.min()) / (rng + 1e-12)
+        if rng < 1e-8:
+            continue
+        score_01 = (score - score.min()) / rng
 
         try:
             aucroc_l.append(roc_auc_score(y_true, score))
