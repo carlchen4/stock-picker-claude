@@ -4514,7 +4514,7 @@ def run_trainwindow_sweep(panel, model_features):
     comparable to the baseline backtest IR.
     """
     values = [24, 30, 36, 42, 48]
-    baseline = 36
+    baseline = 30
     rows = []
     for i, tm in enumerate(values):
         print(f"  [{i+1}/{len(values)}] train_months={tm}m ...", end="", flush=True)
