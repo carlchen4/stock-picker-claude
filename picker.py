@@ -1984,7 +1984,7 @@ def estimate_portfolio_te(picks, weights, price_df, benchmark="XIU.TO", lookback
 # WALK-FORWARD BACKTEST
 # ══════════════════════════════════════════════════════════════════
 
-def walk_forward(panel, feature_cols, train_months=36, min_train=24,
+def walk_forward(panel, feature_cols, train_months=30, min_train=24,
                  return_perstock=False, score_mode="model",
                  embargo_months=1, return_importance=False,
                  return_raw_importance=False, expanding=False,
@@ -3984,10 +3984,10 @@ def _print_equity_curve(results_df, width=50):
 # SENSITIVITY ANALYSIS
 # ══════════════════════════════════════════════════════════════════
 
-def _wf_metrics(panel, model_features, embargo_months=1, half_life=12):
+def _wf_metrics(panel, model_features, embargo_months=1, half_life=12, train_months=36):
     """Run walk_forward; return (sharpe, ir, ann_ret, max_dd, hit_rate)."""
     results = walk_forward(panel, model_features, embargo_months=embargo_months,
-                           half_life=half_life)
+                           half_life=half_life, train_months=train_months)
     if results.empty:
         return (np.nan,) * 5
     r = results["port_ret"].values
@@ -4115,7 +4115,7 @@ def run_hp_stability(panel, model_features):
     baseline = dict(n_estimators=300, max_depth=5, min_samples_leaf=10, max_features=0.7)
 
     grid = {
-        "n_estimators":    [100, 200, 300, 500],
+        "n_estimators":    [100, 200, 300, 500, 700, 1000],
         "max_depth":       [3, 4, 5, 6, None],
         "min_samples_leaf":[5, 10, 15, 20],
         "max_features":    [0.5, 0.6, 0.7, 0.8],
@@ -4264,14 +4264,63 @@ def print_halflife_report(rows):
         print(f"\n  Baseline (12m) is already optimal by IR.")
 
 
+def run_trainwindow_sweep(panel, model_features):
+    """Sweep rolling training window over {24, 30, 36, 42, 48} months.
+
+    Uses half_life=6 (the production default) so results are directly
+    comparable to the baseline backtest IR.
+    """
+    values = [24, 30, 36, 42, 48]
+    baseline = 36
+    rows = []
+    for i, tm in enumerate(values):
+        print(f"  [{i+1}/{len(values)}] train_months={tm}m ...", end="", flush=True)
+        sr, ir, ann, dd, hit = _wf_metrics(panel, model_features, train_months=tm, half_life=6)
+        print(f"  IR {ir:.3f}  Sharpe {sr:.3f}")
+        rows.append({"train_months": tm, "baseline": (tm == baseline),
+                     "sharpe": sr, "ir": ir, "ann_ret": ann, "max_dd": dd, "hit": hit})
+    return rows
+
+
+def print_trainwindow_report(rows):
+    print("\n" + "═" * 72)
+    print("  TRAINING WINDOW SWEEP  (rolling months, ★ = current default, primary: IR)")
+    print("═" * 72)
+    print(f"  {'Train window':>13}  {'IR':>6}  {'Sharpe':>7}  {'Ann.Ret':>8}  {'MaxDD':>7}  {'Hit':>6}")
+    print(f"  {'─'*13}  {'─'*6}  {'─'*7}  {'─'*8}  {'─'*7}  {'─'*6}")
+    best_ir = max(r["ir"] for r in rows if not np.isnan(r["ir"]))
+    for r in rows:
+        star = "★" if r["baseline"] else " "
+        best = "◀ best" if abs(r["ir"] - best_ir) < 1e-9 else ""
+        print(f"  {r['train_months']:>12}m{star}  "
+              f"{r['ir']:>6.3f}  "
+              f"{r['sharpe']:>7.3f}  "
+              f"{r['ann_ret']:>+8.1%}  "
+              f"{r['max_dd']:>7.1%}  "
+              f"{r['hit']:>6.1%}  {best}")
+    print("═" * 72)
+    best_row = max(rows, key=lambda r: r["ir"])
+    baseline_ir = next(r["ir"] for r in rows if r["baseline"])
+    if not best_row["baseline"]:
+        delta = best_row["ir"] - baseline_ir
+        print(f"\n  Best: train_months={best_row['train_months']}m  "
+              f"(Δ IR {delta:+.3f} vs baseline 36m)")
+        if delta >= 0.05:
+            print(f"  → Meets adoption threshold (ΔIR ≥ 0.05) — consider updating default.")
+        else:
+            print(f"  → Below adoption threshold (ΔIR < 0.05) — keep default 36m.")
+    else:
+        print(f"\n  Baseline (36m) is already optimal by IR.")
+
+
 # ══════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════
 
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "pick"
-    assert mode in ("pick", "backtest", "both", "vif", "importance", "rigor", "sensitivity", "shap", "hptest", "halflife"), \
-        f"Usage: python picker.py [pick|backtest|both|vif|importance|rigor|sensitivity|shap|hptest|halflife]"
+    assert mode in ("pick", "backtest", "both", "vif", "importance", "rigor", "sensitivity", "shap", "hptest", "halflife", "trainwindow"), \
+        f"Usage: python picker.py [pick|backtest|both|vif|importance|rigor|sensitivity|shap|hptest|halflife|trainwindow]"
 
     print(f"\n{'═' * 60}")
     print(f"  TSX Stock Picker — Mode: {mode.upper()}")
@@ -4387,7 +4436,7 @@ def main():
     if mode == "hptest":
         print("\n  [4/5] Running hyperparameter stability test...")
         print("  OAT scan: n_estimators, max_depth, min_samples_leaf, max_features")
-        print("  ~16 walk-forward runs × ~1 min each ≈ 15-20 min total\n")
+        print("  ~18 walk-forward runs × ~1 min each ≈ 18-25 min total\n")
         rows = run_hp_stability(panel, model_features)
         print_hp_stability_report(rows)
         return
@@ -4396,6 +4445,12 @@ def main():
         print("\n  [4/5] Running half-life sweep (5 values × ~1 min each ≈ 5 min)...")
         rows = run_halflife_sweep(panel, model_features)
         print_halflife_report(rows)
+        return
+
+    if mode == "trainwindow":
+        print("\n  [4/5] Running training window sweep (5 values × ~2 min each ≈ 10 min)...")
+        rows = run_trainwindow_sweep(panel, model_features)
+        print_trainwindow_report(rows)
         return
 
     if mode == "shap":

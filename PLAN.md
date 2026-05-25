@@ -541,9 +541,15 @@ than chase more Sharpe.
   Hit Rate 57% → 66%, IR 0.81 → 0.97, Vol 13.7% → 12.8%. DSR STRONG (96.7%). WRC 99.7%.
   `vol_60d` importance: +0.0046 → +0.0164; `mom_pc2`: -0.0051 → +0.0122.
 
+### Adopted (2026-05-24)
+
+- **train_months=30（rolling window 缩短）**: trainwindow 扫描（half_life=6）发现 30m 在所有窗口中 IR 最高（24m:1.34，**30m:1.55**，36m:0.89，42m:1.07，48m:1.29）。完整 backtest：IR **0.92→1.55**，Sharpe 2.04→2.21，DSR MODERATE→**STRONG**（97.6%），PBO 6.8%→**2.4%**，逐年全面改善（2022 excess +5.1% vs -1.0%，2023 +30.8% vs +19.0%）。根因：half_life=6m 下，>30 个月前的数据权重 <3%，添加这些低权重月份只增加噪声。默认值已从 36 改为 30，并入 main。
+
 ### Tried and Rejected
 
-- **Integration Plan #4 — PIT 年报基本面（2026-05-24）**: 两个子实验，全部拒绝。
+- **多种子集成 — Multi-Seed Ensemble（2026-05-24）**: 对 ExtraTrees Regressor + Classifier 各训练 3 个种子（42, 123, 456），预测时取平均，以减少极端随机切割带来的方差。结果：IR **1.08→0.79**��Sharpe 2.13→1.90，2022 年 excess **+1.1%→-7.0%**（显著恶化）。平均多个种子的 rank-normalized 分数稀释了信号：seed=42 是已优化局部最优的结构成分，其他种子的分布与之发散，平均后信噪比下降。ranking IC 略有提升（Spearman 0.034→0.045），但组合级别 IR 大幅下降，说明不同种子选出了不同的股票但质量更差。已丢弃（未并入 main）。
+
+- **Integration Plan #4 — PIT 年报基��面（2026-05-24）**: 两个子实验，全部拒绝。
   根因诊断：`roe`/`pe_ratio`/`div_yield`/`debt_equity` 在 panel 里一直是全 NaN（`fetch_fundamentals` 从未被 `build_panel` 调用），ExtraTrees 静默忽略这些列的内容（sklearn 1.6.1 接受全 NaN 列，importance=0），但这些列的**存在**影响 `max_features=0.7` 的随机采样分布，是模型局部最优的结构组成部分。
   - **子实验 A — PIT 年报 ROE + asset_growth_yoy**: 新增 `fetch_annual_fundamentals` + `compute_pit_annual_features`，用 5 年年报 BS 计算逐股 roe_annual 替换 `roe`，新增 `asset_growth_yoy`。结果：IR **1.08→0.60**，Sharpe 2.13→1.79，hit rate 68.1%→53.2%，quintile 单调性 Yes→No。`roe_annual` importance 升至 +0.0036（确实被使用），但把"板块时序信号"（稳定噪声）替换为"逐股截面信号"，打乱了所有依赖 `roe` 的分裂节点。最大跌幅实验之一。
   - **子实验 B — snapshot 合并进 panel**: 将 `fetch_fundamentals` snapshot 通过 merge 写入 panel，每只股票在所有月份持有恒定的当前快照值（轻微 look-ahead）。结果：IR **1.08→0.92**（低于阈值 1.06），Sharpe 2.13→2.04，hit rate 68.1%→57.4%。把全 NaN（ExtraTrees 忽略）变成恒定逐股值（改变 max_features 采样）同样破坏局部最优。
