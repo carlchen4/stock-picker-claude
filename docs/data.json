@@ -204,5 +204,12 @@
         "bench_cum": 0.0172
       }
     ]
+  },
+  "macro": {
+    "vix":    {"val": 18.5,   "chg": -2.7},
+    "oil":    {"val": 74.2,   "chg_pct": 0.0443},
+    "cadusd": {"val": 0.7241, "chg_pct": -0.0081},
+    "us10y":  {"val": 4.32,   "chg_bps": 2.0},
+    "tsx":    {"val": 25180.0,"chg_pct": 0.021}
   }
 }

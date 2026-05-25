@@ -142,6 +142,17 @@
   /* ── Charts ── */
   .chart-wrap { position: relative; }
 
+  /* ── Macro snapshot ── */
+  .macro-card { border-left: 3px solid #7c3aed; }
+  .macro-row  { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+  .macro-item { flex: 1; min-width: 72px; background: var(--slate-lt); border-radius: 10px; padding: 10px 12px; text-align: center; }
+  .macro-val  { font-size: 15px; font-weight: 700; color: var(--dark); white-space: nowrap; }
+  .macro-lbl  { font-size: 10px; color: var(--slate); margin-top: 2px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+  .macro-chg  { font-size: 11px; margin-top: 3px; font-weight: 600; }
+  .macro-up   { color: var(--green); }
+  .macro-dn   { color: var(--red); }
+  .macro-flat { color: var(--slate); }
+
   /* ── OOS ── */
   /* Merged regime + changes */
   .regime-chg-header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
@@ -201,6 +212,12 @@
 
     /* Container: tighter padding */
     .container { padding: 12px; }
+
+    /* Macro: tighter items on small screens */
+    .macro-item { min-width: 62px; padding: 8px 6px; }
+    .macro-val  { font-size: 13px; }
+    .macro-lbl  { font-size: 9px; }
+    .macro-chg  { font-size: 10px; }
 
     /* Bottom nav spacing */
     .footer { padding-bottom: 40px; }
@@ -302,6 +319,36 @@ function render(d) {
         </div>
       </div>
     </div>`;
+  }
+
+  // ── Macro Snapshot ────────────────────────────────────────────────────────
+  if (d.macro && Object.keys(d.macro).length) {
+    const m = d.macro;
+    // Each item: { label, valStr, chgNum (raw number for direction), chgStr (display) }
+    const macroItems = [];
+    if (m.vix)    macroItems.push({ label: 'VIX',     valStr: m.vix.val.toFixed(1),
+                                    chgNum: m.vix.chg, chgStr: m.vix.chg != null ? (m.vix.chg > 0 ? '+' : '') + m.vix.chg : '' });
+    if (m.oil)    macroItems.push({ label: 'Oil/bbl', valStr: '$' + m.oil.val.toFixed(1),
+                                    chgNum: m.oil.chg_pct, chgStr: m.oil.chg_pct != null ? (m.oil.chg_pct > 0 ? '+' : '') + (m.oil.chg_pct * 100).toFixed(1) + '%' : '' });
+    if (m.cadusd) macroItems.push({ label: 'CAD/USD', valStr: m.cadusd.val.toFixed(4),
+                                    chgNum: m.cadusd.chg_pct, chgStr: m.cadusd.chg_pct != null ? (m.cadusd.chg_pct > 0 ? '+' : '') + (m.cadusd.chg_pct * 100).toFixed(1) + '%' : '' });
+    if (m.us10y)  macroItems.push({ label: 'US 10Y',  valStr: m.us10y.val.toFixed(2) + '%',
+                                    chgNum: m.us10y.chg_bps, chgStr: m.us10y.chg_bps != null ? (m.us10y.chg_bps > 0 ? '+' : '') + m.us10y.chg_bps + ' bps' : '' });
+    if (m.tsx)    macroItems.push({ label: 'TSX MoM', valStr: m.tsx.chg_pct != null ? (m.tsx.chg_pct > 0 ? '+' : '') + (m.tsx.chg_pct * 100).toFixed(1) + '%' : '—',
+                                    chgNum: m.tsx.chg_pct, chgStr: '' });
+    if (macroItems.length) {
+      html += `<div class="card mb macro-card"><div class="card-title">Macro Environment</div><div class="macro-row">` +
+        macroItems.map(it => {
+          const dir = it.chgNum > 0 ? 'macro-up' : it.chgNum < 0 ? 'macro-dn' : 'macro-flat';
+          const arrow = it.chgNum > 0 ? '↑' : it.chgNum < 0 ? '↓' : '→';
+          return `<div class="macro-item">
+            <div class="macro-val ${dir}">${it.valStr} ${arrow}</div>
+            <div class="macro-lbl">${it.label}</div>
+            <div class="macro-chg ${dir}">${it.chgStr}</div>
+          </div>`;
+        }).join('') +
+        `</div></div>`;
+    }
   }
 
   // ── Regime + Changes ──────────────────────────────────────────────────────

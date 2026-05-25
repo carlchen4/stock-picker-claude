@@ -3122,9 +3122,42 @@ def send_report_email(body, html_body=None, subject=None):
         return False
 
 
+def _extract_macro_snapshot(macro_df):
+    """Extract latest macro values + MoM changes for dashboard display."""
+    snap = {}
+    _TICKER_MAP = {
+        "vix":    ("^VIX",     "Close"),
+        "oil":    ("CL=F",     "Close"),
+        "cadusd": ("CADUSD=X", "Close"),
+        "us10y":  ("^TNX",     "Close"),
+        "tsx":    ("^GSPTSE",  "Close"),
+    }
+    for key, (ticker, col) in _TICKER_MAP.items():
+        try:
+            if (ticker, col) in macro_df.columns:
+                series = macro_df[(ticker, col)].dropna()
+            else:
+                series = macro_df[ticker][col].dropna()
+            monthly = series.resample("ME").last().dropna()
+            if len(monthly) < 2:
+                continue
+            curr, prev = float(monthly.iloc[-1]), float(monthly.iloc[-2])
+            if key == "us10y":
+                snap[key] = {"val": round(curr, 2), "chg_bps": round((curr - prev) * 100, 1)}
+            elif key in ("oil", "tsx"):
+                snap[key] = {"val": round(curr, 2), "chg_pct": round((curr - prev) / prev, 4)}
+            elif key == "cadusd":
+                snap[key] = {"val": round(curr, 4), "chg_pct": round((curr - prev) / prev, 4)}
+            else:  # vix — absolute change
+                snap[key] = {"val": round(curr, 1), "chg": round(curr - prev, 1)}
+        except Exception:
+            pass
+    return snap
+
+
 def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
                          checks, shap_by_ticker, te_estimate,
-                         portfolio_value=0.0, prices=None):
+                         portfolio_value=0.0, prices=None, macro_df=None):
     """Write docs/data.json for the GitHub Pages dashboard."""
     import json, os
     root = os.path.dirname(os.path.abspath(__file__))
@@ -3266,6 +3299,7 @@ def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
             for s in ["Financials", "Energy", "Industrials", "Utilities"]
         },
         "oos": oos_summary,
+        "macro": _extract_macro_snapshot(macro_df) if macro_df is not None else {},
     }
 
     path = os.path.join(out_dir, "data.json")
@@ -4559,7 +4593,7 @@ def main():
                                             portfolio_value=portfolio_value, prices=prices)
             send_report_email(report, html_body=html_report)
             write_dashboard_data(picks, weights, latest_df, top_features, regime, checks,
-                                 shap_vals, te_est, portfolio_value, prices)
+                                 shap_vals, te_est, portfolio_value, prices, macro_df=macro_df)
             _push_dashboard(datetime.now().strftime("%Y-%m-%d"))
 
 
