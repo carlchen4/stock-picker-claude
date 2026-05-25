@@ -142,6 +142,28 @@
   /* ── Charts ── */
   .chart-wrap { position: relative; }
 
+  /* ── Trailing returns row ── */
+  .trailing-row { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 14px;
+                  padding-top: 12px; border-top: 1px solid #e2e8f0; align-items: center; }
+  .trail-lbl    { font-size: 11px; color: var(--slate); font-weight: 600; margin-right: 4px; }
+  .trail-item   { display: flex; align-items: baseline; gap: 4px; }
+  .trail-period { font-size: 11px; color: var(--slate); font-weight: 700; min-width: 20px; }
+  .trail-num    { font-size: 15px; font-weight: 800; }
+  .trail-excess { font-size: 11px; color: var(--slate); }
+  .trail-excess.pos { color: var(--green); }
+  .trail-excess.neg { color: var(--red); }
+
+  /* ── Recent 6-month table ── */
+  .r6-table  { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .r6-table thead th { text-align: left; font-size: 10px; text-transform: uppercase;
+                       letter-spacing: 0.5px; color: var(--slate); padding: 0 8px 8px 0;
+                       border-bottom: 1px solid #e2e8f0; }
+  .r6-table tbody tr:not(:last-child) td { border-bottom: 1px solid #f1f5f9; }
+  .r6-date { padding: 7px 8px 7px 0; color: var(--dark); font-weight: 600; white-space: nowrap; }
+  .r6-num  { padding: 7px 8px 7px 0; font-weight: 700; text-align: right; }
+  .r6-num.pos { color: var(--green); }
+  .r6-num.neg { color: var(--red); }
+
   /* ── Risk banner ── */
   .risk-banner { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center;
                  background: var(--slate-lt); border-radius: 10px; padding: 8px 12px;
@@ -325,6 +347,18 @@ function render(d) {
           <div class="stat-sub">worst dip ever</div>
         </div>
       </div>
+      ${b.trailing ? `<div class="trailing-row">
+        <span class="trail-lbl">Trailing returns:</span>
+        ${['3m','6m','12m'].filter(k => b.trailing[k]).map(k => {
+          const t = b.trailing[k];
+          const excess = t.port - t.bench;
+          const eCls = excess >= 0 ? 'pos' : 'neg';
+          return `<span class="trail-item"><span class="trail-period">${k}</span>
+            <span class="trail-num ${t.port >= 0 ? 'pos' : 'neg'}">${pct(t.port)}</span>
+            <span class="trail-excess ${eCls}">${excess >= 0 ? '+' : ''}${(excess*100).toFixed(1)}% vs XIU</span>
+          </span>`;
+        }).join('')}
+      </div>` : ''}
     </div>`;
   }
 
@@ -465,6 +499,30 @@ function render(d) {
       </div>`;
     }
     html += `</div>`;
+  }
+
+  // ── H5: Recent 6-month table ─────────────────────────────────────────────
+  if (d.backtest && d.backtest.recent6 && d.backtest.recent6.length) {
+    const rows = d.backtest.recent6;
+    const rowsHtml = rows.map(r => {
+      const ex = r.port - r.bench;
+      const pCls = r.port >= 0 ? 'pos' : 'neg';
+      const bCls = r.bench >= 0 ? 'pos' : 'neg';
+      const eCls = ex    >= 0 ? 'pos' : 'neg';
+      return `<tr>
+        <td class="r6-date">${r.date}</td>
+        <td class="r6-num ${pCls}">${pct(r.port)}</td>
+        <td class="r6-num ${bCls}">${pct(r.bench)}</td>
+        <td class="r6-num ${eCls}">${ex >= 0 ? '+' : ''}${(ex * 100).toFixed(1)}%</td>
+      </tr>`;
+    }).join('');
+    html += `<div class="card mb">
+      <div class="card-title">Monthly Returns · Last 6 Months</div>
+      <table class="r6-table">
+        <thead><tr><th>Month</th><th>Portfolio</th><th>XIU</th><th>Excess</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
   }
 
   // ── Feature importance ────────────────────────────────────────────────────

@@ -1739,6 +1739,39 @@ def load_perm_importance(path=PERM_IMPORTANCE_FILE):
         return None
 
 
+BACKTEST_MONTHLY_FILE = _cache_path("backtest_monthly.json")
+
+
+def save_backtest_monthly(results_df):
+    """Save walk-forward monthly returns to cache for dashboard use."""
+    if results_df is None or results_df.empty:
+        return
+    try:
+        records = [
+            {
+                "date":      row["date"].strftime("%Y-%m"),
+                "port_ret":  round(float(row["port_ret"]),  4),
+                "bench_ret": round(float(row["bench_ret"]), 4),
+            }
+            for _, row in results_df.iterrows()
+        ]
+        with open(BACKTEST_MONTHLY_FILE, "w") as f:
+            json.dump(records, f, indent=2)
+    except Exception:
+        pass
+
+
+def load_backtest_monthly():
+    """Load saved monthly backtest returns, or [] if absent."""
+    if not os.path.exists(BACKTEST_MONTHLY_FILE):
+        return []
+    try:
+        with open(BACKTEST_MONTHLY_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
 # ══════════════════════════════════════════════════════════════════
 # DOUBLE MACHINE LEARNING (Chernozhukov 2018)
 # ══════════════════════════════════════════════════════════════════
@@ -3215,6 +3248,60 @@ def _extract_macro_snapshot(macro_df):
     return snap
 
 
+def _build_backtest_dict():
+    """Build backtest section for data.json, enriched with monthly series."""
+    _HARDCODED = {
+        "sharpe": 2.21, "ir": 1.55, "ann_ret": 0.304, "max_dd": -0.083,
+        "hit_rate": 0.736, "period": "2021-11 to 2026-03",
+        "yearly": [
+            {"year": 2021, "port": 0.125,  "bench": 0.029},
+            {"year": 2022, "port": 0.059,  "bench": 0.008},
+            {"year": 2023, "port": 0.355,  "bench": 0.047},
+            {"year": 2024, "port": 0.410,  "bench": 0.252},
+            {"year": 2025, "port": 0.217,  "bench": 0.235},
+            {"year": 2026, "port": 0.166,  "bench": 0.076},
+        ],
+    }
+    monthly = load_backtest_monthly()
+    if not monthly:
+        return _HARDCODED
+
+    # Build cumulative return series
+    port_cum, bench_cum = 1.0, 1.0
+    monthly_cum = []
+    for m in monthly:
+        port_cum  *= (1 + m["port_ret"])
+        bench_cum *= (1 + m["bench_ret"])
+        monthly_cum.append({
+            "date":       m["date"],
+            "port":       m["port_ret"],
+            "bench":      m["bench_ret"],
+            "port_cum":   round(port_cum  - 1, 4),
+            "bench_cum":  round(bench_cum - 1, 4),
+        })
+
+    # H5: last 6 months
+    recent6 = monthly_cum[-6:]
+
+    # H3: trailing compounded returns
+    def _trailing(n):
+        tail = monthly[-n:]
+        p = (1 + np.array([m["port_ret"]  for m in tail])).prod() - 1
+        b = (1 + np.array([m["bench_ret"] for m in tail])).prod() - 1
+        return {"port": round(float(p), 4), "bench": round(float(b), 4)}
+
+    trailing = {}
+    for label, n in [("3m", 3), ("6m", 6), ("12m", 12)]:
+        if len(monthly) >= n:
+            trailing[label] = _trailing(n)
+
+    result = dict(_HARDCODED)
+    result["monthly"] = monthly_cum
+    result["recent6"] = recent6
+    result["trailing"] = trailing
+    return result
+
+
 def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
                          checks, shap_by_ticker, te_estimate,
                          portfolio_value=0.0, prices=None, macro_df=None,
@@ -3343,18 +3430,7 @@ def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
              "importance": round(float(v), 4)}
             for f, v in top_features[:8]
         ],
-        "backtest": {
-            "sharpe": 2.21, "ir": 1.55, "ann_ret": 0.304, "max_dd": -0.083,
-            "hit_rate": 0.736, "period": "2021-11 to 2026-03",
-            "yearly": [
-                {"year": 2021, "port": 0.125,  "bench": 0.029},
-                {"year": 2022, "port": 0.059,  "bench": 0.008},
-                {"year": 2023, "port": 0.355,  "bench": 0.047},
-                {"year": 2024, "port": 0.410,  "bench": 0.252},
-                {"year": 2025, "port": 0.217,  "bench": 0.235},
-                {"year": 2026, "port": 0.166,  "bench": 0.076},
-            ],
-        },
+        "backtest": _build_backtest_dict(),
         "sector_weights": {
             s: round(sum(weights.get(t, 0) for t in picks
                          if STOCK_PROFILE.get(t, ("?",))[0] == s), 3)
@@ -4608,6 +4684,7 @@ def main():
             return_perstock=True, return_importance=True
         )
         print_backtest(results)
+        save_backtest_monthly(results)
         evaluate_segments(perstock)
         evaluate_prediction_quality(perstock)
         print_permutation_importance(importance)
