@@ -149,6 +149,47 @@
 
   .error   { color: var(--red); padding: 40px; text-align: center; }
   .loading { color: var(--slate); padding: 50px; text-align: center; font-size: 15px; }
+
+  /* ── iPhone / mobile fixes ── */
+  @media (max-width: 480px) {
+    /* Header: stack title above badges */
+    .header-inner { flex-direction: column; gap: 10px; align-items: flex-start; }
+    .badges { justify-content: flex-start; }
+    .header h1 { font-size: 18px; }
+
+    /* Reduce card padding */
+    .card { padding: 14px; }
+
+    /* Stats: 2×2 grid, smaller numbers */
+    .stat-num { font-size: 22px; }
+    .stat-box { padding: 12px 8px; }
+
+    /* Changes: stack to 1 col when sell/buy/hold are all long */
+    .chg-grid { grid-template-columns: 1fr; gap: 6px; }
+    .chg-col  { display: flex; align-items: center; gap: 8px; padding: 8px 10px; text-align: left; }
+    .chg-lbl  { min-width: 56px; margin-bottom: 0; }
+
+    /* Pick row: tighten up */
+    .pick-ticker { font-size: 15px; }
+    .pick-wt     { font-size: 16px; }
+    .score-ring  { width: 34px; height: 34px; font-size: 11px; }
+
+    /* Driver tags: slightly bigger touch area */
+    .d-tag { font-size: 11px; padding: 3px 9px; }
+
+    /* Regime emoji smaller */
+    .regime-emoji { font-size: 38px; }
+    .regime-title { font-size: 18px; }
+
+    /* Charts: slightly taller on narrow screens for readability */
+    .chart-wrap[style*="height:200px"] { height: 220px !important; }
+
+    /* Container: tighter padding */
+    .container { padding: 12px; }
+
+    /* Bottom nav spacing */
+    .footer { padding-bottom: 40px; }
+  }
 </style>
 </head>
 <body>
