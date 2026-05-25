@@ -109,15 +109,18 @@
   .pick { padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
   .pick:last-child { border-bottom: none; padding-bottom: 0; }
   .pick-top { display: flex; align-items: center; gap: 10px; }
+  .score-wrap { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; gap: 2px; }
   .score-ring {
     width: 38px; height: 38px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 800; flex-shrink: 0;
+    font-size: 12px; font-weight: 800;
     border: 2.5px solid transparent;
   }
+  .score-lbl { font-size: 9px; color: var(--slate); letter-spacing: 0.3px; font-weight: 600; }
   .sr-hi  { background: var(--green-lt); color: var(--green); border-color: #bbf7d0; }
   .sr-mid { background: var(--blue-lt);  color: var(--blue);  border-color: #bfdbfe; }
   .sr-lo  { background: var(--slate-lt); color: var(--slate); border-color: var(--border); }
+  .pick-shares { font-size: 11px; color: var(--slate); margin-top: 4px; }
   .pick-info { flex: 1; min-width: 0; }
   .pick-ticker-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
   .pick-ticker { font-weight: 800; font-size: 16px; }
@@ -342,9 +345,16 @@ function render(d) {
     const valStr = p.dollar_value ? '$' + p.dollar_value.toLocaleString() : '';
     const sharesStr = p.shares && p.price ? `${p.shares} sh @ $${p.price.toFixed(2)}` : '';
 
+    const sharesLine = p.shares && p.price
+      ? `<div class="pick-shares">Buy <strong>${p.shares} shares</strong> @ $${p.price.toFixed(2)}${valStr ? ' = ' + valStr : ''}</div>`
+      : '';
+
     return `<div class="pick">
       <div class="pick-top">
-        <div class="score-ring ${rCls}">${(p.score * 100).toFixed(0)}</div>
+        <div class="score-wrap">
+          <div class="score-ring ${rCls}">${(p.score * 100).toFixed(0)}</div>
+          <div class="score-lbl">SCORE</div>
+        </div>
         <div class="pick-info">
           <div class="pick-ticker-row">
             <span class="pick-ticker">${p.ticker}</span>
@@ -354,10 +364,11 @@ function render(d) {
         </div>
         <div class="pick-right">
           <div class="pick-wt">${(p.weight * 100).toFixed(1)}%</div>
-          <div class="pick-val">${valStr}</div>
+          <div class="pick-val">of portfolio</div>
         </div>
       </div>
       <div class="wt-bar-bg"><div class="wt-bar-fill" style="width:${barPct}%"></div></div>
+      ${sharesLine}
       ${driversHtml ? `<div class="drivers">${driversHtml}</div>` : ''}
     </div>`;
   }).join('');
