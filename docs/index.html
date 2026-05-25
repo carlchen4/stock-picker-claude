@@ -525,6 +525,20 @@ function render(d) {
     </div>`;
   }
 
+  // ── H4: Drawdown + H6: Return distribution ───────────────────────────────
+  if (d.backtest && d.backtest.monthly && d.backtest.monthly.length >= 6) {
+    html += `<div class="grid-2 mb">
+      <div class="card">
+        <div class="card-title">Drawdown (Underwater Chart)</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="chartDrawdown"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Monthly Return Distribution</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="chartDist"></canvas></div>
+      </div>
+    </div>`;
+  }
+
   // ── Feature importance ────────────────────────────────────────────────────
   if (d.top_features && d.top_features.length) {
     const n = Math.min(d.top_features.length, 7);
@@ -721,6 +735,93 @@ function render(d) {
         scales: {
           x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } },
           y: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        },
+      },
+    });
+  }
+
+  // ── H4: Drawdown chart ───────────────────────────────────────────────────
+  if (d.backtest && d.backtest.monthly && document.getElementById('chartDrawdown')) {
+    const mo = d.backtest.monthly;
+    // Compute drawdown series from cumulative returns
+    let peak = 0;
+    const ddLabels = [], ddData = [];
+    mo.forEach(m => {
+      const cum = m.port_cum;
+      if (cum > peak) peak = cum;
+      const dd = peak > -1 ? (cum - peak) / (1 + peak) : 0;
+      ddLabels.push(m.date);
+      ddData.push(+(dd * 100).toFixed(2));
+    });
+    new Chart(document.getElementById('chartDrawdown'), {
+      type: 'line',
+      data: {
+        labels: ddLabels,
+        datasets: [{
+          data: ddData,
+          borderColor: '#dc2626',
+          backgroundColor: 'rgba(220,38,38,0.15)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 0,
+          borderWidth: 1.5,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` Drawdown: ${ctx.parsed.y.toFixed(1)}%` } },
+        },
+        scales: {
+          x: {
+            ticks: { font: { size: 10 }, maxTicksLimit: 6,
+                     callback: (_, i) => i % Math.ceil(ddLabels.length / 6) === 0 ? ddLabels[i] : '' },
+            grid: { display: false },
+          },
+          y: {
+            max: 0,
+            grid: { color: '#f1f5f9' },
+            ticks: { font: { size: 10 }, callback: v => v + '%' },
+          },
+        },
+      },
+    });
+  }
+
+  // ── H6: Monthly return distribution ──────────────────────────────────────
+  if (d.backtest && d.backtest.monthly && document.getElementById('chartDist')) {
+    const mo = d.backtest.monthly;
+    const rets = mo.map(m => m.port * 100);
+    // Bins: -10%, -8%, -6%, ..., +12% in 2% increments
+    const edges = [];
+    for (let v = -10; v <= 12; v += 2) edges.push(v);
+    const binLabels = edges.slice(0, -1).map((e, i) => `${e > 0 ? '+' : ''}${e}%`);
+    const counts = new Array(edges.length - 1).fill(0);
+    rets.forEach(r => {
+      for (let i = 0; i < edges.length - 1; i++) {
+        if (r >= edges[i] && r < edges[i + 1]) { counts[i]++; break; }
+        if (i === edges.length - 2 && r >= edges[i + 1]) counts[i]++;
+      }
+    });
+    const binColors = edges.slice(0, -1).map(e => e >= 0 ? 'rgba(22,163,74,0.75)' : 'rgba(220,38,38,0.75)');
+    new Chart(document.getElementById('chartDist'), {
+      type: 'bar',
+      data: {
+        labels: binLabels,
+        datasets: [{ data: counts, backgroundColor: binColors, borderRadius: 3, borderSkipped: false }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} months` } },
+          annotation: { /* zero line via scale */ },
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 0 } },
+          y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 }, stepSize: 1,
+               callback: v => Number.isInteger(v) ? v : '' } },
         },
       },
     });
