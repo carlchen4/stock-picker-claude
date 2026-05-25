@@ -3,7 +3,7 @@
   "as_of": "2026-05-24",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
-  "reliability_detail": "CAUTION \u2014 1 warning \u2014 Feature drift: 1 regime-shifted (|z|>3): rev_growth_yoy(z=9.0)",
+  "reliability_detail": "CAUTION — 1 warning — Feature drift: 1 regime-shifted (|z|>3): rev_growth_yoy(z=9.0)",
   "portfolio_value": 10000.0,
   "te_estimate": 0.1038,
   "picks": [
@@ -19,18 +19,9 @@
       "shares": 6,
       "dollar_value": 1415,
       "drivers": [
-        {
-          "label": "RSI (14-day)",
-          "shap": -0.0684
-        },
-        {
-          "label": "52-Week High Proximity",
-          "shap": 0.0185
-        },
-        {
-          "label": "Volatility 20d",
-          "shap": 0.012
-        }
+        {"label": "RSI (14-day)", "shap": -0.0684},
+        {"label": "52-Week High Proximity", "shap": 0.0185},
+        {"label": "Volatility 20d", "shap": 0.012}
       ]
     },
     {
@@ -45,18 +36,9 @@
       "shares": 21,
       "dollar_value": 871,
       "drivers": [
-        {
-          "label": "Volatility 60d",
-          "shap": 0.1067
-        },
-        {
-          "label": "Short-Term Reversal",
-          "shap": -0.0465
-        },
-        {
-          "label": "Momentum PC1",
-          "shap": 0.0289
-        }
+        {"label": "Volatility 60d", "shap": 0.1067},
+        {"label": "Short-Term Reversal", "shap": -0.0465},
+        {"label": "Momentum PC1", "shap": 0.0289}
       ]
     },
     {
@@ -71,18 +53,9 @@
       "shares": 7,
       "dollar_value": 1238,
       "drivers": [
-        {
-          "label": "Momentum PC1",
-          "shap": -0.0503
-        },
-        {
-          "label": "Bollinger Band Z",
-          "shap": -0.0344
-        },
-        {
-          "label": "Volatility 20d",
-          "shap": 0.0309
-        }
+        {"label": "Momentum PC1", "shap": -0.0503},
+        {"label": "Bollinger Band Z", "shap": -0.0344},
+        {"label": "Volatility 20d", "shap": 0.0309}
       ]
     },
     {
@@ -97,18 +70,9 @@
       "shares": 129,
       "dollar_value": 1068,
       "drivers": [
-        {
-          "label": "RSI (14-day)",
-          "shap": 0.0752
-        },
-        {
-          "label": "Momentum PC2",
-          "shap": 0.0392
-        },
-        {
-          "label": "Volatility 60d",
-          "shap": 0.0327
-        }
+        {"label": "RSI (14-day)", "shap": 0.0752},
+        {"label": "Momentum PC2", "shap": 0.0392},
+        {"label": "Volatility 60d", "shap": 0.0327}
       ]
     },
     {
@@ -123,18 +87,9 @@
       "shares": 13,
       "dollar_value": 895,
       "drivers": [
-        {
-          "label": "Volatility 60d",
-          "shap": 0.0534
-        },
-        {
-          "label": "Momentum PC1",
-          "shap": 0.0296
-        },
-        {
-          "label": "Dividend Growth YoY",
-          "shap": -0.018
-        }
+        {"label": "Volatility 60d", "shap": 0.0534},
+        {"label": "Momentum PC1", "shap": 0.0296},
+        {"label": "Dividend Growth YoY", "shap": -0.018}
       ]
     },
     {
@@ -149,18 +104,9 @@
       "shares": 31,
       "dollar_value": 2339,
       "drivers": [
-        {
-          "label": "RSI (14-day)",
-          "shap": 0.0453
-        },
-        {
-          "label": "52-Week High Proximity",
-          "shap": 0.0202
-        },
-        {
-          "label": "Bollinger Band Z",
-          "shap": 0.0187
-        }
+        {"label": "RSI (14-day)", "shap": 0.0453},
+        {"label": "52-Week High Proximity", "shap": 0.0202},
+        {"label": "Bollinger Band Z", "shap": 0.0187}
       ]
     },
     {
@@ -175,18 +121,9 @@
       "shares": 5,
       "dollar_value": 708,
       "drivers": [
-        {
-          "label": "Momentum PC1",
-          "shap": -0.1281
-        },
-        {
-          "label": "Bollinger Band Z",
-          "shap": 0.0437
-        },
-        {
-          "label": "Short-Term Reversal",
-          "shap": -0.0377
-        }
+        {"label": "Momentum PC1", "shap": -0.1281},
+        {"label": "Bollinger Band Z", "shap": 0.0437},
+        {"label": "Short-Term Reversal", "shap": -0.0377}
       ]
     },
     {
@@ -201,71 +138,47 @@
       "shares": 9,
       "dollar_value": 1463,
       "drivers": [
-        {
-          "label": "RSI (14-day)",
-          "shap": -0.0742
-        },
-        {
-          "label": "Bollinger Band Z",
-          "shap": -0.0297
-        },
-        {
-          "label": "52-Week High Proximity",
-          "shap": 0.0238
-        }
+        {"label": "RSI (14-day)", "shap": -0.0742},
+        {"label": "Bollinger Band Z", "shap": -0.0297},
+        {"label": "52-Week High Proximity", "shap": 0.0238}
       ]
     }
   ],
   "actions": {
     "sell": [],
-    "buy": [
-      "BMO.TO",
-      "CVE.TO",
-      "CNR.TO",
-      "AQN.TO",
-      "CNQ.TO",
-      "EMA.TO",
-      "TRI.TO",
-      "CM.TO"
-    ],
+    "buy": ["BMO.TO", "CVE.TO", "CNR.TO", "AQN.TO", "CNQ.TO", "EMA.TO", "TRI.TO", "CM.TO"],
     "hold": []
   },
   "top_features": [
-    {
-      "name": "ADV 20-day Rank",
-      "importance": 0.0181
-    },
-    {
-      "name": "Momentum PC2",
-      "importance": 0.0169
-    },
-    {
-      "name": "Volatility 60d",
-      "importance": 0.0105
-    },
-    {
-      "name": "52-Week High Proximity",
-      "importance": 0.0091
-    },
-    {
-      "name": "Dividend Growth YoY",
-      "importance": 0.0076
-    },
-    {
-      "name": "RSI (14-day)",
-      "importance": 0.0055
-    },
-    {
-      "name": "Short-Term Reversal",
-      "importance": 0.0017
-    }
+    {"name": "ADV 20-day Rank",        "importance": 0.0126},
+    {"name": "52-Week High Proximity", "importance": 0.0100},
+    {"name": "Momentum PC2",           "importance": 0.0094},
+    {"name": "RSI (14-day)",           "importance": 0.0048},
+    {"name": "Momentum PC1",           "importance": 0.0012},
+    {"name": "Volatility 60d",         "importance": 0.0009},
+    {"name": "Short-Term Reversal",    "importance": -0.0022}
   ],
   "backtest": {
-    "sharpe": 2.13,
-    "ir": 1.08,
-    "ann_ret": 0.27,
+    "sharpe": 2.21,
+    "ir": 1.55,
+    "ann_ret": 0.304,
     "max_dd": -0.083,
-    "period": "2022-05 to 2026-03"
+    "hit_rate": 0.736,
+    "period": "2021-11 to 2026-03",
+    "yearly": [
+      {"year": 2021, "port": 0.125,  "bench": 0.029},
+      {"year": 2022, "port": 0.059,  "bench": 0.008},
+      {"year": 2023, "port": 0.355,  "bench": 0.047},
+      {"year": 2024, "port": 0.410,  "bench": 0.252},
+      {"year": 2025, "port": 0.217,  "bench": 0.235},
+      {"year": 2026, "port": 0.166,  "bench": 0.076}
+    ]
+  },
+  "sector_weights": {
+    "Financials":  0.288,
+    "Energy":      0.177,
+    "Industrials": 0.195,
+    "Utilities":   0.341
   },
   "oos": {
     "months": 1,

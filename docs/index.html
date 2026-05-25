@@ -5,183 +5,192 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TSX Stock Picks</title>
 <style>
+  :root {
+    --blue:      #2563eb;
+    --blue-lt:   #eff6ff;
+    --green:     #16a34a;
+    --green-lt:  #dcfce7;
+    --red:       #dc2626;
+    --red-lt:    #fee2e2;
+    --amber:     #d97706;
+    --amber-lt:  #fef3c7;
+    --slate:     #64748b;
+    --slate-lt:  #f1f5f9;
+    --dark:      #0f172a;
+    --border:    #e2e8f0;
+    --shadow:    0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-         background: #f0f2f5; color: #1a252f; font-size: 14px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f1f5f9;
+    color: var(--dark);
+    font-size: 14px;
+    line-height: 1.5;
+  }
 
-  .header { background: #1a252f; color: #fff; padding: 16px 16px 14px; }
-  .header h1 { font-size: 18px; font-weight: 700; }
-  .header .sub { font-size: 12px; color: #99a; margin-top: 3px; }
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 55%, #1d4ed8 100%);
+    color: #fff;
+    padding: 20px 24px 18px;
+  }
+  .header-inner { max-width: 900px; margin: 0 auto; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .header h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; }
+  .header-sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+  .badges { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 11px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap;
+  }
+  .badge-bull    { background: #dcfce7; color: #15803d; }
+  .badge-neutral { background: #fef9c3; color: #854d0e; }
+  .badge-bear    { background: #fee2e2; color: #991b1b; }
+  .badge-ok      { background: #dcfce7; color: #15803d; }
+  .badge-caution { background: #fef3c7; color: #92400e; }
+  .badge-low     { background: #fee2e2; color: #991b1b; }
 
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px;
-           font-size: 11px; font-weight: 700; letter-spacing: 0.3px; }
-  .bull   { background: #d4f5e0; color: #0d6832; }
-  .neutral{ background: #d1ecf1; color: #0c5460; }
-  .bear   { background: #fde8e8; color: #9b2335; }
-  .b-ok   { background: #d4f5e0; color: #0d6832; }
-  .b-caut { background: #fff3cd; color: #856404; }
-  .b-low  { background: #fde8e8; color: #9b2335; }
+  /* ── Layout ── */
+  .container { max-width: 900px; margin: 0 auto; padding: 16px; }
+  .mb { margin-bottom: 14px; }
 
-  .container { max-width: 520px; margin: 0 auto; padding: 12px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 620px) { .grid-2 { grid-template-columns: 1fr; } }
 
-  .card { background: #fff; border-radius: 14px; padding: 16px;
-          margin-bottom: 12px; box-shadow: 0 1px 5px rgba(0,0,0,.07); }
-  .card-title { font-size: 11px; font-weight: 700; color: #888;
-                text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; }
+  /* ── Card ── */
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .card-title {
+    font-size: 11px; font-weight: 700; color: var(--slate);
+    text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px;
+  }
 
-  /* Signal card */
-  .signal-big { font-size: 40px; text-align: center; margin-bottom: 6px; }
-  .signal-regime { font-size: 20px; font-weight: 700; text-align: center; }
-  .signal-desc { font-size: 13px; color: #555; text-align: center; margin-top: 6px; line-height: 1.5; }
+  /* ── Warning ── */
+  .warn-card { border-left: 4px solid var(--amber); }
+  .warn-text { font-size: 12px; color: #92400e; line-height: 1.6; }
 
-  /* Actions */
-  .action-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-  .action-col { border-radius: 10px; padding: 10px 8px; text-align: center; }
-  .action-col.sell { background: #fde8e8; }
-  .action-col.buy  { background: #d4f5e0; }
-  .action-col.hold { background: #f0f2f5; }
-  .action-lbl { font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
-                margin-bottom: 6px; }
-  .action-col.sell .action-lbl { color: #9b2335; }
-  .action-col.buy  .action-lbl { color: #0d6832; }
-  .action-col.hold .action-lbl { color: #555; }
-  .action-chip { font-size: 12px; font-weight: 600; color: #1a252f;
-                 display: block; margin-bottom: 3px; }
-  .action-empty { font-size: 11px; color: #aaa; }
+  /* ── Stats row ── */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  @media (max-width: 500px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+  .stat-box { background: var(--slate-lt); border-radius: 12px; padding: 14px 10px; text-align: center; }
+  .stat-num { font-size: 26px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+  .stat-num.pos { color: var(--green); }
+  .stat-num.neg { color: var(--red); }
+  .stat-num.neu { color: var(--dark); }
+  .stat-label { font-size: 11px; color: var(--slate); margin-top: 5px; font-weight: 600; }
+  .stat-sub   { font-size: 10px; color: #94a3b8; margin-top: 2px; }
 
-  /* Year bar chart */
-  .bar-chart { margin-top: 4px; }
-  .bar-year-row { display: flex; align-items: center; margin-bottom: 8px; gap: 8px; }
-  .bar-yr-label { font-size: 11px; color: #666; width: 36px; flex-shrink: 0; }
-  .bar-tracks { flex: 1; }
-  .bar-track { height: 10px; border-radius: 5px; margin-bottom: 3px;
-               min-width: 3px; transition: width 0.4s ease; }
-  .bar-port  { background: #3498db; }
-  .bar-bench { background: #bdc3c7; }
-  .bar-pct   { font-size: 11px; color: #555; min-width: 44px; text-align: right; flex-shrink: 0; }
-  .bar-legend { display: flex; gap: 14px; margin-top: 2px; margin-bottom: 10px; }
-  .bar-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #666; }
-  .bar-dot { width: 10px; height: 10px; border-radius: 50%; }
-  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
-  .stat { background: #f8f9fa; border-radius: 10px; padding: 10px 12px; }
-  .stat-val { font-size: 22px; font-weight: 700; }
-  .stat-val.pos { color: #0d6832; }
-  .stat-val.neg { color: #9b2335; }
-  .stat-val.neu { color: #1a252f; }
-  .stat-lbl { font-size: 11px; color: #888; margin-top: 2px; }
-  .stat-sub  { font-size: 10px; color: #aaa; margin-top: 1px; }
+  /* ── Regime ── */
+  .regime-row { display: flex; align-items: center; gap: 14px; }
+  .regime-emoji { font-size: 46px; line-height: 1; flex-shrink: 0; }
+  .regime-title { font-size: 20px; font-weight: 800; letter-spacing: -0.4px; }
+  .regime-desc  { font-size: 12px; color: var(--slate); margin-top: 4px; line-height: 1.5; }
 
-  /* Sector bar */
-  .sector-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin-bottom: 8px; }
-  .sector-bar-seg { height: 100%; transition: width 0.4s; }
-  .sector-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
-  .sector-dot-row { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #555; }
-  .sector-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-  .sector-colors { Financials: "#3498db", Energy: "#e67e22", Industrials: "#9b59b6", Utilities: "#1abc9c" }
+  /* ── Changes ── */
+  .chg-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .chg-col  { border-radius: 10px; padding: 10px 8px; text-align: center; }
+  .chg-col.sell { background: var(--red-lt); }
+  .chg-col.buy  { background: var(--green-lt); }
+  .chg-col.hold { background: var(--slate-lt); }
+  .chg-lbl { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 6px; }
+  .chg-col.sell .chg-lbl { color: var(--red); }
+  .chg-col.buy  .chg-lbl { color: var(--green); }
+  .chg-col.hold .chg-lbl { color: var(--slate); }
+  .chg-chip  { font-size: 12px; font-weight: 600; display: block; margin-bottom: 2px; color: var(--dark); }
+  .chg-empty { font-size: 11px; color: #94a3b8; }
 
-  /* Pick rows */
-  .pick { border-bottom: 1px solid #f0f2f5; padding: 10px 0; }
-  .pick:last-child { border-bottom: none; }
-  .pick-header { display: flex; align-items: center; gap: 8px; }
-  .score-circle { width: 34px; height: 34px; border-radius: 50%;
-                  display: flex; align-items: center; justify-content: center;
-                  font-size: 11px; font-weight: 700; flex-shrink: 0; }
-  .sc-hi   { background: #d4f5e0; color: #0d6832; }
-  .sc-mid  { background: #d1ecf1; color: #0c5460; }
-  .sc-lo   { background: #f0f2f5; color: #555; }
-  .pick-info { flex: 1; }
-  .pick-ticker { font-weight: 700; font-size: 15px; }
-  .pick-sector { font-size: 11px; color: #888; }
-  .pick-action { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
-  .pa-buy  { background: #d4f5e0; color: #0d6832; }
-  .pa-sell { background: #fde8e8; color: #9b2335; }
-  .pa-hold { background: #f0f2f5; color: #555; }
-  .weight-row { display: flex; align-items: center; gap: 8px; margin: 5px 0 3px; }
-  .weight-bg { flex: 1; height: 5px; background: #e9ecef; border-radius: 3px; }
-  .weight-fill { height: 100%; background: #3498db; border-radius: 3px; }
-  .weight-pct { font-size: 12px; font-weight: 600; color: #3498db; min-width: 40px; text-align: right; }
-  .shares-line { font-size: 12px; color: #555; margin-bottom: 4px; }
-  .shares-line b { color: #1a252f; }
-  .drivers { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
-  .driver { font-size: 11px; padding: 2px 7px; border-radius: 8px; background: #f4f6f8; }
-  .d-up   { color: #0d6832; }
-  .d-down { color: #9b2335; }
+  /* ── Pick rows ── */
+  .pick { padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+  .pick:last-child { border-bottom: none; padding-bottom: 0; }
+  .pick-top { display: flex; align-items: center; gap: 10px; }
+  .score-ring {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; flex-shrink: 0;
+    border: 2.5px solid transparent;
+  }
+  .sr-hi  { background: var(--green-lt); color: var(--green); border-color: #bbf7d0; }
+  .sr-mid { background: var(--blue-lt);  color: var(--blue);  border-color: #bfdbfe; }
+  .sr-lo  { background: var(--slate-lt); color: var(--slate); border-color: var(--border); }
+  .pick-info { flex: 1; min-width: 0; }
+  .pick-ticker-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .pick-ticker { font-weight: 800; font-size: 16px; }
+  .act-pill { padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 0.3px; }
+  .ap-buy  { background: var(--green-lt); color: var(--green); }
+  .ap-sell { background: var(--red-lt);   color: var(--red);   }
+  .ap-hold { background: var(--slate-lt); color: var(--slate); }
+  .pick-meta { font-size: 11px; color: var(--slate); margin-top: 2px; }
+  .pick-right { text-align: right; flex-shrink: 0; }
+  .pick-wt  { font-size: 18px; font-weight: 800; color: var(--blue); }
+  .pick-val { font-size: 11px; color: var(--slate); margin-top: 2px; }
+  .wt-bar-bg   { height: 4px; background: #e2e8f0; border-radius: 2px; margin: 7px 0 5px; }
+  .wt-bar-fill { height: 100%; border-radius: 2px; background: var(--blue); transition: width .5s ease; }
+  .drivers { display: flex; flex-wrap: wrap; gap: 4px; }
+  .d-tag   { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+  .d-up    { background: var(--green-lt); color: var(--green); }
+  .d-down  { background: var(--red-lt);   color: var(--red);   }
 
-  /* Feature importance */
-  .feat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
-  .feat-name { font-size: 12px; color: #444; min-width: 160px; }
-  .feat-bg { flex: 1; height: 7px; background: #e9ecef; border-radius: 4px; }
-  .feat-fill { height: 100%; background: #3498db; border-radius: 4px; }
-  .feat-note { font-size: 10px; color: #aaa; min-width: 40px; text-align: right; }
+  /* ── Charts ── */
+  .chart-wrap { position: relative; }
 
-  .oos-box { font-size: 13px; color: #555; line-height: 1.6; }
-  .oos-hi  { font-weight: 700; color: #0d6832; }
+  /* ── OOS ── */
+  .oos-box { font-size: 13px; color: var(--slate); line-height: 1.7; }
+  .oos-hi  { font-weight: 700; color: var(--green); }
 
-  .warn-card { border-left: 3px solid #f39c12; }
-  .warn-text { font-size: 12px; color: #856404; }
+  /* ── Footer ── */
+  .footer { text-align: center; font-size: 11px; color: #94a3b8; padding: 8px 0 28px; }
+  .footer a { color: #94a3b8; }
 
-  .error   { color: #9b2335; padding: 30px; text-align: center; }
-  .loading { color: #888; padding: 40px; text-align: center; }
-
-  .footer-note { text-align: center; font-size: 11px; color: #aaa; padding: 6px 0 24px; }
+  .error   { color: var(--red); padding: 40px; text-align: center; }
+  .loading { color: var(--slate); padding: 50px; text-align: center; font-size: 15px; }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>TSX Stock Picks 🇨🇦</h1>
-  <div class="sub" id="header-sub">Loading…</div>
+  <div class="header-inner">
+    <div>
+      <h1>TSX Stock Picks 🇨🇦</h1>
+      <div class="header-sub" id="header-sub">Loading…</div>
+    </div>
+    <div class="badges" id="header-badges"></div>
+  </div>
 </div>
 
 <div class="container">
-  <div id="app"><div class="loading">Loading…</div></div>
+  <div id="app"><div class="loading">Loading picks…</div></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4/dist/chart.umd.min.js"></script>
 <script>
 const SECTOR_COLORS = {
-  Financials: "#3498db", Energy: "#e67e22",
-  Industrials: "#9b59b6", Utilities: "#1abc9c",
+  Financials:  "#2563eb",
+  Energy:      "#ea580c",
+  Industrials: "#7c3aed",
+  Utilities:   "#059669",
 };
 
-const SHAP_LABELS = {
-  adv_20d_rank:    "Trading volume rank",
-  mom_pc2:         "Momentum (secondary)",
-  mom_pc1:         "Momentum (primary)",
-  vol_60d:         "60-day volatility",
-  vol_20d:         "20-day volatility",
-  high_52w_ratio:  "Near 52-week high",
-  div_growth_yoy:  "Dividend growth",
-  rsi_14:          "RSI momentum",
-  rev_1m:          "1-month reversal",
-  rev_growth_yoy:  "Revenue growth",
-  bb_zscore:       "Bollinger band position",
+const REGIME_INFO = {
+  BULL:    { emoji: "🟢", title: "Bullish Market",  desc: "Macro signals favour risk-on stocks. Model is running in growth mode.", cls: "badge-bull" },
+  BEAR:    { emoji: "🔴", title: "Bearish Market",  desc: "Macro headwinds detected. Model tilts defensive, tracking closely.", cls: "badge-bear" },
+  NEUTRAL: { emoji: "🟡", title: "Neutral Market",  desc: "Mixed signals. Model runs its standard balanced strategy.", cls: "badge-neutral" },
 };
 
-function shapLabel(key) {
-  return SHAP_LABELS[key] || key;
-}
-
-function pct(v, showPlus=true) {
+function pct(v, plus = true) {
   if (v == null) return "—";
   const s = (v * 100).toFixed(1) + "%";
-  return (showPlus && v >= 0) ? "+" + s : s;
+  return (plus && v >= 0) ? "+" + s : s;
 }
 function fmt2(v) {
   if (v == null) return "—";
   return (v >= 0 ? "+" : "") + v.toFixed(2);
 }
-
-function scoreClass(s) {
-  if (s >= 0.65) return "sc-hi";
-  if (s >= 0.50) return "sc-mid";
-  return "sc-lo";
-}
-
-const REGIME_DESC = {
-  BULL: { emoji: "🟢", title: "Bullish", desc: "Macro signals favour risk-on stocks. Model is running in growth mode." },
-  BEAR: { emoji: "🔴", title: "Bearish", desc: "Macro headwinds detected. Model tilts defensive, tracking closely." },
-  NEUTRAL: { emoji: "🟡", title: "Neutral", desc: "Mixed signals. Model runs its standard balanced strategy." },
-};
 
 fetch('./data.json?t=' + Date.now())
   .then(r => r.ok ? r.json() : Promise.reject('HTTP ' + r.status))
@@ -192,207 +201,252 @@ fetch('./data.json?t=' + Date.now())
   });
 
 function render(d) {
-  const rc = {BULL:'bull', BEAR:'bear', NEUTRAL:'neutral'}[d.regime] || 'neutral';
-  const relClass = d.reliability === 'OK' ? 'b-ok' : d.reliability === 'CAUTION' ? 'b-caut' : 'b-low';
-  document.getElementById('header-sub').innerHTML =
-    `${d.as_of} &nbsp; <span class="badge ${rc}">${d.regime}</span> &nbsp; <span class="badge ${relClass}">${d.reliability}</span>`;
+  const rg     = REGIME_INFO[d.regime] || REGIME_INFO.NEUTRAL;
+  const relCls = d.reliability === 'OK' ? 'badge-ok' : d.reliability === 'CAUTION' ? 'badge-caution' : 'badge-low';
+
+  document.getElementById('header-sub').textContent = 'As of ' + d.as_of;
+  document.getElementById('header-badges').innerHTML =
+    `<span class="badge ${rg.cls}">${rg.emoji} ${d.regime}</span>` +
+    `<span class="badge ${relCls}">${d.reliability}</span>`;
 
   let html = '';
 
-  // ── Warning banner ──────────────────────────────────────────────────────────
+  // ── Warning ──────────────────────────────────────────────────────────────
   if (d.reliability !== 'OK') {
-    html += `<div class="card warn-card">
-      <div class="warn-text">⚠️ ${d.reliability_detail}</div>
+    html += `<div class="card warn-card mb"><div class="warn-text">⚠️ ${d.reliability_detail}</div></div>`;
+  }
+
+  // ── Big stats ─────────────────────────────────────────────────────────────
+  if (d.backtest) {
+    const b = d.backtest;
+    const excess = b.ann_ret != null ? ((b.ann_ret * 100) - 14.3).toFixed(1) : null;
+    const ddCls = (b.max_dd || 0) <= -0.15 ? 'neg' : 'neu';
+    html += `<div class="card mb">
+      <div class="card-title">Backtest Performance · ${b.period || ''}</div>
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-num pos">${pct(b.ann_ret)}</div>
+          <div class="stat-label">Ann. Return</div>
+          <div class="stat-sub">${excess != null ? 'vs XIU +' + excess + '%' : ''}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num pos">${fmt2(b.sharpe)}</div>
+          <div class="stat-label">Sharpe Ratio</div>
+          <div class="stat-sub">risk-adjusted</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num pos">${fmt2(b.ir)}</div>
+          <div class="stat-label">Info Ratio</div>
+          <div class="stat-sub">vs benchmark</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num ${ddCls}">${pct(b.max_dd, false)}</div>
+          <div class="stat-label">Max Drawdown</div>
+          <div class="stat-sub">worst dip ever</div>
+        </div>
+      </div>
     </div>`;
   }
 
-  // ── Market Signal ───────────────────────────────────────────────────────────
-  const rg = REGIME_DESC[d.regime] || REGIME_DESC.NEUTRAL;
-  html += `<div class="card">
-    <div class="card-title">Market Signal</div>
-    <div class="signal-big">${rg.emoji}</div>
-    <div class="signal-regime">${rg.title} Market</div>
-    <div class="signal-desc">${rg.desc}</div>
-  </div>`;
-
-  // ── Actions ─────────────────────────────────────────────────────────────────
-  const sell = d.actions.sell || [], buy = d.actions.buy || [], hold = d.actions.hold || [];
-  function colHtml(tickers, label, cls) {
+  // ── Regime + Changes ──────────────────────────────────────────────────────
+  const sell = (d.actions && d.actions.sell) || [];
+  const buy  = (d.actions && d.actions.buy)  || [];
+  const hold = (d.actions && d.actions.hold) || [];
+  function chgCol(tickers, label, cls) {
     const inner = tickers.length
-      ? tickers.map(t => `<span class="action-chip">${t}</span>`).join('')
-      : `<span class="action-empty">None</span>`;
-    return `<div class="action-col ${cls}">
-      <div class="action-lbl">${label} (${tickers.length})</div>${inner}
-    </div>`;
+      ? tickers.map(t => `<span class="chg-chip">${t}</span>`).join('')
+      : `<span class="chg-empty">None</span>`;
+    return `<div class="chg-col ${cls}"><div class="chg-lbl">${label} (${tickers.length})</div>${inner}</div>`;
   }
-  html += `<div class="card">
-    <div class="card-title">This Month's Changes</div>
-    <div class="action-grid">
-      ${colHtml(sell, 'SELL', 'sell')}
-      ${colHtml(buy, 'BUY', 'buy')}
-      ${colHtml(hold, 'HOLD', 'hold')}
+  html += `<div class="grid-2 mb">
+    <div class="card">
+      <div class="card-title">Market Regime</div>
+      <div class="regime-row">
+        <div class="regime-emoji">${rg.emoji}</div>
+        <div>
+          <div class="regime-title">${rg.title}</div>
+          <div class="regime-desc">${rg.desc}</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">This Month's Changes</div>
+      <div class="chg-grid">
+        ${chgCol(sell, 'SELL', 'sell')}
+        ${chgCol(buy,  'BUY',  'buy')}
+        ${chgCol(hold, 'HOLD', 'hold')}
+      </div>
     </div>
   </div>`;
 
-  // ── Portfolio ────────────────────────────────────────────────────────────────
-  const sw = d.sector_weights || {};
-  const sectors = Object.keys(sw).sort((a,b) => sw[b] - sw[a]);
-  let sectorBar = '', sectorLegend = '';
-  sectors.forEach(s => {
-    const col = SECTOR_COLORS[s] || '#aaa';
-    const pctVal = (sw[s] * 100).toFixed(0);
-    sectorBar += `<div class="sector-bar-seg" style="width:${pctVal}%;background:${col}"></div>`;
-    sectorLegend += `<div class="sector-dot-row">
-      <div class="sector-dot" style="background:${col}"></div>
-      <span>${s} ${pctVal}%</span>
-    </div>`;
-  });
-
+  // ── Holdings ──────────────────────────────────────────────────────────────
+  const picks = d.picks || [];
+  const maxW  = picks.length ? Math.max(...picks.map(p => p.weight)) : 1;
   const portTitle = d.portfolio_value
     ? `Holdings — $${d.portfolio_value.toLocaleString()} CAD`
-    : `Holdings (${d.picks.length} positions)`;
+    : `Holdings (${picks.length} positions)`;
 
-  const maxW = Math.max(...d.picks.map(p => p.weight));
-  let picksHtml = '';
-  d.picks.forEach(p => {
-    const sc = scoreClass(p.score);
-    const ac = {BUY:'pa-buy', SELL:'pa-sell', HOLD:'pa-hold'}[p.action] || 'pa-hold';
-    const barPct = maxW > 0 ? Math.round(p.weight / maxW * 100) : 0;
+  const picksHtml = picks.map(p => {
+    const rCls = p.score >= 0.75 ? 'sr-hi' : p.score >= 0.55 ? 'sr-mid' : 'sr-lo';
+    const aCls = { BUY: 'ap-buy', SELL: 'ap-sell', HOLD: 'ap-hold' }[p.action] || 'ap-hold';
+    const barPct = maxW > 0 ? (p.weight / maxW * 100).toFixed(0) : 0;
+    const driversHtml = (p.drivers || []).map(dr => {
+      const cls = dr.shap >= 0 ? 'd-up' : 'd-down';
+      return `<span class="d-tag ${cls}">${dr.shap >= 0 ? '↑' : '↓'} ${dr.label}</span>`;
+    }).join('');
+    const valStr = p.dollar_value ? '$' + p.dollar_value.toLocaleString() : '';
+    const sharesStr = p.shares && p.price ? `${p.shares} sh @ $${p.price.toFixed(2)}` : '';
 
-    let sharesHtml = '';
-    if (p.shares) {
-      sharesHtml = `<div class="shares-line">
-        $${p.dollar_value ? p.dollar_value.toLocaleString() : '—'}
-        &nbsp;→&nbsp; <b>${p.shares} shares</b> @ $${p.price ? p.price.toFixed(2) : '—'}
-      </div>`;
-    }
-
-    let driversHtml = '';
-    if (p.drivers && p.drivers.length) {
-      driversHtml = '<div class="drivers">' + p.drivers.map(dr => {
-        const lbl = shapLabel(dr.label || '');
-        const cls = dr.shap >= 0 ? 'd-up' : 'd-down';
-        const arrow = dr.shap >= 0 ? '↑' : '↓';
-        return `<span class="driver ${cls}">${arrow} ${lbl}</span>`;
-      }).join('') + '</div>';
-    }
-
-    picksHtml += `<div class="pick">
-      <div class="pick-header">
-        <div class="score-circle ${sc}">${(p.score * 100).toFixed(0)}</div>
+    return `<div class="pick">
+      <div class="pick-top">
+        <div class="score-ring ${rCls}">${(p.score * 100).toFixed(0)}</div>
         <div class="pick-info">
-          <div class="pick-ticker">${p.ticker} <span class="pick-action ${ac}">${p.action}</span></div>
-          <div class="pick-sector">${p.sector}</div>
+          <div class="pick-ticker-row">
+            <span class="pick-ticker">${p.ticker}</span>
+            <span class="act-pill ${aCls}">${p.action}</span>
+          </div>
+          <div class="pick-meta">${p.sector}${p.style ? ' · ' + p.style : ''}</div>
+        </div>
+        <div class="pick-right">
+          <div class="pick-wt">${(p.weight * 100).toFixed(1)}%</div>
+          <div class="pick-val">${valStr}</div>
         </div>
       </div>
-      <div class="weight-row">
-        <div class="weight-bg"><div class="weight-fill" style="width:${barPct}%"></div></div>
-        <div class="weight-pct">${(p.weight * 100).toFixed(1)}%</div>
-      </div>
-      ${sharesHtml}${driversHtml}
+      <div class="wt-bar-bg"><div class="wt-bar-fill" style="width:${barPct}%"></div></div>
+      ${driversHtml ? `<div class="drivers">${driversHtml}</div>` : ''}
     </div>`;
-  });
+  }).join('');
 
-  html += `<div class="card">
+  html += `<div class="card mb">
     <div class="card-title">${portTitle}</div>
-    <div class="card-title" style="font-size:10px;text-transform:none;letter-spacing:0;color:#555;margin-bottom:8px">Sector allocation</div>
-    <div class="sector-bar">${sectorBar}</div>
-    <div class="sector-legend">${sectorLegend}</div>
-    <div style="margin-top:12px">${picksHtml}</div>
+    ${picksHtml}
   </div>`;
 
-  // ── Performance (yearly bar chart + stats) ───────────────────────────────────
-  if (d.backtest) {
-    const b = d.backtest;
-    let chartHtml = '';
-    if (b.yearly && b.yearly.length) {
-      const maxAbs = Math.max(...b.yearly.map(y => Math.max(Math.abs(y.port), Math.abs(y.bench))));
-      chartHtml = `<div class="bar-legend">
-        <div class="bar-legend-item"><div class="bar-dot" style="background:#3498db"></div>Portfolio</div>
-        <div class="bar-legend-item"><div class="bar-dot" style="background:#bdc3c7"></div>TSX Benchmark</div>
-      </div><div class="bar-chart">`;
-      b.yearly.forEach(y => {
-        const portW = maxAbs > 0 ? Math.round(Math.abs(y.port) / maxAbs * 100) : 0;
-        const benchW = maxAbs > 0 ? Math.round(Math.abs(y.bench) / maxAbs * 100) : 0;
-        const portColor = y.port >= 0 ? '#3498db' : '#e74c3c';
-        const benchColor = '#bdc3c7';
-        chartHtml += `<div class="bar-year-row">
-          <div class="bar-yr-label">${y.year}</div>
-          <div class="bar-tracks">
-            <div class="bar-track bar-port" style="width:${portW}%;background:${portColor}"></div>
-            <div class="bar-track bar-bench" style="width:${benchW}%;background:${benchColor}"></div>
-          </div>
-          <div class="bar-pct">${pct(y.port)}</div>
-        </div>`;
-      });
-      chartHtml += '</div>';
+  // ── Sector doughnut + Yearly bar ──────────────────────────────────────────
+  const hasSector = d.sector_weights && Object.values(d.sector_weights).some(v => v > 0);
+  const hasYearly = d.backtest && d.backtest.yearly && d.backtest.yearly.length;
+
+  if (hasSector || hasYearly) {
+    html += `<div class="grid-2 mb">`;
+    if (hasSector) {
+      html += `<div class="card">
+        <div class="card-title">Sector Allocation</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="chartSector"></canvas></div>
+      </div>`;
     }
+    if (hasYearly) {
+      html += `<div class="card">
+        <div class="card-title">Annual Returns</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="chartYearly"></canvas></div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
 
-    const annRetClass = b.ann_ret >= 0 ? 'pos' : 'neg';
-    const ddClass = (b.max_dd || 0) <= -0.15 ? 'neg' : 'neu';
-
-    html += `<div class="card">
-      <div class="card-title">Performance History (2022–2026)</div>
-      ${chartHtml}
-      <div class="stats-grid">
-        <div class="stat">
-          <div class="stat-val pos">${pct(b.ann_ret)}</div>
-          <div class="stat-lbl">Annual Return</div>
-          <div class="stat-sub">Avg per year</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val pos">${fmt2(b.sharpe)}</div>
-          <div class="stat-lbl">Risk-Adjusted Score</div>
-          <div class="stat-sub">Sharpe ratio (higher = better)</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val pos">${fmt2(b.ir)}</div>
-          <div class="stat-lbl">Beat TSX By</div>
-          <div class="stat-sub">Info ratio (higher = more consistent)</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val ${ddClass}">${pct(b.max_dd, false)}</div>
-          <div class="stat-lbl">Worst Dip</div>
-          <div class="stat-sub">Max drawdown ever seen</div>
-        </div>
+  // ── Feature importance ────────────────────────────────────────────────────
+  if (d.top_features && d.top_features.length) {
+    const n = Math.min(d.top_features.length, 7);
+    html += `<div class="card mb">
+      <div class="card-title">What Drives the Picks · permutation IC drop</div>
+      <div class="chart-wrap" style="height:${Math.max(140, n * 30 + 40)}px">
+        <canvas id="chartFeatures"></canvas>
       </div>
     </div>`;
   }
 
-  // ── What drives the picks ────────────────────────────────────────────────────
-  if (d.top_features && d.top_features.length) {
-    const maxImp = Math.max(...d.top_features.map(f => f.importance));
-    let featHtml = d.top_features.slice(0, 7).map(f => {
-      const barPct = maxImp > 0 ? Math.round(f.importance / maxImp * 100) : 0;
-      const lbl = shapLabel(f.name.toLowerCase().replace(/ /g,'_')) || f.name;
-      return `<div class="feat-row">
-        <div class="feat-name">${lbl}</div>
-        <div class="feat-bg"><div class="feat-fill" style="width:${barPct}%"></div></div>
-        <div class="feat-note">${f.importance.toFixed(4)}</div>
-      </div>`;
-    }).join('');
-    html += `<div class="card">
-      <div class="card-title">What Drives the Picks</div>
-      <div style="font-size:12px;color:#777;margin-bottom:10px">Which signals matter most to the model this month</div>
-      ${featHtml}
-    </div>`;
-  }
-
-  // ── Live track record ────────────────────────────────────────────────────────
+  // ── Live track record ─────────────────────────────────────────────────────
   if (d.oos && d.oos.months) {
     const avgStr = d.oos.avg_monthly != null
-      ? `<span class="oos-hi">${pct(d.oos.avg_monthly)}/mo avg</span>` : '';
+      ? ` &nbsp;·&nbsp; <span class="oos-hi">${pct(d.oos.avg_monthly)}/mo avg</span>` : '';
     const comment = d.oos.months < 6
-      ? '⏳ Only ' + d.oos.months + ' month(s) of live data — building track record.'
-      : '✅ ' + d.oos.months + ' months of real-world results.';
-    html += `<div class="card">
+      ? `⏳ ${d.oos.months} month(s) of live data — building track record.`
+      : `✅ ${d.oos.months} months of real-world results.`;
+    html += `<div class="card mb">
       <div class="card-title">Live Track Record</div>
-      <div class="oos-box">${comment} ${avgStr}</div>
+      <div class="oos-box">${comment}${avgStr}</div>
     </div>`;
   }
 
-  html += `<div class="footer-note">Updated ${d.generated_at} · <a href="https://carlchen4.github.io/stock-picker-claude/" style="color:#aaa">carlchen4.github.io/stock-picker-claude</a></div>`;
+  html += `<div class="footer">Updated ${d.generated_at} · <a href="https://carlchen4.github.io/stock-picker-claude/">carlchen4.github.io/stock-picker-claude</a></div>`;
+
   document.getElementById('app').innerHTML = html;
+
+  // ── Render charts ─────────────────────────────────────────────────────────
+
+  // Sector doughnut
+  if (hasSector) {
+    const sw     = d.sector_weights;
+    const labels = Object.keys(sw).filter(k => sw[k] > 0);
+    const vals   = labels.map(k => +(sw[k] * 100).toFixed(1));
+    const colors = labels.map(k => SECTOR_COLORS[k] || '#94a3b8');
+    new Chart(document.getElementById('chartSector'), {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data: vals, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 8 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        cutout: '60%',
+        plugins: {
+          legend: { position: 'right', labels: { font: { size: 11 }, boxWidth: 12, padding: 12 } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}%` } },
+        },
+      },
+    });
+  }
+
+  // Yearly grouped bar
+  if (hasYearly) {
+    const years  = d.backtest.yearly.map(y => y.year);
+    const ports  = d.backtest.yearly.map(y => +(y.port * 100).toFixed(1));
+    const benchs = d.backtest.yearly.map(y => +(y.bench * 100).toFixed(1));
+    new Chart(document.getElementById('chartYearly'), {
+      type: 'bar',
+      data: {
+        labels: years,
+        datasets: [
+          { label: 'Portfolio', data: ports,  backgroundColor: '#2563eb', borderRadius: 4, borderSkipped: false },
+          { label: 'TSX Bench', data: benchs, backgroundColor: '#cbd5e1', borderRadius: 4, borderSkipped: false },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { font: { size: 11 }, boxWidth: 12, padding: 10 } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y >= 0 ? '+' : ''}${ctx.parsed.y}%` } },
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+          y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, callback: v => v + '%' } },
+        },
+      },
+    });
+  }
+
+  // Feature importance horizontal bar
+  if (d.top_features && d.top_features.length) {
+    const feats  = d.top_features.slice(0, 7);
+    const labels = feats.map(f => f.name);
+    const vals   = feats.map(f => +(f.importance * 1000).toFixed(3));
+    const colors = vals.map(v => v >= 0 ? '#2563eb' : '#dc2626');
+    new Chart(document.getElementById('chartFeatures'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ data: vals, backgroundColor: colors, borderRadius: 4, borderSkipped: false }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` IC drop ×1000: ${ctx.parsed.x}` } },
+        },
+        scales: {
+          x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } },
+          y: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        },
+      },
+    });
+  }
 }
 </script>
 </body>

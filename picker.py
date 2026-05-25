@@ -3207,14 +3207,15 @@ def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
             for f, v in top_features[:8]
         ],
         "backtest": {
-            "sharpe": 2.13, "ir": 1.08, "ann_ret": 0.270, "max_dd": -0.083,
-            "hit_rate": 0.681, "period": "2022-05 to 2026-03",
+            "sharpe": 2.21, "ir": 1.55, "ann_ret": 0.304, "max_dd": -0.083,
+            "hit_rate": 0.736, "period": "2021-11 to 2026-03",
             "yearly": [
-                {"year": 2022, "port": -0.041, "bench": 0.021},
-                {"year": 2023, "port": 0.303,  "bench": 0.047},
-                {"year": 2024, "port": 0.436,  "bench": 0.252},
-                {"year": 2025, "port": 0.238,  "bench": 0.235},
-                {"year": 2026, "port": 0.148,  "bench": 0.076},
+                {"year": 2021, "port": 0.125,  "bench": 0.029},
+                {"year": 2022, "port": 0.059,  "bench": 0.008},
+                {"year": 2023, "port": 0.355,  "bench": 0.047},
+                {"year": 2024, "port": 0.410,  "bench": 0.252},
+                {"year": 2025, "port": 0.217,  "bench": 0.235},
+                {"year": 2026, "port": 0.166,  "bench": 0.076},
             ],
         },
         "sector_weights": {
