@@ -1362,15 +1362,18 @@ def fit_models(X_train, y_train, sample_weights=None):
 
 
 def ensemble_predict(reg, clf, X):
-    """50/50 blend of regression rank and classification probability."""
-    pred_reg = reg.predict(X)
-    pred_cls = clf.predict_proba(X)[:, 1]
+    """50/50 blend of regression rank and classification probability.
 
-    # Rank-normalize each
+    When clf is None (e.g. LambdaRank path), returns rank-normalised
+    regressor output only.
+    """
     from scipy.stats import rankdata
+    pred_reg = reg.predict(X)
+    if clf is None:
+        return rankdata(pred_reg) / len(pred_reg)
+    pred_cls = clf.predict_proba(X)[:, 1]
     rank_reg = rankdata(pred_reg) / len(pred_reg)
     rank_cls = rankdata(pred_cls) / len(pred_cls)
-
     return 0.5 * rank_reg + 0.5 * rank_cls
 
 
@@ -1524,12 +1527,39 @@ def fit_sector_models(train_df, sample_weights=None, min_samples=50):
         X = sec_df[feats].values
         w = sample_weights[sec_mask] if sample_weights is not None else None
         try:
-            reg, clf = fit_models(
-                pd.DataFrame(X, columns=feats),
-                pd.Series(y),
-                sample_weights=w,
-            )
-            models[sector_name] = (reg, clf, feats)
+            if MODEL_KIND == "lgb_rank":
+                from lightgbm import LGBMRanker
+                from scipy.stats import rankdata as _rankdata
+                # Sort by date: LambdaRank groups must be contiguous blocks
+                sec_sorted = sec_df.sort_values("date").reset_index(drop=True)
+                groups = sec_sorted.groupby("date", sort=True).size().values
+                X_s = sec_sorted[feats].values
+                # Relevance labels: within-group rank → 0-3 quartile label
+                labels = np.zeros(len(sec_sorted), dtype=np.int32)
+                offset = 0
+                for g in groups:
+                    if g > 1:
+                        chunk_y = sec_sorted["fwd_ret"].values[offset:offset + g]
+                        ranks = _rankdata(chunk_y)           # 1..g
+                        labels[offset:offset + g] = np.floor(
+                            (ranks - 1) / g * 4).astype(np.int32).clip(0, 3)
+                    offset += g
+                ranker = LGBMRanker(
+                    n_estimators=200, max_depth=4, learning_rate=0.05,
+                    num_leaves=15, min_child_samples=3,
+                    objective="lambdarank", metric="ndcg",
+                    label_gain=[0, 1, 3, 7],
+                    n_jobs=-1, random_state=42, verbose=-1,
+                )
+                ranker.fit(X_s, labels, group=groups)
+                models[sector_name] = (ranker, None, feats)
+            else:
+                reg, clf = fit_models(
+                    pd.DataFrame(X, columns=feats),
+                    pd.Series(y),
+                    sample_weights=w,
+                )
+                models[sector_name] = (reg, clf, feats)
         except Exception:
             continue
     return models, dml_stats
