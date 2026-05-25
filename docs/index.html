@@ -140,8 +140,15 @@
   .chart-wrap { position: relative; }
 
   /* ── OOS ── */
-  .oos-box { font-size: 13px; color: var(--slate); line-height: 1.7; }
-  .oos-hi  { font-weight: 700; color: var(--green); }
+  .oos-row  { display: flex; gap: 12px; }
+  .oos-stat { flex: 1; background: var(--slate-lt); border-radius: 12px; padding: 12px 14px; }
+  .oos-num  { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+  .oos-num.pos { color: var(--green); }
+  .oos-num.neu { color: var(--dark); }
+  .oos-lbl  { font-size: 11px; color: var(--slate); margin-top: 3px; font-weight: 600; }
+  .oos-note { font-size: 12px; color: var(--slate); margin-top: 10px; line-height: 1.5; }
+  .oos-prog-bg   { height: 5px; background: #e2e8f0; border-radius: 3px; margin-top: 10px; }
+  .oos-prog-fill { height: 100%; border-radius: 3px; background: var(--blue); transition: width .5s; }
 
   /* ── Footer ── */
   .footer { text-align: center; font-size: 11px; color: #94a3b8; padding: 8px 0 28px; }
@@ -397,14 +404,26 @@ function render(d) {
 
   // ── Live track record ─────────────────────────────────────────────────────
   if (d.oos && d.oos.months) {
-    const avgStr = d.oos.avg_monthly != null
-      ? ` &nbsp;·&nbsp; <span class="oos-hi">${pct(d.oos.avg_monthly)}/mo avg</span>` : '';
-    const comment = d.oos.months < 6
-      ? `⏳ ${d.oos.months} month(s) of live data — building track record.`
-      : `✅ ${d.oos.months} months of real-world results.`;
+    const mo   = d.oos.months;
+    const moLbl = mo === 1 ? '1 month' : `${mo} months`;
+    const progPct = Math.min(100, Math.round(mo / 6 * 100));
+    const avgNum  = d.oos.avg_monthly != null
+      ? `<div class="oos-stat"><div class="oos-num pos">${pct(d.oos.avg_monthly)}</div><div class="oos-lbl">Avg monthly return</div></div>`
+      : '';
+    const note = mo < 6
+      ? `⏳ Building track record — ${6 - mo} more month${6 - mo > 1 ? 's' : ''} until full OOS report.`
+      : `✅ ${moLbl} of real-world results.`;
     html += `<div class="card mb">
       <div class="card-title">Live Track Record</div>
-      <div class="oos-box">${comment}${avgStr}</div>
+      <div class="oos-row">
+        <div class="oos-stat">
+          <div class="oos-num neu">${moLbl}</div>
+          <div class="oos-lbl">Live data collected</div>
+        </div>
+        ${avgNum}
+      </div>
+      ${mo < 6 ? `<div class="oos-prog-bg"><div class="oos-prog-fill" style="width:${progPct}%"></div></div>` : ''}
+      <div class="oos-note">${note}</div>
     </div>`;
   }
 
