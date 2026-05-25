@@ -1980,6 +1980,66 @@ def estimate_portfolio_te(picks, weights, price_df, benchmark="XIU.TO", lookback
         return np.nan
 
 
+def estimate_portfolio_risk(picks, weights, price_df, benchmark="XIU.TO",
+                            lookback=252, confidence=0.95):
+    """Return dict with beta, VaR, CVaR, max_position for dashboard.
+
+    Uses historical simulation on last `lookback` trading days.
+    VaR/CVaR are monthly (daily × sqrt(22)).
+    Returns empty dict on failure.
+    """
+    try:
+        bench_close, _ = get_ohlcv(price_df, benchmark)
+        if bench_close is None:
+            return {}
+        bench_ret = bench_close.pct_change().dropna().tail(lookback)
+
+        port_daily = None
+        for ticker in picks:
+            close, _ = get_ohlcv(price_df, ticker)
+            if close is None:
+                continue
+            ret = close.pct_change().dropna().tail(lookback)
+            w = weights.get(ticker, 1.0 / max(len(picks), 1))
+            port_daily = ret * w if port_daily is None else port_daily.add(ret * w, fill_value=0)
+
+        if port_daily is None or len(port_daily) < 30:
+            return {}
+
+        aligned = pd.concat([port_daily.rename("port"), bench_ret.rename("bench")],
+                            axis=1).dropna()
+        if len(aligned) < 30:
+            return {}
+
+        p = aligned["port"]
+        b = aligned["bench"]
+
+        # Beta
+        cov_pb = np.cov(p, b)
+        beta = float(cov_pb[0, 1] / cov_pb[1, 1]) if cov_pb[1, 1] > 1e-12 else np.nan
+
+        # Monthly VaR / CVaR via historical simulation (daily × sqrt(22))
+        scale = np.sqrt(22)
+        var_daily = float(np.percentile(p, (1 - confidence) * 100))
+        cvar_daily = float(p[p <= var_daily].mean()) if (p <= var_daily).any() else var_daily
+        var_mo  = round(var_daily  * scale, 4)
+        cvar_mo = round(cvar_daily * scale, 4)
+
+        # Max single position
+        max_ticker = max(picks, key=lambda t: weights.get(t, 0))
+        max_wt = weights.get(max_ticker, 0)
+
+        return {
+            "beta":               round(beta, 3) if not np.isnan(beta) else None,
+            "var95":              var_mo,
+            "cvar95":             cvar_mo,
+            "max_position":       round(max_wt, 4),
+            "max_position_ticker": max_ticker,
+        }
+    except Exception:
+        return {}
+
+
 # ══════════════════════════════════════════════════════════════════
 # WALK-FORWARD BACKTEST
 # ══════════════════════════════════════════════════════════════════
@@ -3157,7 +3217,8 @@ def _extract_macro_snapshot(macro_df):
 
 def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
                          checks, shap_by_ticker, te_estimate,
-                         portfolio_value=0.0, prices=None, macro_df=None):
+                         portfolio_value=0.0, prices=None, macro_df=None,
+                         price_df=None):
     """Write docs/data.json for the GitHub Pages dashboard."""
     import json, os
     root = os.path.dirname(os.path.abspath(__file__))
@@ -3274,6 +3335,7 @@ def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
         "reliability_detail": hs or "All checks passed",
         "portfolio_value": portfolio_value if portfolio_value > 0 else None,
         "te_estimate": round(float(te_estimate), 4) if te_estimate and not np.isnan(te_estimate) else None,
+        "risk": estimate_portfolio_risk(picks, weights, price_df) if price_df is not None else {},
         "picks": picks_data,
         "actions": {"sell": list(sell), "buy": list(buy), "hold": list(hold)},
         "top_features": [
@@ -4593,7 +4655,8 @@ def main():
                                             portfolio_value=portfolio_value, prices=prices)
             send_report_email(report, html_body=html_report)
             write_dashboard_data(picks, weights, latest_df, top_features, regime, checks,
-                                 shap_vals, te_est, portfolio_value, prices, macro_df=macro_df)
+                                 shap_vals, te_est, portfolio_value, prices,
+                                 macro_df=macro_df, price_df=price_df)
             _push_dashboard(datetime.now().strftime("%Y-%m-%d"))
 
 

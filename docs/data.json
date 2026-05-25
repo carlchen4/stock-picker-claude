@@ -205,6 +205,13 @@
       }
     ]
   },
+  "risk": {
+    "beta":                0.72,
+    "var95":               -0.042,
+    "cvar95":              -0.068,
+    "max_position":        0.2339,
+    "max_position_ticker": "EMA.TO"
+  },
   "macro": {
     "vix":    {"val": 18.5,   "chg": -2.7},
     "oil":    {"val": 74.2,   "chg_pct": 0.0443},
