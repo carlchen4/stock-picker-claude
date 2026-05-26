@@ -2348,7 +2348,7 @@ def compute_cpcv(panel, feature_cols, n_folds=6, embargo_months=1):
         # Purge: exclude dates within embargo_months of any test-group boundary
         boundaries = [groups[gid][0] for gid in test_ids] + \
                      [groups[gid][-1] for gid in test_ids]
-        embargo_days = embargo_months * 32
+        embargo_days = embargo_months * 30
 
         train_dates = [
             d for d in all_dates
@@ -2412,7 +2412,7 @@ def compute_cpcv(panel, feature_cols, n_folds=6, embargo_months=1):
             continue
 
         r = np.array(monthly_rets)
-        sharpe = r.mean() / r.std() * np.sqrt(12) if r.std() > 0 else 0.0
+        sharpe = r.mean() / r.std(ddof=1) * np.sqrt(12) if r.std(ddof=1) > 0 else 0.0
         ann_ret = (1 + r).prod() ** (12 / len(r)) - 1
         cum = np.cumprod(1 + r)
         roll_max = np.maximum.accumulate(cum)
