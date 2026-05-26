@@ -321,7 +321,7 @@ function render(d) {
   // ── Big stats ─────────────────────────────────────────────────────────────
   if (d.backtest) {
     const b = d.backtest;
-    const excess = b.ann_ret != null ? ((b.ann_ret * 100) - 14.3).toFixed(1) : null;
+    const excess = (b.ann_ret != null && b.ann_bench != null) ? ((b.ann_ret - b.ann_bench) * 100).toFixed(1) : null;
     const ddCls = (b.max_dd || 0) <= -0.15 ? 'neg' : 'neu';
     html += `<div class="card mb">
       <div class="card-title">Backtest Performance · ${b.period || ''}</div>
@@ -346,10 +346,15 @@ function render(d) {
           <div class="stat-label">Max Drawdown</div>
           <div class="stat-sub">worst dip ever</div>
         </div>
+        ${b.hit_rate != null ? `<div class="stat-box">
+          <div class="stat-num pos">${pct(b.hit_rate)}</div>
+          <div class="stat-label">Hit Rate</div>
+          <div class="stat-sub">excess &gt; 0</div>
+        </div>` : ''}
       </div>
       ${b.trailing ? `<div class="trailing-row">
         <span class="trail-lbl">Trailing returns:</span>
-        ${['3m','6m','12m'].filter(k => b.trailing[k]).map(k => {
+        ${['3m','6m','12m','ytd'].filter(k => b.trailing[k]).map(k => {
           const t = b.trailing[k];
           const excess = t.port - t.bench;
           const eCls = excess >= 0 ? 'pos' : 'neg';
@@ -467,10 +472,11 @@ function render(d) {
     const teStr   = d.te_estimate != null ? `TE <strong>${(d.te_estimate * 100).toFixed(1)}%</strong>` : '';
     const betaStr = r.beta    != null ? `β <strong>${r.beta.toFixed(2)}</strong> vs XIU` : '';
     const varStr  = r.var95   != null ? `VaR 95% <strong>${(r.var95 * 100).toFixed(1)}%</strong>/mo` : '';
+    const cvarStr = r.cvar95  != null ? `CVaR <strong>${(r.cvar95 * 100).toFixed(1)}%</strong>/mo` : '';
     const maxStr  = r.max_position != null
       ? `Max <strong>${(r.max_position * 100).toFixed(1)}%</strong> ${(r.max_position_ticker || '').replace('.TO', '')}`
       : '';
-    const parts = [teStr, betaStr, varStr, maxStr].filter(Boolean);
+    const parts = [teStr, betaStr, varStr, cvarStr, maxStr].filter(Boolean);
     riskBanner = `<div class="risk-banner">${parts.join('<span class="risk-sep">·</span>')}</div>`;
   }
 

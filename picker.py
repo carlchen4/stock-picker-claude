@@ -3372,17 +3372,26 @@ def _build_backtest_dict():
                 for label, n_m in [("3m", 3), ("6m", 6), ("12m", 12)]
                 if len(monthly) >= n_m}
 
+    # YTD trailing
+    cur_year = str(datetime.now().year)
+    ytd = [m for m in monthly if m["date"].startswith(cur_year)]
+    if ytd:
+        p_ytd = float((1 + np.array([m["port_ret"]  for m in ytd])).prod() - 1)
+        b_ytd = float((1 + np.array([m["bench_ret"] for m in ytd])).prod() - 1)
+        trailing["ytd"] = {"port": round(p_ytd, 4), "bench": round(b_ytd, 4)}
+
     return {
-        "sharpe":   round(sharpe, 3),
-        "ir":       round(ir, 3),
-        "ann_ret":  round(ann_ret, 4),
-        "max_dd":   round(max_dd, 4),
-        "hit_rate": round(hit_rate, 3),
-        "period":   period,
-        "yearly":   yearly,
-        "monthly":  monthly_cum,
-        "recent6":  monthly_cum[-6:],
-        "trailing": trailing,
+        "sharpe":    round(sharpe, 3),
+        "ir":        round(ir, 3),
+        "ann_ret":   round(ann_ret, 4),
+        "ann_bench": round(ann_b, 4),
+        "max_dd":    round(max_dd, 4),
+        "hit_rate":  round(hit_rate, 3),
+        "period":    period,
+        "yearly":    yearly,
+        "monthly":   monthly_cum,
+        "recent6":   monthly_cum[-6:],
+        "trailing":  trailing,
     }
 
 
