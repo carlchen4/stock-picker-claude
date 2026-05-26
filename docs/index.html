@@ -559,9 +559,11 @@ function render(d) {
   // ── Feature importance ────────────────────────────────────────────────────
   if (d.top_features && d.top_features.length) {
     const n = Math.min(d.top_features.length, 7);
+    const hasReg = d.backtest && d.backtest.feature_regime && Object.keys(d.backtest.feature_regime).length;
     html += `<div class="card mb">
-      <div class="card-title">What Drives the Picks · permutation IC drop</div>
-      <div class="chart-wrap" style="height:${Math.max(140, n * 30 + 40)}px">
+      <div class="card-title">What Drives the Picks</div>
+      <div style="font-size:10px;color:#94a3b8;margin:-6px 0 8px">IC drop ×1000 (colored bar) · regime sensitivity ×100 (teal bar)</div>
+      <div class="chart-wrap" style="height:${Math.max(200, n * (hasReg ? 54 : 34) + 60)}px">
         <canvas id="chartFeatures"></canvas>
       </div>
     </div>`;
@@ -730,29 +732,105 @@ function render(d) {
     });
   }
 
-  // Feature importance horizontal bar
+  // Feature importance: colored by category + regime sensitivity overlay
   if (d.top_features && d.top_features.length) {
-    const feats  = d.top_features.slice(0, 7);
-    const labels = feats.map(f => f.name);
-    const vals   = feats.map(f => +(f.importance * 1000).toFixed(3));
-    const colors = vals.map(v => v >= 0 ? '#2563eb' : '#dc2626');
+    const FEAT_META = {
+      'Volatility 60d':     { key: 'vol_60d_norm',       cat: 'Volatility',  color: '#ea580c' },
+      'Volatility 20d':     { key: 'vol_20d_norm',        cat: 'Volatility',  color: '#fb923c' },
+      'ADV 20-day Rank':    { key: 'adv_20d_rank_norm',   cat: 'Liquidity',   color: '#2563eb' },
+      'Bollinger Band Z':   { key: 'bb_zscore_norm',       cat: 'Technical',   color: '#0891b2' },
+      'Momentum PC1':       { key: 'mom_pc1_norm',         cat: 'Momentum',    color: '#7c3aed' },
+      'Momentum PC2':       { key: 'mom_pc2_norm',         cat: 'Momentum',    color: '#a78bfa' },
+      'RSI 14':             { key: 'rsi_14_norm',          cat: 'Technical',   color: '#06b6d4' },
+      '52-week High':       { key: 'high_52w_ratio_norm',  cat: 'Technical',   color: '#0e7490' },
+      'Rev 1m':             { key: 'rev_1m_norm',          cat: 'Momentum',    color: '#8b5cf6' },
+      'Div Growth YoY':     { key: 'div_growth_yoy_norm',  cat: 'Fundamental', color: '#d97706' },
+      'Rev Growth YoY':     { key: 'rev_growth_yoy_norm',  cat: 'Fundamental', color: '#f59e0b' },
+    };
+    const fr = (d.backtest && d.backtest.feature_regime) || {};
+    const feats     = d.top_features.slice(0, 7);
+    const labels    = feats.map(f => f.name);
+    const impVals   = feats.map(f => +(f.importance * 1000).toFixed(3));
+    const catColors = feats.map(f => (FEAT_META[f.name] || {}).color || '#64748b');
+    const regDiffs  = feats.map(f => {
+      const m = FEAT_META[f.name] || {};
+      const r = fr[m.key];
+      return (r && r.pos_mean != null && r.neg_mean != null)
+        ? +(Math.abs(r.pos_mean - r.neg_mean) * 100).toFixed(2) : null;
+    });
+    const hasReg = regDiffs.some(v => v != null);
+
+    const datasets = [{
+      label: 'IC Drop ×1000',
+      data: impVals,
+      backgroundColor: catColors,
+      borderRadius: 3,
+      borderSkipped: false,
+      barPercentage: hasReg ? 0.45 : 0.8,
+      categoryPercentage: 0.9,
+      xAxisID: 'x1',
+    }];
+    if (hasReg) datasets.push({
+      label: 'Regime sensitivity ×100',
+      data: regDiffs,
+      backgroundColor: 'rgba(20,184,166,0.72)',
+      borderColor: 'rgba(20,184,166,0.9)',
+      borderWidth: 0,
+      borderRadius: 2,
+      borderSkipped: false,
+      barPercentage: 0.38,
+      categoryPercentage: 0.9,
+      xAxisID: 'x2',
+    });
+
+    const scales = {
+      x1: {
+        position: 'top',
+        grid: { color: '#f1f5f9' },
+        ticks: { font: { size: 10 } },
+        title: { display: true, text: 'IC drop ×1000', font: { size: 10 }, color: '#64748b' },
+      },
+      y: { grid: { display: false }, ticks: { font: { size: 11 } } },
+    };
+    if (hasReg) scales.x2 = {
+      position: 'bottom',
+      grid: { display: false },
+      ticks: { font: { size: 10 } },
+      title: { display: true, text: 'Regime sensitivity ×100', font: { size: 10 }, color: '#14b8a6' },
+    };
+
     new Chart(document.getElementById('chartFeatures'), {
       type: 'bar',
-      data: {
-        labels,
-        datasets: [{ data: vals, backgroundColor: colors, borderRadius: 4, borderSkipped: false }],
-      },
+      data: { labels, datasets },
       options: {
         indexAxis: 'y',
         responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: ctx => ` IC drop ×1000: ${ctx.parsed.x}` } },
+          legend: {
+            display: hasReg,
+            position: 'top',
+            labels: { font: { size: 10 }, boxWidth: 10, padding: 10 },
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const f = feats[ctx.dataIndex];
+                const m = FEAT_META[f.name] || {};
+                const r = fr[m.key];
+                if (ctx.datasetIndex === 0) {
+                  const lines = [` IC drop ×1000: ${ctx.parsed.x}`, ` Type: ${m.cat || '?'}`];
+                  if (r && r.pos_mean != null) {
+                    lines.push(` ▲ Outperform IC: ${(r.pos_mean * 100).toFixed(1)}%`);
+                    lines.push(` ▼ Underperform IC: ${(r.neg_mean * 100).toFixed(1)}%`);
+                  }
+                  return lines;
+                }
+                return ` Regime spread: ${ctx.parsed.x} IC pts`;
+              },
+            },
+          },
         },
-        scales: {
-          x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } },
-          y: { grid: { display: false }, ticks: { font: { size: 11 } } },
-        },
+        scales,
       },
     });
   }
