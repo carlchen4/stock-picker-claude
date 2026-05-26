@@ -657,7 +657,7 @@ function render(d) {
     let btCtx = '';
     if (d.backtest && d.backtest.monthly && d.backtest.monthly.length) {
       const btMo    = d.backtest.monthly;
-      const btAvg   = btMo.reduce((s, m) => s + m.port_ret, 0) / btMo.length;
+      const btAvg   = btMo.reduce((s, m) => s + m.port, 0) / btMo.length;
       const liveAvg = d.oos.avg_monthly;
       btCtx = `Backtest avg: <strong>${fmtS(btAvg)}/mo</strong> over ${btMo.length} months`;
       if (mo >= 2 && liveAvg != null) {
