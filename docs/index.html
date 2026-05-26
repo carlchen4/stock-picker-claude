@@ -455,10 +455,10 @@ function render(d) {
       return `<span class="d-tag ${cls}">${dr.shap >= 0 ? '↑' : '↓'} ${dr.label}</span>`;
     }).join('');
     const valStr = p.dollar_value ? '$' + p.dollar_value.toLocaleString() : '';
-    const sharesStr = p.shares && p.price ? `${p.shares} sh @ $${p.price.toFixed(2)}` : '';
-
     const sharesLine = p.shares && p.price
-      ? `<div class="pick-shares">Buy <strong>${p.shares} shares</strong> @ $${p.price.toFixed(2)}${valStr ? ' = ' + valStr : ''}</div>`
+      ? `<div class="pick-shares">Buy <strong>${p.shares} sh</strong> @ $${p.price.toFixed(2)}${valStr ? ' <span style="color:#94a3b8">= ' + valStr + '</span>' : ''}</div>`
+      : p.price
+      ? `<div class="pick-shares" style="color:#64748b">@ $${p.price.toFixed(2)}</div>`
       : '';
 
     return `<div class="pick">

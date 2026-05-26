@@ -1086,12 +1086,16 @@ def _attach_sector_etf_forward_returns(panel, macro_df):
             continue
         monthly = close.resample("ME").last()
         fwd_ret = monthly.pct_change().shift(-1).rename("sector_etf_ret")
-        f = fwd_ret.to_frame().reset_index().rename(columns={"index": "date", "Date": "date"})
+        cur_ret = monthly.pct_change().rename("sector_etf_mom_1m")
+        f = pd.concat([fwd_ret, cur_ret], axis=1).reset_index().rename(
+            columns={"index": "date", "Date": "date"}
+        )
         f["sector_code"] = code
         frames.append(f)
 
     if not frames:
         panel["sector_etf_ret"] = np.nan
+        panel["sector_etf_mom_1m"] = np.nan
         return panel
 
     etf_df = pd.concat(frames, ignore_index=True)
@@ -1133,6 +1137,15 @@ def build_panel(price_df, macro_df, tickers):
     # Aligned to fwd_ret horizon: at month t, sector_etf_ret = ETF return
     # from t to t+1 (matching how add_labels constructs fwd_ret).
     panel = _attach_sector_etf_forward_returns(panel, macro_df)
+
+    # Sector-relative momentum features (available at prediction time t):
+    #   sector_etf_mom_1m  = sector ETF return t-1 → t (sector timing signal)
+    #   stock_vs_sector_1m = individual stock return minus sector ETF return
+    #                        (idiosyncratic alpha, strip sector beta from mom_1m)
+    if "sector_etf_mom_1m" in panel.columns and "mom_1m" in panel.columns:
+        panel["stock_vs_sector_1m"] = (
+            panel["mom_1m"] - panel["sector_etf_mom_1m"].fillna(0)
+        )
 
     # Fundamental placeholders.
     # Tried (2026-05-24): PIT annual (IR 1.08→0.60, Sharpe 2.13→1.79) — rejected.
@@ -3008,12 +3021,15 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
         score = row["score"].iloc[0] if len(row) > 0 else 0
         lines.append(f"  {i}. {ticker:<10} {profile[0]:<14} {profile[1]:<8} "
                      f"Score: {score:.3f}  Weight: {w:.1%}")
-        if portfolio_value > 0 and prices:
+        if prices:
             price = prices.get(ticker)
             if price and price > 0:
-                dollar_amt = portfolio_value * w
-                shares = max(1, int(dollar_amt / price))
-                lines.append(f"     ${dollar_amt:,.0f}  →  {shares} shares @ ${price:.2f}")
+                if portfolio_value > 0:
+                    dollar_amt = portfolio_value * w
+                    shares = max(1, int(dollar_amt / price))
+                    lines.append(f"     ${dollar_amt:,.0f}  →  {shares} shares @ ${price:.2f}")
+                else:
+                    lines.append(f"     @ ${price:.2f}")
         if shap_by_ticker and ticker in shap_by_ticker:
             sv = shap_by_ticker[ticker]
             top3 = sorted(sv.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
@@ -3225,15 +3241,18 @@ def build_report_html(picks, weights, panel_latest, top_features, regime,
             drivers_html = "&nbsp; ".join(parts)
 
         shares_html = ""
-        if portfolio_value > 0 and prices:
-            price = prices.get(ticker)
-            if price and price > 0:
+        price = (prices or {}).get(ticker)
+        if price and price > 0:
+            if portfolio_value > 0:
                 dollar_amt = portfolio_value * w
                 n_shares = max(1, int(dollar_amt / price))
                 shares_html = (f'<div style="font-size:11px;color:#555">'
                                f'${dollar_amt:,.0f}</div>'
                                f'<div style="font-size:11px;color:#333;font-weight:600">'
                                f'{n_shares} sh @ ${price:.2f}</div>')
+            else:
+                shares_html = (f'<div style="font-size:11px;color:#888">'
+                               f'@ ${price:.2f}</div>')
 
         rows_html += f"""
         <tr>
@@ -3249,7 +3268,7 @@ def build_report_html(picks, weights, panel_latest, top_features, regime,
           <td style="font-size:12px">{drivers_html}</td>
         </tr>"""
 
-    shares_header = "<th>Shares</th>" if portfolio_value > 0 else ""
+    shares_header = "<th>Price / Shares</th>"
     html += f"""
     <div class="card">
       <h2>Target Portfolio ({len(picks)} positions)</h2>
@@ -4881,13 +4900,13 @@ def main():
             picks, weights, latest_df, top_features, regime, checks, holdings, shap_vals = result
             te_est = estimate_portfolio_te(picks, weights, price_df)
 
-            # Fetch latest close prices for buy-amount calculation
+            # Fetch latest close prices — always, so price is shown even when
+            # portfolio_value is 0 (shares/dollar require portfolio_value > 0).
             prices = {}
-            if portfolio_value > 0:
-                for t in picks:
-                    close, _ = get_ohlcv(price_df, t)
-                    if close is not None and len(close) > 0:
-                        prices[t] = float(close.iloc[-1])
+            for t in picks:
+                close, _ = get_ohlcv(price_df, t)
+                if close is not None and len(close) > 0:
+                    prices[t] = float(close.iloc[-1])
 
             print_picks(picks, weights, latest_df, top_features, regime, checks, holdings, shap_vals,
                         te_estimate=te_est, portfolio_value=portfolio_value, prices=prices)
