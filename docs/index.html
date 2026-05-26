@@ -188,13 +188,32 @@
   .regime-inline { font-size: 15px; font-weight: 700; white-space: nowrap; }
   .regime-desc-inline { font-size: 12px; color: var(--slate); }
 
-  .oos-row  { display: flex; gap: 12px; }
-  .oos-stat { flex: 1; background: var(--slate-lt); border-radius: 12px; padding: 12px 14px; }
-  .oos-num  { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+  .oos-3row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .oos-tile { flex: 1; background: var(--slate-lt); border-radius: 12px; padding: 11px 12px; min-width: 0; }
+  .oos-tile-num { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; white-space: nowrap; }
+  .oos-tile-lbl { font-size: 10px; color: var(--slate); margin-top: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+  .oos-tile-sub { font-size: 10px; color: #94a3b8; margin-top: 1px; }
   .oos-num.pos { color: var(--green); }
   .oos-num.neu { color: var(--dark); }
-  .oos-lbl  { font-size: 11px; color: var(--slate); margin-top: 3px; font-weight: 600; }
+  .oos-ms-track { display: flex; align-items: center; margin: 14px 0 4px; gap: 0; }
+  .oos-ms-dot   { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .oos-ms-dot.done { background: var(--blue); }
+  .oos-ms-dot.now  { background: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.25); }
+  .oos-ms-dot.future { background: #e2e8f0; }
+  .oos-ms-seg { flex: 1; height: 2px; }
+  .oos-ms-seg.done { background: var(--blue); }
+  .oos-ms-seg.future { background: #e2e8f0; }
+  .oos-ms-labels { display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8; margin-bottom: 8px; padding: 0 1px; }
+  .oos-ms-labels span.active { color: var(--blue); font-weight: 700; }
+  .oos-ctx  { font-size: 11px; color: var(--slate); line-height: 1.6; margin-bottom: 10px; }
   .oos-note { font-size: 12px; color: var(--slate); margin-top: 10px; line-height: 1.5; }
+  .oos-tbl  { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  .oos-tbl th { font-size: 10px; color: #94a3b8; font-weight: 600; text-align: left; padding: 3px 6px 5px; border-bottom: 1px solid #e2e8f0; }
+  .oos-tbl td { padding: 5px 6px; border-bottom: 1px solid #f1f5f9; }
+  .oos-tbl tr:last-child td { border-bottom: none; }
+  .oos-tbl .pos { color: var(--green); font-weight: 700; }
+  .oos-tbl .neg { color: var(--red); font-weight: 700; }
+  .oos-tbl .neu { color: var(--dark); }
   .oos-prog-bg   { height: 5px; background: #e2e8f0; border-radius: 3px; margin-top: 10px; }
   .oos-prog-fill { height: 100%; border-radius: 3px; background: var(--blue); transition: width .5s; }
 
@@ -573,29 +592,112 @@ function render(d) {
   if (d.oos && d.oos.months) {
     const mo      = d.oos.months;
     const moLbl   = mo === 1 ? '1 month' : `${mo} months`;
-    const progPct = Math.min(100, Math.round(mo / 6 * 100));
-    const avgNum  = d.oos.avg_monthly != null
-      ? `<div class="oos-stat"><div class="oos-num pos">${pct(d.oos.avg_monthly)}</div><div class="oos-lbl">Avg monthly return</div></div>`
-      : '';
-    const note = mo < 6
-      ? `⏳ Building track record — ${6 - mo} more month${6 - mo > 1 ? 's' : ''} until full OOS report.`
-      : `✅ ${moLbl} of real-world results.`;
+
+    // 3-stat header: Portfolio / XIU / Excess
+    const latestMs   = d.oos.monthly_series && d.oos.monthly_series.length
+                       ? d.oos.monthly_series[d.oos.monthly_series.length - 1] : null;
+    const portRet    = latestMs ? latestMs.port  : d.oos.avg_monthly;
+    const benchRet1  = latestMs ? latestMs.bench : d.oos.bench_return;
+    const excessRet  = (portRet != null && benchRet1 != null) ? portRet - benchRet1 : null;
+    const portCls    = portRet  > 0 ? 'pos' : portRet  < 0 ? 'neg' : 'neu';
+    const benchCls   = benchRet1 > 0 ? 'pos' : benchRet1 < 0 ? 'neg' : 'neu';
+    const excessCls  = excessRet > 0 ? 'pos' : excessRet < 0 ? 'neg' : 'neu';
+    const fmtS = v => v == null ? '—' : (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + '%';
+
+    const stat3 = `<div class="oos-3row">
+      <div class="oos-tile">
+        <div class="oos-tile-num ${portCls}">${fmtS(portRet)}</div>
+        <div class="oos-tile-lbl">Portfolio</div>
+        <div class="oos-tile-sub">${d.oos.latest_month || ''}</div>
+      </div>
+      <div class="oos-tile">
+        <div class="oos-tile-num ${benchCls}">${fmtS(benchRet1)}</div>
+        <div class="oos-tile-lbl">XIU Bench</div>
+        <div class="oos-tile-sub">${d.oos.latest_month || ''}</div>
+      </div>
+      <div class="oos-tile">
+        <div class="oos-tile-num ${excessCls}">${fmtS(excessRet)}</div>
+        <div class="oos-tile-lbl">Excess</div>
+        <div class="oos-tile-sub">vs benchmark</div>
+      </div>
+    </div>`;
+
+    // Milestone progress bar: Start → 1mo → 3mo → 6mo★ → 12mo
+    const milestones = [
+      { label: 'Start', mo: 0 },
+      { label: '1 mo', mo: 1 },
+      { label: '3 mo', mo: 3 },
+      { label: '6 mo ★', mo: 6 },
+      { label: '12 mo', mo: 12 },
+    ];
+    let msDots = '', msSegs = '', msLabels = '';
+    milestones.forEach((ms, i) => {
+      const done   = mo >= ms.mo;
+      const isNow  = mo >= ms.mo && (i === milestones.length - 1 || mo < milestones[i + 1].mo);
+      const dotCls = isNow ? 'now' : done ? 'done' : 'future';
+      msDots += `<div class="oos-ms-dot ${dotCls}"></div>`;
+      if (i < milestones.length - 1) {
+        const segDone = mo > ms.mo;
+        msSegs += `<div class="oos-ms-seg ${segDone ? 'done' : 'future'}"></div>`;
+      }
+      msLabels += `<span class="${isNow ? 'active' : ''}">${ms.label}</span>`;
+    });
+    // interleave dots and segs
+    let msTrack = '';
+    milestones.forEach((ms, i) => {
+      const done   = mo >= ms.mo;
+      const isNow  = mo >= ms.mo && (i === milestones.length - 1 || mo < milestones[i + 1].mo);
+      msTrack += `<div class="oos-ms-dot ${isNow ? 'now' : done ? 'done' : 'future'}"></div>`;
+      if (i < milestones.length - 1) {
+        msTrack += `<div class="oos-ms-seg ${mo > ms.mo ? 'done' : 'future'}"></div>`;
+      }
+    });
+
+    // Backtest avg monthly for context
+    let btCtx = '';
+    if (d.backtest && d.backtest.monthly && d.backtest.monthly.length) {
+      const btMo    = d.backtest.monthly;
+      const btAvg   = btMo.reduce((s, m) => s + m.port_ret, 0) / btMo.length;
+      const liveAvg = d.oos.avg_monthly;
+      btCtx = `Backtest avg: <strong>${fmtS(btAvg)}/mo</strong> over ${btMo.length} months`;
+      if (mo >= 2 && liveAvg != null) {
+        btCtx += ` · Live avg so far: <strong>${fmtS(liveAvg)}/mo</strong>`;
+      }
+    }
+    const toGo = mo < 6 ? `${6 - mo} more month${6 - mo > 1 ? 's' : ''} to first OOS report` : '';
+
+    // Monthly table
+    let tblHtml = '';
+    if (d.oos.monthly_series && d.oos.monthly_series.length) {
+      const rows = [...d.oos.monthly_series].reverse().map(m => {
+        const p = m.port, b = m.bench;
+        const ex = (p != null && b != null) ? p - b : null;
+        const pc = p > 0 ? 'pos' : p < 0 ? 'neg' : 'neu';
+        const ec = ex > 0 ? 'pos' : ex < 0 ? 'neg' : 'neu';
+        return `<tr>
+          <td>${m.date}</td>
+          <td class="${pc}">${fmtS(p)}</td>
+          <td class="neu">${fmtS(b)}</td>
+          <td class="${ec}">${fmtS(ex)}</td>
+        </tr>`;
+      }).join('');
+      tblHtml = `<table class="oos-tbl">
+        <tr><th>Month</th><th>Portfolio</th><th>XIU</th><th>Excess</th></tr>
+        ${rows}
+      </table>`;
+    }
 
     const hasStockRets = d.oos.stock_returns && d.oos.stock_returns.length;
     const hasCumLine   = d.oos.monthly_series && d.oos.monthly_series.length >= 2;
-    const stockChartH  = hasStockRets ? Math.max(140, d.oos.stock_returns.length * 28 + 40) : 0;
+    const stockChartH  = hasStockRets ? Math.max(140, d.oos.stock_returns.length * 30 + 50) : 0;
 
     html += `<div class="card mb">
-      <div class="card-title">Live Track Record</div>
-      <div class="oos-row">
-        <div class="oos-stat">
-          <div class="oos-num neu">${moLbl}</div>
-          <div class="oos-lbl">Live data collected</div>
-        </div>
-        ${avgNum}
-      </div>
-      ${mo < 6 ? `<div class="oos-prog-bg"><div class="oos-prog-fill" style="width:${progPct}%"></div></div>` : ''}
-      <div class="oos-note">${note}</div>
+      <div class="card-title">Live Track Record <span style="font-size:11px;font-weight:500;color:#94a3b8;margin-left:6px">${moLbl}</span></div>
+      ${stat3}
+      <div class="oos-ms-track">${msTrack}</div>
+      <div class="oos-ms-labels">${msLabels}</div>
+      <div class="oos-ctx">${[btCtx, toGo].filter(Boolean).join(' · ')}</div>
+      ${tblHtml}
       ${hasStockRets ? `
         <div class="card-title" style="margin-top:16px;margin-bottom:8px">
           ${d.oos.latest_month} · Each pick's realized return
@@ -669,11 +771,19 @@ function render(d) {
 
   // OOS: per-stock realized return bar chart
   if (d.oos && d.oos.stock_returns && d.oos.stock_returns.length) {
-    const sr     = d.oos.stock_returns;
-    const labels = sr.map(s => s.ticker.replace('.TO', ''));
-    const vals   = sr.map(s => +(s.ret * 100).toFixed(2));
-    const colors = vals.map(v => v >= 0 ? '#16a34a' : '#dc2626');
+    const sr       = d.oos.stock_returns;
+    // sort by return descending for easier reading
+    const srSorted = [...sr].sort((a, b) => b.ret - a.ret);
+    const labels   = srSorted.map(s => s.ticker.replace('.TO', ''));
+    const vals     = srSorted.map(s => +(s.ret * 100).toFixed(2));
+    const colors   = vals.map(v => v >= 0 ? 'rgba(22,163,74,0.8)' : 'rgba(220,38,38,0.8)');
     const benchRet = d.oos.bench_return != null ? +(d.oos.bench_return * 100).toFixed(2) : null;
+    // score lookup for tooltip
+    const scoreMap = {};
+    if (d.holdings) d.holdings.forEach(h => { scoreMap[h.ticker.replace('.TO','')] = h.score; });
+    const sectorMap = {};
+    if (d.holdings) d.holdings.forEach(h => { sectorMap[h.ticker.replace('.TO','')] = h.sector; });
+
     const datasets = [
       { label: 'Return', data: vals, backgroundColor: colors, borderRadius: 4, borderSkipped: false },
     ];
@@ -693,7 +803,22 @@ function render(d) {
         responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: { display: benchRet != null, labels: { font: { size: 11 }, boxWidth: 12 } },
-          tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.x >= 0 ? '+' : ''}${ctx.parsed.x}%` } },
+          tooltip: {
+            callbacks: {
+              title: ctx => {
+                const t = ctx[0].label;
+                return `${t}${sectorMap[t] ? '  ·  ' + sectorMap[t] : ''}`;
+              },
+              label: ctx => {
+                if (ctx.datasetIndex !== 0) return ` XIU: ${ctx.parsed.x >= 0 ? '+' : ''}${ctx.parsed.x}%`;
+                const t = ctx.label;
+                const lines = [` Return: ${ctx.parsed.x >= 0 ? '+' : ''}${ctx.parsed.x}%`];
+                if (scoreMap[t] != null) lines.push(` Model score: ${(scoreMap[t] * 100).toFixed(0)}`);
+                if (benchRet != null) lines.push(` Excess vs XIU: ${(ctx.parsed.x - benchRet) >= 0 ? '+' : ''}${(ctx.parsed.x - benchRet).toFixed(2)}%`);
+                return lines;
+              },
+            },
+          },
         },
         scales: {
           x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, callback: v => v + '%' } },
