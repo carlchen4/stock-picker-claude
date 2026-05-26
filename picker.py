@@ -3312,22 +3312,41 @@ def _extract_macro_snapshot(macro_df):
 
 
 def _build_backtest_dict():
-    """Build backtest section for data.json, enriched with monthly series."""
-    _HARDCODED = {
-        "sharpe": 2.21, "ir": 1.55, "ann_ret": 0.304, "max_dd": -0.083,
-        "hit_rate": 0.736, "period": "2021-11 to 2026-03",
-        "yearly": [
-            {"year": 2021, "port": 0.125,  "bench": 0.029},
-            {"year": 2022, "port": 0.059,  "bench": 0.008},
-            {"year": 2023, "port": 0.355,  "bench": 0.047},
-            {"year": 2024, "port": 0.410,  "bench": 0.252},
-            {"year": 2025, "port": 0.217,  "bench": 0.235},
-            {"year": 2026, "port": 0.166,  "bench": 0.076},
-        ],
-    }
+    """Build backtest section for data.json, derived entirely from cache when available."""
     monthly = load_backtest_monthly()
     if not monthly:
-        return _HARDCODED
+        return {
+            "sharpe": 2.15, "ir": 1.56, "ann_ret": 0.332, "max_dd": -0.087,
+            "hit_rate": 0.691, "period": "2021-09 to 2026-03", "yearly": [], "monthly": [],
+        }
+
+    r   = np.array([m["port_ret"]  for m in monthly])
+    b   = np.array([m["bench_ret"] for m in monthly])
+    exc = r - b
+    n   = len(r)
+    sharpe   = float(r.mean() / r.std(ddof=1) * np.sqrt(12)) if r.std(ddof=1) > 0 else 0.0
+    ann_ret  = float((1 + r).prod() ** (12 / n) - 1)
+    ann_b    = float((1 + b).prod() ** (12 / n) - 1)
+    te       = float(exc.std(ddof=1) * np.sqrt(12))
+    ir       = (ann_ret - ann_b) / te if te > 0 else 0.0
+    cum_arr  = np.cumprod(1 + r)
+    max_dd   = float((cum_arr / np.maximum.accumulate(cum_arr) - 1).min())
+    hit_rate = float((exc > 0).mean())
+    period   = f"{monthly[0]['date']} to {monthly[-1]['date']}"
+
+    # Yearly breakdown
+    from collections import defaultdict
+    yr_port, yr_bench = defaultdict(list), defaultdict(list)
+    for m in monthly:
+        yr = m["date"][:4]
+        yr_port[yr].append(m["port_ret"])
+        yr_bench[yr].append(m["bench_ret"])
+    yearly = [
+        {"year": int(yr),
+         "port":  round(float((1 + np.array(yr_port[yr])).prod() - 1), 4),
+         "bench": round(float((1 + np.array(yr_bench[yr])).prod() - 1), 4)}
+        for yr in sorted(yr_port)
+    ]
 
     # Build cumulative return series
     port_cum, bench_cum = 1.0, 1.0
@@ -3336,33 +3355,35 @@ def _build_backtest_dict():
         port_cum  *= (1 + m["port_ret"])
         bench_cum *= (1 + m["bench_ret"])
         monthly_cum.append({
-            "date":       m["date"],
-            "port":       m["port_ret"],
-            "bench":      m["bench_ret"],
-            "port_cum":   round(port_cum  - 1, 4),
-            "bench_cum":  round(bench_cum - 1, 4),
+            "date":      m["date"],
+            "port":      round(m["port_ret"], 4),
+            "bench":     round(m["bench_ret"], 4),
+            "port_cum":  round(port_cum  - 1, 4),
+            "bench_cum": round(bench_cum - 1, 4),
         })
 
-    # H5: last 6 months
-    recent6 = monthly_cum[-6:]
+    def _trailing(n_months):
+        tail = monthly[-n_months:]
+        p = float((1 + np.array([m["port_ret"]  for m in tail])).prod() - 1)
+        bv = float((1 + np.array([m["bench_ret"] for m in tail])).prod() - 1)
+        return {"port": round(p, 4), "bench": round(bv, 4)}
 
-    # H3: trailing compounded returns
-    def _trailing(n):
-        tail = monthly[-n:]
-        p = (1 + np.array([m["port_ret"]  for m in tail])).prod() - 1
-        b = (1 + np.array([m["bench_ret"] for m in tail])).prod() - 1
-        return {"port": round(float(p), 4), "bench": round(float(b), 4)}
+    trailing = {label: _trailing(n_m)
+                for label, n_m in [("3m", 3), ("6m", 6), ("12m", 12)]
+                if len(monthly) >= n_m}
 
-    trailing = {}
-    for label, n in [("3m", 3), ("6m", 6), ("12m", 12)]:
-        if len(monthly) >= n:
-            trailing[label] = _trailing(n)
-
-    result = dict(_HARDCODED)
-    result["monthly"] = monthly_cum
-    result["recent6"] = recent6
-    result["trailing"] = trailing
-    return result
+    return {
+        "sharpe":   round(sharpe, 3),
+        "ir":       round(ir, 3),
+        "ann_ret":  round(ann_ret, 4),
+        "max_dd":   round(max_dd, 4),
+        "hit_rate": round(hit_rate, 3),
+        "period":   period,
+        "yearly":   yearly,
+        "monthly":  monthly_cum,
+        "recent6":  monthly_cum[-6:],
+        "trailing": trailing,
+    }
 
 
 def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
