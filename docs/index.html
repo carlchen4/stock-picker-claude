@@ -746,38 +746,49 @@ function render(d) {
     });
   }
 
-  // ── H4: Drawdown chart ───────────────────────────────────────────────────
+  // ── H4: Drawdown chart (portfolio vs XIU) ────────────────────────────────
   if (d.backtest && d.backtest.monthly && document.getElementById('chartDrawdown')) {
     const mo = d.backtest.monthly;
-    // Compute drawdown series from cumulative returns
-    let peak = 0;
-    const ddLabels = [], ddData = [];
+    const ddLabels = [], ddPort = [], ddBench = [];
+    let peakP = 0, peakB = 0;
     mo.forEach(m => {
-      const cum = m.port_cum;
-      if (cum > peak) peak = cum;
-      const dd = peak > -1 ? (cum - peak) / (1 + peak) : 0;
+      const cp = m.port_cum, cb = m.bench_cum;
+      if (cp > peakP) peakP = cp;
+      if (cb > peakB) peakB = cb;
       ddLabels.push(m.date);
-      ddData.push(+(dd * 100).toFixed(2));
+      ddPort.push(+((peakP > -1 ? (cp - peakP) / (1 + peakP) : 0) * 100).toFixed(2));
+      ddBench.push(+((peakB > -1 ? (cb - peakB) / (1 + peakB) : 0) * 100).toFixed(2));
     });
     new Chart(document.getElementById('chartDrawdown'), {
       type: 'line',
       data: {
         labels: ddLabels,
-        datasets: [{
-          data: ddData,
-          borderColor: '#dc2626',
-          backgroundColor: 'rgba(220,38,38,0.15)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 0,
-          borderWidth: 1.5,
-        }],
+        datasets: [
+          {
+            label: 'Portfolio',
+            data: ddPort,
+            borderColor: '#dc2626',
+            backgroundColor: 'rgba(220,38,38,0.12)',
+            fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5,
+          },
+          {
+            label: 'XIU',
+            data: ddBench,
+            borderColor: '#94a3b8',
+            backgroundColor: 'rgba(148,163,184,0.08)',
+            fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5,
+            borderDash: [4, 3],
+          },
+        ],
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: ctx => ` Drawdown: ${ctx.parsed.y.toFixed(1)}%` } },
+          legend: { display: true, position: 'top',
+                    labels: { font: { size: 11 }, boxWidth: 14, padding: 10 } },
+          tooltip: { callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%`,
+          }},
         },
         scales: {
           x: {
