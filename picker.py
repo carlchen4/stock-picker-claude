@@ -1771,7 +1771,8 @@ def load_perm_importance(path=PERM_IMPORTANCE_FILE):
         return None
 
 
-BACKTEST_MONTHLY_FILE = _cache_path("backtest_monthly.json")
+BACKTEST_MONTHLY_FILE  = _cache_path("backtest_monthly.json")
+FEATURE_REGIME_FILE    = _cache_path("feature_regime.json")
 
 
 def save_backtest_monthly(results_df):
@@ -1802,6 +1803,72 @@ def load_backtest_monthly():
             return json.load(f)
     except Exception:
         return []
+
+
+def compute_feature_ic_regime(panel, feature_cols, results_df):
+    """Compute per-feature rank IC split by positive vs negative excess-return months.
+
+    For each test month, computes Spearman IC between each feature and realized
+    fwd_ret for all stocks in that month. Months are grouped by whether the
+    equal-weighted portfolio beat the benchmark (excess > 0).
+
+    Returns {feat: {pos_mean, neg_mean, pos_n, neg_n}} for display in dashboard.
+    """
+    pos_ic = {f: [] for f in feature_cols}
+    neg_ic = {f: [] for f in feature_cols}
+
+    for _, row in results_df.iterrows():
+        date = row["date"]
+        excess = float(row["port_ret"]) - float(row["bench_ret"])
+        month_df = panel[panel["date"] == date].copy()
+        if len(month_df) < 5:
+            continue
+        for feat in feature_cols:
+            if feat not in month_df.columns:
+                continue
+            vals = month_df[feat].values
+            rets = month_df["fwd_ret"].values
+            valid = ~(np.isnan(vals) | np.isnan(rets))
+            if valid.sum() < 5:
+                continue
+            ic, _ = spearmanr(vals[valid], rets[valid])
+            if np.isnan(ic):
+                continue
+            if excess > 0:
+                pos_ic[feat].append(ic)
+            else:
+                neg_ic[feat].append(ic)
+
+    result = {}
+    for feat in feature_cols:
+        p, n = pos_ic[feat], neg_ic[feat]
+        if not p and not n:
+            continue
+        result[feat] = {
+            "pos_mean": round(float(np.mean(p)), 4) if p else None,
+            "neg_mean": round(float(np.mean(n)), 4) if n else None,
+            "pos_n":    len(p),
+            "neg_n":    len(n),
+        }
+    return result
+
+
+def save_feature_regime(regime_dict):
+    try:
+        with open(FEATURE_REGIME_FILE, "w") as f:
+            json.dump(regime_dict, f)
+    except Exception:
+        pass
+
+
+def load_feature_regime():
+    if not os.path.exists(FEATURE_REGIME_FILE):
+        return {}
+    try:
+        with open(FEATURE_REGIME_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -3381,17 +3448,18 @@ def _build_backtest_dict():
         trailing["ytd"] = {"port": round(p_ytd, 4), "bench": round(b_ytd, 4)}
 
     return {
-        "sharpe":    round(sharpe, 3),
-        "ir":        round(ir, 3),
-        "ann_ret":   round(ann_ret, 4),
-        "ann_bench": round(ann_b, 4),
-        "max_dd":    round(max_dd, 4),
-        "hit_rate":  round(hit_rate, 3),
-        "period":    period,
-        "yearly":    yearly,
-        "monthly":   monthly_cum,
-        "recent6":   monthly_cum[-6:],
-        "trailing":  trailing,
+        "sharpe":         round(sharpe, 3),
+        "ir":             round(ir, 3),
+        "ann_ret":        round(ann_ret, 4),
+        "ann_bench":      round(ann_b, 4),
+        "max_dd":         round(max_dd, 4),
+        "hit_rate":       round(hit_rate, 3),
+        "period":         period,
+        "yearly":         yearly,
+        "monthly":        monthly_cum,
+        "recent6":        monthly_cum[-6:],
+        "trailing":       trailing,
+        "feature_regime": load_feature_regime(),
     }
 
 
@@ -4783,6 +4851,8 @@ def main():
         )
         print_backtest(results)
         save_backtest_monthly(results)
+        feature_regime = compute_feature_ic_regime(panel, model_features, results)
+        save_feature_regime(feature_regime)
         evaluate_segments(perstock)
         evaluate_prediction_quality(perstock)
         print_permutation_importance(importance)

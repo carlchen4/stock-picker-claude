@@ -545,6 +545,17 @@ function render(d) {
     </div>`;
   }
 
+  // ── Feature IC by regime ──────────────────────────────────────────────────
+  if (d.backtest && d.backtest.feature_regime && Object.keys(d.backtest.feature_regime).length) {
+    html += `<div class="card mb">
+      <div class="card-title">Feature IC · Positive vs Negative Months</div>
+      <div class="card-sub" style="font-size:11px;color:#64748b;margin-bottom:8px">
+        Spearman IC between feature rank and realized returns — split by months where portfolio beat benchmark vs underperformed
+      </div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chartRegime"></canvas></div>
+    </div>`;
+  }
+
   // ── Feature importance ────────────────────────────────────────────────────
   if (d.top_features && d.top_features.length) {
     const n = Math.min(d.top_features.length, 7);
@@ -833,12 +844,58 @@ function render(d) {
         plugins: {
           legend: { display: false },
           tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} months` } },
-          annotation: { /* zero line via scale */ },
         },
         scales: {
           x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 0 } },
           y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 }, stepSize: 1,
                callback: v => Number.isInteger(v) ? v : '' } },
+        },
+      },
+    });
+  }
+
+  // ── Feature IC by regime ──────────────────────────────────────────────────
+  if (d.backtest && d.backtest.feature_regime && document.getElementById('chartRegime')) {
+    const fr = d.backtest.feature_regime;
+    const FEAT_LABELS = {
+      vol_60d:'Vol 60d', adv_20d_rank:'ADV Rank', bb_zscore:'BB Z-Score',
+      vol_20d:'Vol 20d', mom_pc1:'Momentum PC1', mom_pc2:'Momentum PC2',
+      high_52w_ratio:'52W High', rsi_14:'RSI 14', rev_1m:'Rev 1M',
+      rate_chg_3m:'Rate Chg', tsx_mom_1m:'TSX Mom', vix_level:'VIX',
+      oil_mom_1m:'Oil Mom', cad_mom_1m:'CAD Mom',
+    };
+    // Sort by |pos_mean - neg_mean| descending, take top 8
+    const feats = Object.keys(fr)
+      .filter(f => fr[f].pos_mean != null && fr[f].neg_mean != null)
+      .sort((a, b) => Math.abs(fr[b].pos_mean - fr[b].neg_mean) - Math.abs(fr[a].pos_mean - fr[a].neg_mean))
+      .slice(0, 8);
+    const labels = feats.map(f => FEAT_LABELS[f.replace('_norm','')] || f.replace('_norm','').replace(/_/g,' '));
+    const posData = feats.map(f => +(fr[f].pos_mean * 100).toFixed(2));
+    const negData = feats.map(f => +(fr[f].neg_mean * 100).toFixed(2));
+    new Chart(document.getElementById('chartRegime'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Outperform months', data: posData,
+            backgroundColor: 'rgba(22,163,74,0.75)', borderRadius: 3 },
+          { label: 'Underperform months', data: negData,
+            backgroundColor: 'rgba(220,38,38,0.65)', borderRadius: 3 },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'top',
+                    labels: { font: { size: 11 }, boxWidth: 12, padding: 10 } },
+          tooltip: { callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: IC ${ctx.parsed.y.toFixed(2)}%`,
+          }},
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 30 } },
+          y: { grid: { color: '#f1f5f9' },
+               ticks: { font: { size: 10 }, callback: v => v + '%' } },
         },
       },
     });
