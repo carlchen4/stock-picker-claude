@@ -4878,13 +4878,13 @@ def main():
         save_perm_importance(importance)
 
     if mode in ("pick", "both"):
-        # Prompt for portfolio value (optional — skip with Enter)
-        portfolio_value = 0.0
+        # Prompt for portfolio value (default $10,000 CAD)
+        portfolio_value = 10_000.0
         try:
-            raw = input("\n  Enter total portfolio value (CAD $, or Enter to skip): ").strip()
-            portfolio_value = float(raw.replace(",", "")) if raw else 0.0
+            raw = input("\n  Enter total portfolio value (CAD $, default $10,000): ").strip()
+            portfolio_value = float(raw.replace(",", "")) if raw else 10_000.0
         except (ValueError, EOFError):
-            portfolio_value = 0.0
+            portfolio_value = 10_000.0
 
         print("\n  [5/5] Generating current picks...")
         holdings = list(CURRENT_HOLDINGS)
