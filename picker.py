@@ -3019,17 +3019,16 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
         profile = STOCK_PROFILE.get(ticker, ("?", "?", "?"))
         row = panel_latest[panel_latest["ticker"] == ticker]
         score = row["score"].iloc[0] if len(row) > 0 else 0
-        lines.append(f"  {i}. {ticker:<10} {profile[0]:<14} {profile[1]:<8} "
-                     f"Score: {score:.3f}  Weight: {w:.1%}")
+        lines.append(f"  {i}. {ticker:<10} {profile[0]:<14} {profile[1]:<8} Score: {score:.3f}")
         if prices:
             price = prices.get(ticker)
             if price and price > 0:
                 if portfolio_value > 0:
                     dollar_amt = portfolio_value * w
                     shares = max(1, int(dollar_amt / price))
-                    lines.append(f"     ${dollar_amt:,.0f}  →  {shares} shares @ ${price:.2f}")
+                    lines.append(f"     {w:.1%} of ${portfolio_value:,.0f} = ${dollar_amt:,.0f}  →  {shares} sh @ ${price:.2f}")
                 else:
-                    lines.append(f"     @ ${price:.2f}")
+                    lines.append(f"     {w:.1%}  |  @ ${price:.2f}")
         if shap_by_ticker and ticker in shap_by_ticker:
             sv = shap_by_ticker[ticker]
             top3 = sorted(sv.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
@@ -3247,11 +3246,13 @@ def build_report_html(picks, weights, panel_latest, top_features, regime,
                 dollar_amt = portfolio_value * w
                 n_shares = max(1, int(dollar_amt / price))
                 shares_html = (f'<div style="font-size:11px;color:#555">'
-                               f'${dollar_amt:,.0f}</div>'
+                               f'{w:.1%} = ${dollar_amt:,.0f}</div>'
                                f'<div style="font-size:11px;color:#333;font-weight:600">'
                                f'{n_shares} sh @ ${price:.2f}</div>')
             else:
-                shares_html = (f'<div style="font-size:11px;color:#888">'
+                shares_html = (f'<div style="font-size:11px;color:#555">'
+                               f'{w:.1%}</div>'
+                               f'<div style="font-size:11px;color:#888">'
                                f'@ ${price:.2f}</div>')
 
         rows_html += f"""
