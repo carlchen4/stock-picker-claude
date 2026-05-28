@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-05-26T21:55:43",
-  "as_of": "2026-05-26",
+  "generated_at": "2026-05-28T18:19:40",
+  "as_of": "2026-05-28",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
-  "reliability_detail": "CAUTION \u2014 1 warning \u2014 Feature drift: 1 regime-shifted (|z|>3): rev_growth_yoy(z=9.0)",
+  "reliability_detail": "CAUTION \u2014 1 warning \u2014 Feature drift: 1 regime-shifted (|z|>3): rev_growth_yoy(z=8.9)",
   "portfolio_value": 10000.0,
-  "te_estimate": 0.1184,
+  "te_estimate": 0.1187,
   "risk": {
-    "beta": 0.403,
+    "beta": 0.405,
     "var95": -0.0479,
     "cvar95": -0.0653,
     "max_position": 0.125,
@@ -22,7 +22,7 @@
       "score": 0.75,
       "weight": 0.125,
       "action": "BUY",
-      "price": 223.64,
+      "price": 223.12,
       "shares": 5,
       "dollar_value": 1250,
       "drivers": []
@@ -35,7 +35,7 @@
       "score": 0.812,
       "weight": 0.125,
       "action": "BUY",
-      "price": 64.74,
+      "price": 63.2,
       "shares": 19,
       "dollar_value": 1250,
       "drivers": []
@@ -48,7 +48,7 @@
       "score": 0.75,
       "weight": 0.125,
       "action": "BUY",
-      "price": 115.59,
+      "price": 116.54,
       "shares": 10,
       "dollar_value": 1250,
       "drivers": []
@@ -61,34 +61,34 @@
       "score": 1.0,
       "weight": 0.125,
       "action": "BUY",
-      "price": 8.34,
-      "shares": 149,
+      "price": 8.2,
+      "shares": 152,
       "dollar_value": 1250,
       "drivers": []
     },
     {
       "rank": 5,
-      "ticker": "CVE.TO",
-      "sector": "Energy",
-      "style": "value",
-      "score": 0.75,
-      "weight": 0.125,
-      "action": "BUY",
-      "price": 39.96,
-      "shares": 31,
-      "dollar_value": 1250,
-      "drivers": []
-    },
-    {
-      "rank": 6,
       "ticker": "EMA.TO",
       "sector": "Utilities",
       "style": "value",
       "score": 0.75,
       "weight": 0.125,
       "action": "BUY",
-      "price": 73.7,
-      "shares": 16,
+      "price": 72.7,
+      "shares": 17,
+      "dollar_value": 1250,
+      "drivers": []
+    },
+    {
+      "rank": 6,
+      "ticker": "CVE.TO",
+      "sector": "Energy",
+      "style": "value",
+      "score": 0.688,
+      "weight": 0.125,
+      "action": "BUY",
+      "price": 38.6,
+      "shares": 32,
       "dollar_value": 1250,
       "drivers": []
     },
@@ -100,7 +100,7 @@
       "score": 0.667,
       "weight": 0.125,
       "action": "BUY",
-      "price": 160.67,
+      "price": 163.82,
       "shares": 7,
       "dollar_value": 1250,
       "drivers": []
@@ -113,8 +113,8 @@
       "score": 0.625,
       "weight": 0.125,
       "action": "BUY",
-      "price": 159.87,
-      "shares": 7,
+      "price": 150.96,
+      "shares": 8,
       "dollar_value": 1250,
       "drivers": []
     }
@@ -126,8 +126,8 @@
       "CNQ.TO",
       "TRI.TO",
       "AQN.TO",
-      "CVE.TO",
       "EMA.TO",
+      "CVE.TO",
       "CNR.TO",
       "CM.TO"
     ],
@@ -737,73 +737,73 @@
   },
   "oos": {
     "months": 1,
-    "avg_monthly": 0.0137,
+    "avg_monthly": -0.0015,
     "monthly_series": [
       {
         "date": "2026-04",
-        "port": 0.0137,
-        "bench": 0.0194,
-        "port_cum": 0.0137,
-        "bench_cum": 0.0194
+        "port": -0.0015,
+        "bench": 0.0146,
+        "port_cum": -0.0015,
+        "bench_cum": 0.0146
       }
     ],
     "latest_month": "2026-04",
     "stock_returns": [
       {
         "ticker": "BMO.TO",
-        "ret": 0.0812
-      },
-      {
-        "ticker": "CM.TO",
-        "ret": 0.0548
+        "ret": 0.0787
       },
       {
         "ticker": "CNR.TO",
-        "ret": 0.0531
+        "ret": 0.0737
       },
       {
         "ticker": "EMA.TO",
-        "ret": 0.0274
+        "ret": 0.0134
       },
       {
-        "ticker": "CVE.TO",
-        "ret": 0.0055
+        "ticker": "CM.TO",
+        "ret": -0.004
       },
       {
         "ticker": "CNQ.TO",
-        "ret": -0.0015
+        "ret": -0.0253
+      },
+      {
+        "ticker": "CVE.TO",
+        "ret": -0.0287
       },
       {
         "ticker": "AQN.TO",
-        "ret": -0.0211
+        "ret": -0.0376
       },
       {
         "ticker": "TRI.TO",
-        "ret": -0.0899
+        "ret": -0.0824
       }
     ],
-    "bench_return": 0.0194
+    "bench_return": 0.0146
   },
   "macro": {
     "vix": {
-      "val": 17.0,
-      "chg": 0.1
+      "val": 15.7,
+      "chg": -1.1
     },
     "oil": {
-      "val": 92.89,
-      "chg_pct": -0.1159
+      "val": 88.43,
+      "chg_pct": -0.1584
     },
     "cadusd": {
-      "val": 0.724,
-      "chg_pct": -0.0103
+      "val": 0.7255,
+      "chg_pct": -0.0081
     },
     "us10y": {
-      "val": 4.49,
-      "chg_bps": 10.3
+      "val": 4.45,
+      "chg_bps": 6.5
     },
     "tsx": {
-      "val": 34653.87,
-      "chg_pct": 0.0203
+      "val": 34517.7,
+      "chg_pct": 0.0163
     }
   }
 }
