@@ -1,809 +1,839 @@
 {
-  "generated_at": "2026-05-28T18:19:40",
-  "as_of": "2026-05-28",
+  "generated_at": "2026-05-29T23:21:25",
+  "as_of": "2026-05-29",
   "regime": "NEUTRAL",
-  "reliability": "CAUTION",
-  "reliability_detail": "CAUTION \u2014 1 warning \u2014 Feature drift: 1 regime-shifted (|z|>3): rev_growth_yoy(z=8.9)",
+  "reliability": "OK",
+  "reliability_detail": "OK \u2014 all checks passed",
   "portfolio_value": 10000.0,
-  "te_estimate": 0.1187,
+  "te_estimate": 0.1592,
   "risk": {
-    "beta": 0.405,
-    "var95": -0.0479,
-    "cvar95": -0.0653,
-    "max_position": 0.125,
-    "max_position_ticker": "BMO.TO"
+    "beta": 1.09,
+    "var95": -0.0915,
+    "cvar95": -0.1356,
+    "max_position": 0.1429,
+    "max_position_ticker": "CRM"
   },
   "picks": [
     {
       "rank": 1,
-      "ticker": "BMO.TO",
-      "sector": "Financials",
+      "ticker": "CRM",
+      "sector": "Software",
       "style": "core",
-      "score": 0.75,
-      "weight": 0.125,
+      "score": 0.457,
+      "weight": 0.1429,
       "action": "BUY",
-      "price": 223.12,
-      "shares": 5,
-      "dollar_value": 1250,
-      "drivers": []
+      "price": 191.1,
+      "shares": 7,
+      "dollar_value": 1428,
+      "drivers": [
+        {
+          "label": "Bollinger Band Z",
+          "shap": 0.0301
+        },
+        {
+          "label": "Short-Term Reversal",
+          "shap": 0.0234
+        },
+        {
+          "label": "52-Week High Proximity",
+          "shap": -0.0162
+        }
+      ]
     },
     {
       "rank": 2,
-      "ticker": "CNQ.TO",
-      "sector": "Energy",
-      "style": "core",
-      "score": 0.812,
-      "weight": 0.125,
+      "ticker": "TXN",
+      "sector": "Semiconductors",
+      "style": "value",
+      "score": 1.141,
+      "weight": 0.1429,
       "action": "BUY",
-      "price": 63.2,
-      "shares": 19,
-      "dollar_value": 1250,
-      "drivers": []
+      "price": 305.68,
+      "shares": 4,
+      "dollar_value": 1428,
+      "drivers": [
+        {
+          "label": "Volatility 60d",
+          "shap": -0.048
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": 0.0365
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.0261
+        }
+      ]
     },
     {
       "rank": 3,
-      "ticker": "TRI.TO",
-      "sector": "Industrials",
+      "ticker": "AMZN",
+      "sector": "Cloud",
       "style": "core",
-      "score": 0.75,
-      "weight": 0.125,
+      "score": 0.99,
+      "weight": 0.1429,
       "action": "BUY",
-      "price": 116.54,
-      "shares": 10,
-      "dollar_value": 1250,
-      "drivers": []
+      "price": 270.64,
+      "shares": 5,
+      "dollar_value": 1428,
+      "drivers": [
+        {
+          "label": "Momentum PC2",
+          "shap": 0.0238
+        },
+        {
+          "label": "RSI (14-day)",
+          "shap": 0.0228
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": -0.0213
+        }
+      ]
     },
     {
       "rank": 4,
-      "ticker": "AQN.TO",
-      "sector": "Utilities",
+      "ticker": "INTC",
+      "sector": "Hardware",
       "style": "value",
-      "score": 1.0,
-      "weight": 0.125,
+      "score": 1.587,
+      "weight": 0.1429,
       "action": "BUY",
-      "price": 8.2,
-      "shares": 152,
-      "dollar_value": 1250,
-      "drivers": []
+      "price": 114.68,
+      "shares": 12,
+      "dollar_value": 1428,
+      "drivers": [
+        {
+          "label": "Volatility 60d",
+          "shap": 0.061
+        },
+        {
+          "label": "Momentum PC1",
+          "shap": -0.0396
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": 0.0315
+        }
+      ]
     },
     {
       "rank": 5,
-      "ticker": "EMA.TO",
-      "sector": "Utilities",
+      "ticker": "QCOM",
+      "sector": "Semiconductors",
       "style": "value",
-      "score": 0.75,
-      "weight": 0.125,
+      "score": 0.838,
+      "weight": 0.1429,
       "action": "BUY",
-      "price": 72.7,
-      "shares": 17,
-      "dollar_value": 1250,
-      "drivers": []
+      "price": 251.02,
+      "shares": 5,
+      "dollar_value": 1428,
+      "drivers": [
+        {
+          "label": "Volatility 60d",
+          "shap": -0.0596
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": 0.0361
+        },
+        {
+          "label": "RSI (14-day)",
+          "shap": -0.031
+        }
+      ]
     },
     {
       "rank": 6,
-      "ticker": "CVE.TO",
-      "sector": "Energy",
-      "style": "value",
-      "score": 0.688,
-      "weight": 0.125,
+      "ticker": "GOOGL",
+      "sector": "Cloud",
+      "style": "core",
+      "score": 0.52,
+      "weight": 0.1429,
       "action": "BUY",
-      "price": 38.6,
-      "shares": 32,
-      "dollar_value": 1250,
-      "drivers": []
+      "price": 380.34,
+      "shares": 3,
+      "dollar_value": 1428,
+      "drivers": [
+        {
+          "label": "Momentum PC2",
+          "shap": -0.0199
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.0179
+        },
+        {
+          "label": "52-Week High Proximity",
+          "shap": -0.014
+        }
+      ]
     },
     {
       "rank": 7,
-      "ticker": "CNR.TO",
-      "sector": "Industrials",
-      "style": "core",
-      "score": 0.667,
-      "weight": 0.125,
+      "ticker": "PANW",
+      "sector": "Software",
+      "style": "growth",
+      "score": 0.367,
+      "weight": 0.1429,
       "action": "BUY",
-      "price": 163.82,
-      "shares": 7,
-      "dollar_value": 1250,
-      "drivers": []
-    },
-    {
-      "rank": 8,
-      "ticker": "CM.TO",
-      "sector": "Financials",
-      "style": "value",
-      "score": 0.625,
-      "weight": 0.125,
-      "action": "BUY",
-      "price": 150.96,
-      "shares": 8,
-      "dollar_value": 1250,
-      "drivers": []
+      "price": 281.69,
+      "shares": 5,
+      "dollar_value": 1428,
+      "drivers": [
+        {
+          "label": "Momentum PC2",
+          "shap": -0.0217
+        },
+        {
+          "label": "Volatility 60d",
+          "shap": 0.0159
+        },
+        {
+          "label": "ADV 20-day Rank",
+          "shap": 0.0136
+        }
+      ]
     }
   ],
   "actions": {
     "sell": [],
     "buy": [
-      "BMO.TO",
-      "CNQ.TO",
-      "TRI.TO",
-      "AQN.TO",
-      "EMA.TO",
-      "CVE.TO",
-      "CNR.TO",
-      "CM.TO"
+      "CRM",
+      "TXN",
+      "AMZN",
+      "INTC",
+      "QCOM",
+      "GOOGL",
+      "PANW"
     ],
     "hold": []
   },
   "top_features": [
     {
-      "name": "Volatility 60d",
-      "importance": 0.0181
-    },
-    {
       "name": "ADV 20-day Rank",
-      "importance": 0.0163
+      "importance": 0.0187
     },
     {
-      "name": "Bollinger Band Z",
-      "importance": 0.0073
-    },
-    {
-      "name": "Momentum PC2",
-      "importance": 0.0034
-    },
-    {
-      "name": "Sector Etf Mom 1M",
-      "importance": 0.0022
+      "name": "Volatility 60d",
+      "importance": 0.0108
     },
     {
       "name": "Short-Term Reversal",
-      "importance": 0.0014
+      "importance": 0.0093
+    },
+    {
+      "name": "Momentum PC2",
+      "importance": 0.0085
+    },
+    {
+      "name": "Bollinger Band Z",
+      "importance": 0.007
+    },
+    {
+      "name": "52-Week High Proximity",
+      "importance": 0.001
     }
   ],
   "backtest": {
-    "sharpe": 1.979,
-    "ir": 1.416,
-    "ann_ret": 0.3079,
-    "ann_bench": 0.1484,
-    "max_dd": -0.0953,
-    "hit_rate": 0.691,
+    "sharpe": 1.016,
+    "ir": 0.956,
+    "ann_ret": 0.3674,
+    "ann_bench": 0.1526,
+    "max_dd": -0.4633,
+    "hit_rate": 0.545,
     "period": "2021-09 to 2026-03",
     "yearly": [
       {
         "year": 2021,
-        "port": 0.1992,
-        "bench": 0.0741
+        "port": 0.0303,
+        "bench": 0.0155
       },
       {
         "year": 2022,
-        "port": -0.0042,
-        "bench": 0.0083
+        "port": -0.205,
+        "bench": -0.1827
       },
       {
         "year": 2023,
-        "port": 0.3466,
-        "bench": 0.0466
+        "port": 0.7348,
+        "bench": 0.425
       },
       {
         "year": 2024,
-        "port": 0.4485,
-        "bench": 0.2518
+        "port": 0.8807,
+        "bench": 0.2598
       },
       {
         "year": 2025,
-        "port": 0.2868,
-        "bench": 0.2348
+        "port": 0.3712,
+        "bench": 0.1967
       },
       {
         "year": 2026,
-        "port": 0.1419,
-        "bench": 0.0762
+        "port": 0.1451,
+        "bench": 0.0751
       }
     ],
     "monthly": [
       {
         "date": "2021-09",
-        "port": 0.0307,
-        "bench": 0.0546,
-        "port_cum": 0.0307,
-        "bench_cum": 0.0546
+        "port": 0.238,
+        "bench": 0.0786,
+        "port_cum": 0.238,
+        "bench_cum": 0.0786
       },
       {
         "date": "2021-10",
-        "port": 0.014,
-        "bench": -0.01,
-        "port_cum": 0.0451,
-        "bench_cum": 0.0441
+        "port": 0.0326,
+        "bench": 0.02,
+        "port_cum": 0.2784,
+        "bench_cum": 0.1002
       },
       {
         "date": "2021-11",
-        "port": 0.0587,
-        "bench": 0.0314,
-        "port_cum": 0.1065,
-        "bench_cum": 0.0768
+        "port": -0.0543,
+        "bench": 0.0115,
+        "port_cum": 0.2089,
+        "bench_cum": 0.1128
       },
       {
         "date": "2021-12",
-        "port": 0.0838,
-        "bench": -0.0025,
-        "port_cum": 0.1992,
-        "bench_cum": 0.0741
+        "port": -0.1478,
+        "bench": -0.0875,
+        "port_cum": 0.0303,
+        "bench_cum": 0.0155
       },
       {
         "date": "2022-01",
-        "port": -0.0042,
-        "bench": -0.0007,
-        "port_cum": 0.1942,
-        "bench_cum": 0.0734
+        "port": 0.0315,
+        "bench": -0.0448,
+        "port_cum": 0.0627,
+        "bench_cum": -0.03
       },
       {
         "date": "2022-02",
-        "port": 0.0618,
-        "bench": 0.0394,
-        "port_cum": 0.268,
-        "bench_cum": 0.1157
+        "port": 0.0744,
+        "bench": 0.0467,
+        "port_cum": 0.1418,
+        "bench_cum": 0.0153
       },
       {
         "date": "2022-03",
-        "port": -0.0265,
-        "bench": -0.0502,
-        "port_cum": 0.2344,
-        "bench_cum": 0.0597
+        "port": -0.1631,
+        "bench": -0.136,
+        "port_cum": -0.0444,
+        "bench_cum": -0.1228
       },
       {
         "date": "2022-04",
-        "port": 0.0298,
-        "bench": 0.0012,
-        "port_cum": 0.2711,
-        "bench_cum": 0.0609
+        "port": -0.0622,
+        "bench": -0.0159,
+        "port_cum": -0.1039,
+        "bench_cum": -0.1368
       },
       {
         "date": "2022-05",
-        "port": -0.0618,
-        "bench": -0.0823,
-        "port_cum": 0.1926,
-        "bench_cum": -0.0264
+        "port": -0.1258,
+        "bench": -0.0891,
+        "port_cum": -0.2166,
+        "bench_cum": -0.2137
       },
       {
         "date": "2022-06",
-        "port": 0.0579,
-        "bench": 0.0386,
-        "port_cum": 0.2616,
-        "bench_cum": 0.0112
+        "port": 0.1669,
+        "bench": 0.1255,
+        "port_cum": -0.0859,
+        "bench_cum": -0.115
       },
       {
         "date": "2022-07",
-        "port": 0.0,
-        "bench": -0.0165,
-        "port_cum": 0.2616,
-        "bench_cum": -0.0055
+        "port": -0.0572,
+        "bench": -0.0513,
+        "port_cum": -0.1382,
+        "bench_cum": -0.1604
       },
       {
         "date": "2022-08",
-        "port": -0.0885,
-        "bench": -0.0384,
-        "port_cum": 0.15,
-        "bench_cum": -0.0437
+        "port": -0.1457,
+        "bench": -0.1054,
+        "port_cum": -0.2637,
+        "bench_cum": -0.2489
       },
       {
         "date": "2022-09",
-        "port": 0.1028,
-        "bench": 0.0559,
-        "port_cum": 0.2682,
-        "bench_cum": 0.0098
+        "port": 0.0161,
+        "bench": 0.04,
+        "port_cum": -0.2519,
+        "bench_cum": -0.2188
       },
       {
         "date": "2022-10",
-        "port": -0.0003,
-        "bench": 0.055,
-        "port_cum": 0.2678,
-        "bench_cum": 0.0653
+        "port": 0.0428,
+        "bench": 0.0554,
+        "port_cum": -0.2198,
+        "bench_cum": -0.1756
       },
       {
         "date": "2022-11",
-        "port": -0.0726,
-        "bench": -0.0534,
-        "port_cum": 0.1758,
-        "bench_cum": 0.0084
+        "port": -0.1206,
+        "bench": -0.0901,
+        "port_cum": -0.3139,
+        "bench_cum": -0.2499
       },
       {
         "date": "2022-12",
-        "port": 0.0156,
-        "bench": 0.074,
-        "port_cum": 0.1941,
-        "bench_cum": 0.0831
+        "port": 0.1938,
+        "bench": 0.1064,
+        "port_cum": -0.181,
+        "bench_cum": -0.17
       },
       {
         "date": "2023-01",
-        "port": 0.0007,
-        "bench": -0.0265,
-        "port_cum": 0.195,
-        "bench_cum": 0.0544
+        "port": 0.042,
+        "bench": -0.0036,
+        "port_cum": -0.1466,
+        "bench_cum": -0.173
       },
       {
         "date": "2023-02",
-        "port": 0.0001,
-        "bench": -0.0052,
-        "port_cum": 0.1951,
-        "bench_cum": 0.0489
+        "port": 0.1327,
+        "bench": 0.0949,
+        "port_cum": -0.0333,
+        "bench_cum": -0.0945
       },
       {
         "date": "2023-03",
-        "port": 0.0236,
-        "bench": 0.0357,
-        "port_cum": 0.2233,
-        "bench_cum": 0.0863
+        "port": -0.0392,
+        "bench": 0.0051,
+        "port_cum": -0.0712,
+        "bench_cum": -0.0899
       },
       {
         "date": "2023-04",
-        "port": 0.0055,
-        "bench": -0.0532,
-        "port_cum": 0.23,
-        "bench_cum": 0.0285
+        "port": 0.1955,
+        "bench": 0.0788,
+        "port_cum": 0.1104,
+        "bench_cum": -0.0182
       },
       {
         "date": "2023-05",
-        "port": 0.0441,
-        "bench": 0.0354,
-        "port_cum": 0.2843,
-        "bench_cum": 0.065
+        "port": 0.0845,
+        "bench": 0.063,
+        "port_cum": 0.2042,
+        "bench_cum": 0.0436
       },
       {
         "date": "2023-06",
-        "port": 0.0993,
-        "bench": 0.0215,
-        "port_cum": 0.4118,
-        "bench_cum": 0.0878
-      },
-      {
-        "date": "2023-07",
-        "port": 0.0216,
-        "bench": -0.0143,
-        "port_cum": 0.4423,
-        "bench_cum": 0.0723
-      },
-      {
-        "date": "2023-08",
-        "port": -0.0007,
-        "bench": -0.0323,
-        "port_cum": 0.4413,
-        "bench_cum": 0.0377
-      },
-      {
-        "date": "2023-09",
-        "port": -0.0111,
-        "bench": -0.0316,
-        "port_cum": 0.4253,
-        "bench_cum": 0.0049
-      },
-      {
-        "date": "2023-10",
-        "port": 0.0701,
-        "bench": 0.0786,
-        "port_cum": 0.5252,
+        "port": 0.0251,
+        "bench": 0.0386,
+        "port_cum": 0.2344,
         "bench_cum": 0.0839
       },
       {
+        "date": "2023-07",
+        "port": 0.0244,
+        "bench": -0.0148,
+        "port_cum": 0.2645,
+        "bench_cum": 0.0679
+      },
+      {
+        "date": "2023-08",
+        "port": -0.0481,
+        "bench": -0.0508,
+        "port_cum": 0.2037,
+        "bench_cum": 0.0136
+      },
+      {
+        "date": "2023-09",
+        "port": -0.049,
+        "bench": -0.0207,
+        "port_cum": 0.1447,
+        "bench_cum": -0.0073
+      },
+      {
+        "date": "2023-10",
+        "port": 0.1804,
+        "bench": 0.1082,
+        "port_cum": 0.3512,
+        "bench_cum": 0.1001
+      },
+      {
         "date": "2023-11",
-        "port": 0.0175,
-        "bench": 0.0406,
-        "port_cum": 0.5519,
-        "bench_cum": 0.1279
+        "port": 0.0407,
+        "bench": 0.0559,
+        "port_cum": 0.4062,
+        "bench_cum": 0.1615
       },
       {
         "date": "2023-12",
-        "port": 0.0362,
-        "bench": 0.005,
-        "port_cum": 0.608,
-        "bench_cum": 0.1335
+        "port": 0.0104,
+        "bench": 0.0182,
+        "port_cum": 0.4208,
+        "bench_cum": 0.1827
       },
       {
         "date": "2024-01",
-        "port": 0.0518,
-        "bench": 0.0191,
-        "port_cum": 0.6913,
-        "bench_cum": 0.1551
+        "port": 0.2921,
+        "bench": 0.0528,
+        "port_cum": 0.8359,
+        "bench_cum": 0.2451
       },
       {
         "date": "2024-02",
-        "port": 0.0191,
-        "bench": 0.0372,
-        "port_cum": 0.7236,
-        "bench_cum": 0.1981
+        "port": -0.0359,
+        "bench": 0.0127,
+        "port_cum": 0.77,
+        "bench_cum": 0.2609
       },
       {
         "date": "2024-03",
-        "port": -0.0051,
-        "bench": -0.0216,
-        "port_cum": 0.7149,
-        "bench_cum": 0.1722
+        "port": -0.0679,
+        "bench": -0.0437,
+        "port_cum": 0.6498,
+        "bench_cum": 0.2058
       },
       {
         "date": "2024-04",
-        "port": 0.0526,
-        "bench": 0.0263,
-        "port_cum": 0.8051,
-        "bench_cum": 0.2031
+        "port": 0.047,
+        "bench": 0.0615,
+        "port_cum": 0.7273,
+        "bench_cum": 0.28
       },
       {
         "date": "2024-05",
-        "port": -0.0147,
-        "bench": -0.0175,
-        "port_cum": 0.7785,
-        "bench_cum": 0.182
+        "port": 0.1978,
+        "bench": 0.0647,
+        "port_cum": 1.069,
+        "bench_cum": 0.3628
       },
       {
         "date": "2024-06",
-        "port": 0.056,
-        "bench": 0.0602,
-        "port_cum": 0.8781,
-        "bench_cum": 0.2532
+        "port": -0.0797,
+        "bench": -0.0168,
+        "port_cum": 0.9041,
+        "bench_cum": 0.3399
       },
       {
         "date": "2024-07",
-        "port": 0.0172,
-        "bench": 0.0156,
-        "port_cum": 0.9104,
-        "bench_cum": 0.2727
+        "port": 0.0062,
+        "bench": 0.011,
+        "port_cum": 0.9159,
+        "bench_cum": 0.3547
       },
       {
         "date": "2024-08",
-        "port": 0.0113,
-        "bench": 0.0306,
-        "port_cum": 0.932,
-        "bench_cum": 0.3117
+        "port": 0.0982,
+        "bench": 0.0262,
+        "port_cum": 1.104,
+        "bench_cum": 0.3902
       },
       {
         "date": "2024-09",
-        "port": 0.057,
-        "bench": 0.0077,
-        "port_cum": 1.0421,
-        "bench_cum": 0.3218
+        "port": 0.0304,
+        "bench": -0.0086,
+        "port_cum": 1.168,
+        "bench_cum": 0.3782
       },
       {
         "date": "2024-10",
-        "port": 0.0721,
-        "bench": 0.0664,
-        "port_cum": 1.1894,
-        "bench_cum": 0.4095
+        "port": 0.168,
+        "bench": 0.0535,
+        "port_cum": 1.5322,
+        "bench_cum": 0.4519
       },
       {
         "date": "2024-11",
-        "port": -0.0061,
-        "bench": -0.0338,
-        "port_cum": 1.176,
-        "bench_cum": 0.3619
+        "port": 0.0077,
+        "bench": 0.0045,
+        "port_cum": 1.5517,
+        "bench_cum": 0.4585
       },
       {
         "date": "2024-12",
-        "port": 0.0704,
-        "bench": 0.0419,
-        "port_cum": 1.3292,
-        "bench_cum": 0.419
+        "port": 0.0472,
+        "bench": 0.0216,
+        "port_cum": 1.6722,
+        "bench_cum": 0.49
       },
       {
         "date": "2025-01",
-        "port": -0.0043,
-        "bench": -0.0044,
-        "port_cum": 1.3192,
-        "bench_cum": 0.4127
+        "port": -0.0898,
+        "bench": -0.027,
+        "port_cum": 1.4322,
+        "bench_cum": 0.4497
       },
       {
         "date": "2025-02",
-        "port": -0.0373,
-        "bench": -0.0187,
-        "port_cum": 1.2327,
-        "bench_cum": 0.3863
+        "port": -0.1349,
+        "bench": -0.0759,
+        "port_cum": 1.1041,
+        "bench_cum": 0.3397
       },
       {
         "date": "2025-03",
-        "port": 0.0029,
-        "bench": -0.0008,
-        "port_cum": 1.2392,
-        "bench_cum": 0.3852
+        "port": 0.1244,
+        "bench": 0.014,
+        "port_cum": 1.3659,
+        "bench_cum": 0.3585
       },
       {
         "date": "2025-04",
-        "port": 0.0901,
-        "bench": 0.0519,
-        "port_cum": 1.4409,
-        "bench_cum": 0.4571
+        "port": 0.1351,
+        "bench": 0.0918,
+        "port_cum": 1.6855,
+        "bench_cum": 0.4832
       },
       {
         "date": "2025-05",
-        "port": 0.0412,
-        "bench": 0.0223,
-        "port_cum": 1.5415,
-        "bench_cum": 0.4896
+        "port": 0.1329,
+        "bench": 0.0639,
+        "port_cum": 2.0424,
+        "bench_cum": 0.5779
       },
       {
         "date": "2025-06",
-        "port": 0.0428,
-        "bench": 0.0171,
-        "port_cum": 1.6503,
-        "bench_cum": 0.515
+        "port": 0.0276,
+        "bench": 0.0242,
+        "port_cum": 2.1263,
+        "bench_cum": 0.6161
       },
       {
         "date": "2025-07",
-        "port": -0.0108,
-        "bench": 0.0473,
-        "port_cum": 1.6216,
-        "bench_cum": 0.5867
+        "port": 0.0101,
+        "bench": 0.0095,
+        "port_cum": 2.1579,
+        "bench_cum": 0.6315
       },
       {
         "date": "2025-08",
-        "port": 0.0475,
-        "bench": 0.047,
-        "port_cum": 1.7462,
-        "bench_cum": 0.6613
+        "port": 0.1067,
+        "bench": 0.0538,
+        "port_cum": 2.4949,
+        "bench_cum": 0.7193
       },
       {
         "date": "2025-09",
-        "port": 0.0408,
-        "bench": 0.0083,
-        "port_cum": 1.8582,
-        "bench_cum": 0.6751
+        "port": 0.1647,
+        "bench": 0.0478,
+        "port_cum": 3.0705,
+        "bench_cum": 0.8014
       },
       {
         "date": "2025-10",
-        "port": 0.0267,
-        "bench": 0.0355,
-        "port_cum": 1.9345,
-        "bench_cum": 0.7345
+        "port": -0.1245,
+        "bench": -0.0156,
+        "port_cum": 2.5637,
+        "bench_cum": 0.7733
       },
       {
         "date": "2025-11",
-        "port": -0.0201,
-        "bench": 0.0121,
-        "port_cum": 1.8755,
-        "bench_cum": 0.7555
+        "port": -0.007,
+        "bench": -0.0067,
+        "port_cum": 2.5388,
+        "bench_cum": 0.7615
       },
       {
         "date": "2025-12",
-        "port": 0.0423,
-        "bench": -0.0019,
-        "port_cum": 1.9972,
-        "bench_cum": 0.7522
+        "port": 0.0354,
+        "bench": 0.0123,
+        "port_cum": 2.664,
+        "bench_cum": 0.7831
       },
       {
         "date": "2026-01",
-        "port": 0.0178,
-        "bench": 0.0659,
-        "port_cum": 2.0505,
-        "bench_cum": 0.8676
+        "port": -0.0354,
+        "bench": -0.0234,
+        "port_cum": 2.5343,
+        "bench_cum": 0.7414
       },
       {
         "date": "2026-02",
-        "port": 0.022,
-        "bench": -0.0314,
-        "port_cum": 2.1176,
-        "bench_cum": 0.809
+        "port": -0.0067,
+        "bench": -0.0484,
+        "port_cum": 2.5106,
+        "bench_cum": 0.6571
       },
       {
         "date": "2026-03",
-        "port": 0.0978,
-        "bench": 0.0424,
-        "port_cum": 2.4225,
-        "bench_cum": 0.8857
+        "port": 0.1951,
+        "bench": 0.1569,
+        "port_cum": 3.1956,
+        "bench_cum": 0.9171
       }
     ],
     "recent6": [
       {
         "date": "2025-10",
-        "port": 0.0267,
-        "bench": 0.0355,
-        "port_cum": 1.9345,
-        "bench_cum": 0.7345
+        "port": -0.1245,
+        "bench": -0.0156,
+        "port_cum": 2.5637,
+        "bench_cum": 0.7733
       },
       {
         "date": "2025-11",
-        "port": -0.0201,
-        "bench": 0.0121,
-        "port_cum": 1.8755,
-        "bench_cum": 0.7555
+        "port": -0.007,
+        "bench": -0.0067,
+        "port_cum": 2.5388,
+        "bench_cum": 0.7615
       },
       {
         "date": "2025-12",
-        "port": 0.0423,
-        "bench": -0.0019,
-        "port_cum": 1.9972,
-        "bench_cum": 0.7522
+        "port": 0.0354,
+        "bench": 0.0123,
+        "port_cum": 2.664,
+        "bench_cum": 0.7831
       },
       {
         "date": "2026-01",
-        "port": 0.0178,
-        "bench": 0.0659,
-        "port_cum": 2.0505,
-        "bench_cum": 0.8676
+        "port": -0.0354,
+        "bench": -0.0234,
+        "port_cum": 2.5343,
+        "bench_cum": 0.7414
       },
       {
         "date": "2026-02",
-        "port": 0.022,
-        "bench": -0.0314,
-        "port_cum": 2.1176,
-        "bench_cum": 0.809
+        "port": -0.0067,
+        "bench": -0.0484,
+        "port_cum": 2.5106,
+        "bench_cum": 0.6571
       },
       {
         "date": "2026-03",
-        "port": 0.0978,
-        "bench": 0.0424,
-        "port_cum": 2.4225,
-        "bench_cum": 0.8857
+        "port": 0.1951,
+        "bench": 0.1569,
+        "port_cum": 3.1956,
+        "bench_cum": 0.9171
       }
     ],
     "trailing": {
       "3m": {
-        "port": 0.1419,
-        "bench": 0.0762
+        "port": 0.1451,
+        "bench": 0.0751
       },
       "6m": {
-        "port": 0.1974,
-        "bench": 0.1258
+        "port": 0.0307,
+        "bench": 0.0642
       },
       "12m": {
-        "port": 0.5285,
-        "bench": 0.3613
+        "port": 0.7734,
+        "bench": 0.4112
       },
       "ytd": {
-        "port": 0.1419,
-        "bench": 0.0762
+        "port": 0.1451,
+        "bench": 0.0751
       }
     },
     "feature_regime": {
+      "mom_12_2_norm": {
+        "pos_mean": 0.07,
+        "neg_mean": -0.0435,
+        "pos_n": 30,
+        "neg_n": 25
+      },
       "rev_1m_norm": {
-        "pos_mean": -0.0667,
-        "neg_mean": -0.0893,
-        "pos_n": 38,
-        "neg_n": 17
+        "pos_mean": 0.0931,
+        "neg_mean": -0.0381,
+        "pos_n": 30,
+        "neg_n": 25
       },
       "mom_pc1_norm": {
-        "pos_mean": 0.1264,
-        "neg_mean": -0.078,
-        "pos_n": 38,
-        "neg_n": 17
+        "pos_mean": 0.0577,
+        "neg_mean": -0.0229,
+        "pos_n": 30,
+        "neg_n": 25
       },
       "mom_pc2_norm": {
-        "pos_mean": -0.0878,
-        "neg_mean": -0.0152,
-        "pos_n": 38,
-        "neg_n": 17
+        "pos_mean": 0.008,
+        "neg_mean": 0.0139,
+        "pos_n": 30,
+        "neg_n": 25
+      },
+      "stock_vs_sector_1m_norm": {
+        "pos_mean": -0.0612,
+        "neg_mean": 0.0118,
+        "pos_n": 30,
+        "neg_n": 25
       },
       "vol_20d_norm": {
-        "pos_mean": 0.1395,
-        "neg_mean": -0.1072,
-        "pos_n": 38,
-        "neg_n": 17
+        "pos_mean": 0.2038,
+        "neg_mean": -0.1418,
+        "pos_n": 30,
+        "neg_n": 25
       },
       "vol_60d_norm": {
-        "pos_mean": 0.1245,
-        "neg_mean": -0.0834,
-        "pos_n": 38,
-        "neg_n": 17
+        "pos_mean": 0.1897,
+        "neg_mean": -0.135,
+        "pos_n": 30,
+        "neg_n": 25
       },
       "rsi_14_norm": {
-        "pos_mean": 0.0374,
-        "neg_mean": 0.0675,
-        "pos_n": 38,
-        "neg_n": 17
+        "pos_mean": -0.09,
+        "neg_mean": 0.0757,
+        "pos_n": 30,
+        "neg_n": 25
       },
       "bb_zscore_norm": {
-        "pos_mean": 0.0561,
-        "neg_mean": 0.0772,
-        "pos_n": 38,
-        "neg_n": 17
+        "pos_mean": -0.0931,
+        "neg_mean": 0.0356,
+        "pos_n": 30,
+        "neg_n": 25
       },
       "high_52w_ratio_norm": {
-        "pos_mean": 0.0065,
-        "neg_mean": 0.0319,
-        "pos_n": 38,
-        "neg_n": 17
+        "pos_mean": -0.0696,
+        "neg_mean": 0.1131,
+        "pos_n": 30,
+        "neg_n": 25
       },
       "adv_20d_rank_norm": {
-        "pos_mean": -0.0207,
-        "neg_mean": 0.1088,
-        "pos_n": 38,
-        "neg_n": 17
-      },
-      "sector_etf_mom_1m_norm": {
-        "pos_mean": 0.0701,
-        "neg_mean": 0.0753,
-        "pos_n": 38,
-        "neg_n": 17
+        "pos_mean": 0.0772,
+        "neg_mean": 0.0013,
+        "pos_n": 30,
+        "neg_n": 25
       },
       "div_growth_yoy_norm": {
-        "pos_mean": 0.0386,
-        "neg_mean": -0.0673,
-        "pos_n": 38,
-        "neg_n": 17
+        "pos_mean": -0.134,
+        "neg_mean": 0.1196,
+        "pos_n": 30,
+        "neg_n": 25
       },
       "rev_growth_yoy_norm": {
-        "pos_mean": 0.1458,
+        "pos_mean": 0.0339,
         "neg_mean": null,
-        "pos_n": 2,
+        "pos_n": 1,
         "neg_n": 0
       },
       "sector_code": {
-        "pos_mean": 0.0268,
-        "neg_mean": -0.1652,
-        "pos_n": 38,
-        "neg_n": 17
+        "pos_mean": 0.1128,
+        "neg_mean": -0.0622,
+        "pos_n": 30,
+        "neg_n": 25
       }
     }
   },
   "sector_weights": {
-    "Financials": 0.25,
-    "Energy": 0.25,
-    "Industrials": 0.25,
-    "Utilities": 0.25
+    "Financials": 0,
+    "Energy": 0,
+    "Industrials": 0,
+    "Utilities": 0
   },
   "oos": {
     "months": 1,
-    "avg_monthly": -0.0015,
-    "monthly_series": [
-      {
-        "date": "2026-04",
-        "port": -0.0015,
-        "bench": 0.0146,
-        "port_cum": -0.0015,
-        "bench_cum": 0.0146
-      }
-    ],
-    "latest_month": "2026-04",
-    "stock_returns": [
-      {
-        "ticker": "BMO.TO",
-        "ret": 0.0787
-      },
-      {
-        "ticker": "CNR.TO",
-        "ret": 0.0737
-      },
-      {
-        "ticker": "EMA.TO",
-        "ret": 0.0134
-      },
-      {
-        "ticker": "CM.TO",
-        "ret": -0.004
-      },
-      {
-        "ticker": "CNQ.TO",
-        "ret": -0.0253
-      },
-      {
-        "ticker": "CVE.TO",
-        "ret": -0.0287
-      },
-      {
-        "ticker": "AQN.TO",
-        "ret": -0.0376
-      },
-      {
-        "ticker": "TRI.TO",
-        "ret": -0.0824
-      }
-    ],
-    "bench_return": 0.0146
+    "avg_monthly": 0.1954
   },
   "macro": {
     "vix": {
-      "val": 15.7,
-      "chg": -1.1
+      "val": 15.3,
+      "chg": -1.6
     },
     "oil": {
-      "val": 88.43,
-      "chg_pct": -0.1584
-    },
-    "cadusd": {
-      "val": 0.7255,
-      "chg_pct": -0.0081
+      "val": 87.76,
+      "chg_pct": -0.1647
     },
     "us10y": {
       "val": 4.45,
-      "chg_bps": 6.5
-    },
-    "tsx": {
-      "val": 34517.7,
-      "chg_pct": 0.0163
+      "chg_bps": 6.3
     }
   }
 }
