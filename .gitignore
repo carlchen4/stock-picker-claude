@@ -25,9 +25,12 @@ tsx_series.csv
 # Generated analysis outputs (bank_data_ca.csv is hand-maintained, keep it)
 fundamentals_ca.csv
 financials_score_ca.csv
+fundamentals_us.csv
 
 # Secrets: email/SMTP credentials stay local; commit only email_config.example.py
 email_config.py
+# Secrets: external data-provider API keys (FMP / SimFin)
+api_config.py
 # Generated report artifacts
 tsx_report_*.html
 tsx_report_*.pdf

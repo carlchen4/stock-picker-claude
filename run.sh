@@ -13,7 +13,8 @@
 #                          ** first hand-update CET1/PCL/segment in
 #                             bank_score_ca.py DATA dict from the reports **
 #    ./run.sh bankdeep     bank yfinance trend (ROE/EPS/BVPS/op-lev) — auto
-#    ./run.sh fund         full 30-name fundamental screen — auto
+#    ./run.sh fund         full 30-name CA fundamental screen — auto
+#    ./run.sh fund-us      US tech 21-name fundamental score — auto
 #
 #  ON DEMAND (validation):
 #    ./run.sh backtest     CA walk-forward (Sharpe/IR)
@@ -38,9 +39,10 @@ case "$cmd" in
   banks)        python bank_score_ca.py ;;
   bankdeep)     python bank_deep_ca.py ;;
   fund)         python fundamentals_ca.py ;;
+  fund-us)      python fundamentals_us.py ;;
   backtest)     python picker.py backtest ;;
   backtest-us)  python picker_us.py backtest ;;
   rigor)        python picker.py rigor ;;
   monitor)      python picker.py monitor ;;
-  help|*)       sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//' ;;
+  help|*)       sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac
