@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-29T23:21:25",
+  "generated_at": "2026-05-29T23:26:56",
   "as_of": "2026-05-29",
   "regime": "NEUTRAL",
   "reliability": "OK",
@@ -820,7 +820,48 @@
   },
   "oos": {
     "months": 1,
-    "avg_monthly": 0.1954
+    "avg_monthly": 0.1954,
+    "monthly_series": [
+      {
+        "date": "2026-04",
+        "port": 0.1954,
+        "bench": 0.1057,
+        "port_cum": 0.1954,
+        "bench_cum": 0.1057
+      }
+    ],
+    "latest_month": "2026-04",
+    "stock_returns": [
+      {
+        "ticker": "PANW",
+        "ret": 0.5709
+      },
+      {
+        "ticker": "QCOM",
+        "ret": 0.3978
+      },
+      {
+        "ticker": "INTC",
+        "ret": 0.2138
+      },
+      {
+        "ticker": "TXN",
+        "ret": 0.093
+      },
+      {
+        "ticker": "CRM",
+        "ret": 0.0825
+      },
+      {
+        "ticker": "AMZN",
+        "ret": 0.0211
+      },
+      {
+        "ticker": "GOOGL",
+        "ret": -0.0116
+      }
+    ],
+    "bench_return": 0.1057
   },
   "macro": {
     "vix": {
