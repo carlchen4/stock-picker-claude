@@ -13,11 +13,14 @@ mkdir -p logs
 
 {
     echo "=================================================="
-    echo "=== TSX picker run: $(date) ==="
+    echo "=== picker run: $(date) ==="
     if [ -d venv ]; then
         # shellcheck disable=SC1091
         source venv/bin/activate
     fi
+    echo "--- Canadian (TSX) picks ---"
     python picker.py pick
+    echo "--- US tech picks ---"
+    python picker_us.py pick
     echo "=== done: $(date) ==="
 } >> logs/monthly.log 2>&1

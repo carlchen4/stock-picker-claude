@@ -1,0 +1,8 @@
+ticker,cet1_pct,pcl_cad_m,pcl_bps,pcl_yoy_pct,segment_quality,note
+RY.TO,13.5,912,,-36,80,RBC: PCL -36% YoY; cap markets + wealth balanced
+TD.TO,14.3,1001,43,0,90,TD: thickest capital; retail-driven; prior-yr one-off distorts YoY
+BMO.TO,13.0,739,,-30,55,BMO: credit costs fell; thinnest CET1; cap-mkts/US heavy
+CM.TO,13.6,605,,0,45,CIBC: PCL flat; growth heavily from capital markets (+40%)
+BNS.TO,13.3,1217,66,-13,80,Scotiabank: highest PCL bps; impaired loans rising
+NA.TO,13.5,233,26,-8,60,National: cleanest credit (lowest bps); efficiency leader
+EQB.TO,13.6,,,16,55,EQB: DETERIORATING - PCL +16% QoQ; real-estate credit stress
