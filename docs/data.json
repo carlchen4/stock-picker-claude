@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-29T23:26:56",
+  "generated_at": "2026-05-29T23:33:27",
   "as_of": "2026-05-29",
   "regime": "NEUTRAL",
   "reliability": "OK",
@@ -11,171 +11,15 @@
     "var95": -0.0915,
     "cvar95": -0.1356,
     "max_position": 0.1429,
-    "max_position_ticker": "CRM"
+    "max_position_ticker": "PANW"
   },
   "picks": [
     {
       "rank": 1,
-      "ticker": "CRM",
-      "sector": "Software",
-      "style": "core",
-      "score": 0.457,
-      "weight": 0.1429,
-      "action": "BUY",
-      "price": 191.1,
-      "shares": 7,
-      "dollar_value": 1428,
-      "drivers": [
-        {
-          "label": "Bollinger Band Z",
-          "shap": 0.0301
-        },
-        {
-          "label": "Short-Term Reversal",
-          "shap": 0.0234
-        },
-        {
-          "label": "52-Week High Proximity",
-          "shap": -0.0162
-        }
-      ]
-    },
-    {
-      "rank": 2,
-      "ticker": "TXN",
-      "sector": "Semiconductors",
-      "style": "value",
-      "score": 1.141,
-      "weight": 0.1429,
-      "action": "BUY",
-      "price": 305.68,
-      "shares": 4,
-      "dollar_value": 1428,
-      "drivers": [
-        {
-          "label": "Volatility 60d",
-          "shap": -0.048
-        },
-        {
-          "label": "Volatility 20d",
-          "shap": 0.0365
-        },
-        {
-          "label": "Bollinger Band Z",
-          "shap": -0.0261
-        }
-      ]
-    },
-    {
-      "rank": 3,
-      "ticker": "AMZN",
-      "sector": "Cloud",
-      "style": "core",
-      "score": 0.99,
-      "weight": 0.1429,
-      "action": "BUY",
-      "price": 270.64,
-      "shares": 5,
-      "dollar_value": 1428,
-      "drivers": [
-        {
-          "label": "Momentum PC2",
-          "shap": 0.0238
-        },
-        {
-          "label": "RSI (14-day)",
-          "shap": 0.0228
-        },
-        {
-          "label": "Volatility 20d",
-          "shap": -0.0213
-        }
-      ]
-    },
-    {
-      "rank": 4,
-      "ticker": "INTC",
-      "sector": "Hardware",
-      "style": "value",
-      "score": 1.587,
-      "weight": 0.1429,
-      "action": "BUY",
-      "price": 114.68,
-      "shares": 12,
-      "dollar_value": 1428,
-      "drivers": [
-        {
-          "label": "Volatility 60d",
-          "shap": 0.061
-        },
-        {
-          "label": "Momentum PC1",
-          "shap": -0.0396
-        },
-        {
-          "label": "Volatility 20d",
-          "shap": 0.0315
-        }
-      ]
-    },
-    {
-      "rank": 5,
-      "ticker": "QCOM",
-      "sector": "Semiconductors",
-      "style": "value",
-      "score": 0.838,
-      "weight": 0.1429,
-      "action": "BUY",
-      "price": 251.02,
-      "shares": 5,
-      "dollar_value": 1428,
-      "drivers": [
-        {
-          "label": "Volatility 60d",
-          "shap": -0.0596
-        },
-        {
-          "label": "Volatility 20d",
-          "shap": 0.0361
-        },
-        {
-          "label": "RSI (14-day)",
-          "shap": -0.031
-        }
-      ]
-    },
-    {
-      "rank": 6,
-      "ticker": "GOOGL",
-      "sector": "Cloud",
-      "style": "core",
-      "score": 0.52,
-      "weight": 0.1429,
-      "action": "BUY",
-      "price": 380.34,
-      "shares": 3,
-      "dollar_value": 1428,
-      "drivers": [
-        {
-          "label": "Momentum PC2",
-          "shap": -0.0199
-        },
-        {
-          "label": "Bollinger Band Z",
-          "shap": -0.0179
-        },
-        {
-          "label": "52-Week High Proximity",
-          "shap": -0.014
-        }
-      ]
-    },
-    {
-      "rank": 7,
       "ticker": "PANW",
       "sector": "Software",
       "style": "growth",
-      "score": 0.367,
+      "score": 0.397,
       "weight": 0.1429,
       "action": "BUY",
       "price": 281.69,
@@ -184,15 +28,171 @@
       "drivers": [
         {
           "label": "Momentum PC2",
-          "shap": -0.0217
+          "shap": -0.0202
         },
         {
           "label": "Volatility 60d",
-          "shap": 0.0159
+          "shap": 0.017
         },
         {
-          "label": "ADV 20-day Rank",
-          "shap": 0.0136
+          "label": "Bollinger Band Z",
+          "shap": -0.0161
+        }
+      ]
+    },
+    {
+      "rank": 2,
+      "ticker": "TXN",
+      "sector": "Semiconductors",
+      "style": "value",
+      "score": 1.275,
+      "weight": 0.1429,
+      "action": "BUY",
+      "price": 305.68,
+      "shares": 4,
+      "dollar_value": 1428,
+      "drivers": [
+        {
+          "label": "Volatility 60d",
+          "shap": -0.0508
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": 0.0393
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.0207
+        }
+      ]
+    },
+    {
+      "rank": 3,
+      "ticker": "AMZN",
+      "sector": "Cloud",
+      "style": "core",
+      "score": 1.042,
+      "weight": 0.1429,
+      "action": "BUY",
+      "price": 270.64,
+      "shares": 5,
+      "dollar_value": 1428,
+      "drivers": [
+        {
+          "label": "Momentum PC2",
+          "shap": 0.0376
+        },
+        {
+          "label": "52-Week High Proximity",
+          "shap": -0.0129
+        },
+        {
+          "label": "RSI (14-day)",
+          "shap": 0.0104
+        }
+      ]
+    },
+    {
+      "rank": 4,
+      "ticker": "INTC",
+      "sector": "Hardware",
+      "style": "value",
+      "score": 1.466,
+      "weight": 0.1429,
+      "action": "BUY",
+      "price": 114.68,
+      "shares": 12,
+      "dollar_value": 1428,
+      "drivers": [
+        {
+          "label": "Volatility 60d",
+          "shap": 0.0745
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": 0.0308
+        },
+        {
+          "label": "Momentum PC1",
+          "shap": -0.0165
+        }
+      ]
+    },
+    {
+      "rank": 5,
+      "ticker": "QCOM",
+      "sector": "Semiconductors",
+      "style": "value",
+      "score": 0.669,
+      "weight": 0.1429,
+      "action": "BUY",
+      "price": 251.02,
+      "shares": 5,
+      "dollar_value": 1428,
+      "drivers": [
+        {
+          "label": "Volatility 60d",
+          "shap": -0.0527
+        },
+        {
+          "label": "RSI (14-day)",
+          "shap": -0.0348
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.0272
+        }
+      ]
+    },
+    {
+      "rank": 6,
+      "ticker": "GOOGL",
+      "sector": "Cloud",
+      "style": "core",
+      "score": 0.42,
+      "weight": 0.1429,
+      "action": "BUY",
+      "price": 380.34,
+      "shares": 3,
+      "dollar_value": 1428,
+      "drivers": [
+        {
+          "label": "52-Week High Proximity",
+          "shap": -0.0278
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.022
+        },
+        {
+          "label": "Momentum PC2",
+          "shap": -0.019
+        }
+      ]
+    },
+    {
+      "rank": 7,
+      "ticker": "CRM",
+      "sector": "Software",
+      "style": "core",
+      "score": 0.355,
+      "weight": 0.1429,
+      "action": "BUY",
+      "price": 191.1,
+      "shares": 7,
+      "dollar_value": 1428,
+      "drivers": [
+        {
+          "label": "Bollinger Band Z",
+          "shap": 0.0323
+        },
+        {
+          "label": "52-Week High Proximity",
+          "shap": -0.0166
+        },
+        {
+          "label": "Momentum PC2",
+          "shap": -0.0152
         }
       ]
     }
@@ -200,13 +200,13 @@
   "actions": {
     "sell": [],
     "buy": [
-      "CRM",
+      "PANW",
       "TXN",
       "AMZN",
       "INTC",
       "QCOM",
       "GOOGL",
-      "PANW"
+      "CRM"
     ],
     "hold": []
   },
