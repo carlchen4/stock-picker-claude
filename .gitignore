@@ -15,6 +15,13 @@ portfolio_config.py
 rank_history.csv
 # Run artifact: OOS picks track record
 picks_log.csv
+picks_log_us.csv
+# Generated caches / paper artifacts
+perm_importance.json
+catboost_info/
+picker_paper.docx
+fig*.png
+tsx_series.csv
 
 # Secrets: email/SMTP credentials stay local; commit only email_config.example.py
 email_config.py
