@@ -1,224 +1,172 @@
 {
-  "generated_at": "2026-05-30T14:53:00",
+  "generated_at": "2026-05-30T14:53:52",
   "as_of": "2026-05-30",
   "regime": "NEUTRAL",
-  "reliability": "OK",
-  "reliability_detail": "OK \u2014 all checks passed",
+  "reliability": "CAUTION",
+  "reliability_detail": "CAUTION \u2014 1 warning \u2014 Feature drift: 2 regime-shifted (|z|>3): ps_ratio_ttm(z=4.8), rev_1m(z=3.0)",
   "portfolio_value": 10000.0,
-  "te_estimate": 0.1194,
+  "te_estimate": 0.2109,
   "risk": {
-    "beta": 0.422,
-    "var95": -0.0519,
-    "cvar95": -0.0658,
-    "max_position": 0.125,
-    "max_position_ticker": "MFC.TO"
+    "beta": 1.418,
+    "var95": -0.1128,
+    "cvar95": -0.1595,
+    "max_position": 0.1667,
+    "max_position_ticker": "TXN"
   },
   "picks": [
     {
       "rank": 1,
-      "ticker": "MFC.TO",
-      "sector": "Financials",
+      "ticker": "TXN",
+      "sector": "Semiconductors",
       "style": "value",
-      "score": 0.833,
-      "weight": 0.125,
+      "score": 0.846,
+      "weight": 0.1667,
       "action": "BUY",
-      "price": 52.73,
-      "shares": 23,
-      "dollar_value": 1250,
+      "price": 305.68,
+      "shares": 5,
+      "dollar_value": 1666,
       "drivers": [
         {
-          "label": "ADV 20-day Rank",
-          "shap": -0.009
-        },
-        {
-          "label": "Volatility 20d",
-          "shap": 0.0089
+          "label": "Bollinger Band Z",
+          "shap": -0.0376
         },
         {
           "label": "Volatility 60d",
-          "shap": 0.0077
+          "shap": -0.0323
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": 0.0275
         }
       ]
     },
     {
       "rank": 2,
-      "ticker": "CVE.TO",
-      "sector": "Energy",
-      "style": "value",
-      "score": 0.685,
-      "weight": 0.125,
+      "ticker": "AMZN",
+      "sector": "Cloud",
+      "style": "core",
+      "score": 0.89,
+      "weight": 0.1667,
       "action": "BUY",
-      "price": 38.06,
-      "shares": 32,
-      "dollar_value": 1250,
+      "price": 270.64,
+      "shares": 6,
+      "dollar_value": 1666,
       "drivers": [
         {
-          "label": "Momentum PC1",
-          "shap": 0.0204
-        },
-        {
-          "label": "Volatility 60d",
-          "shap": 0.0176
-        },
-        {
           "label": "52-Week High Proximity",
-          "shap": -0.0113
+          "shap": -0.027
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": -0.02
+        },
+        {
+          "label": "Momentum PC2",
+          "shap": 0.0193
         }
       ]
     },
     {
       "rank": 3,
-      "ticker": "TRI.TO",
-      "sector": "Industrials",
-      "style": "core",
-      "score": 0.751,
-      "weight": 0.125,
+      "ticker": "INTC",
+      "sector": "Hardware",
+      "style": "value",
+      "score": 1.541,
+      "weight": 0.1667,
       "action": "BUY",
-      "price": 119.54,
-      "shares": 10,
-      "dollar_value": 1250,
+      "price": 114.68,
+      "shares": 14,
+      "dollar_value": 1666,
       "drivers": [
         {
-          "label": "Momentum PC1",
-          "shap": -0.0766
+          "label": "Volatility 60d",
+          "shap": 0.0916
         },
         {
           "label": "Volatility 20d",
-          "shap": 0.0316
+          "shap": 0.0241
         },
         {
-          "label": "Short-Term Reversal",
-          "shap": -0.0267
+          "label": "Momentum PC1",
+          "shap": -0.0217
         }
       ]
     },
     {
       "rank": 4,
-      "ticker": "AQN.TO",
-      "sector": "Utilities",
-      "style": "value",
-      "score": 1.094,
-      "weight": 0.125,
+      "ticker": "ARM",
+      "sector": "Hardware",
+      "style": "growth",
+      "score": 1.036,
+      "weight": 0.1667,
       "action": "BUY",
-      "price": 8.16,
-      "shares": 153,
-      "dollar_value": 1250,
+      "price": 353.29,
+      "shares": 4,
+      "dollar_value": 1666,
       "drivers": [
         {
           "label": "Volatility 60d",
-          "shap": 0.0306
+          "shap": 0.0525
         },
         {
-          "label": "Short-Term Reversal",
-          "shap": -0.022
+          "label": "Volatility 20d",
+          "shap": 0.0232
         },
         {
-          "label": "RSI (14-day)",
-          "shap": 0.0211
+          "label": "Momentum PC2",
+          "shap": -0.0047
         }
       ]
     },
     {
       "rank": 5,
-      "ticker": "EMA.TO",
-      "sector": "Utilities",
+      "ticker": "QCOM",
+      "sector": "Semiconductors",
       "style": "value",
-      "score": 0.797,
-      "weight": 0.125,
+      "score": 0.627,
+      "weight": 0.1667,
       "action": "BUY",
-      "price": 72.1,
-      "shares": 17,
-      "dollar_value": 1250,
+      "price": 251.02,
+      "shares": 6,
+      "dollar_value": 1666,
       "drivers": [
         {
           "label": "Volatility 60d",
-          "shap": -0.0207
-        },
-        {
-          "label": "RSI (14-day)",
-          "shap": 0.0181
+          "shap": -0.0402
         },
         {
           "label": "Bollinger Band Z",
-          "shap": 0.0171
+          "shap": -0.04
+        },
+        {
+          "label": "RSI (14-day)",
+          "shap": -0.0377
         }
       ]
     },
     {
       "rank": 6,
-      "ticker": "CP.TO",
-      "sector": "Industrials",
+      "ticker": "GOOGL",
+      "sector": "Cloud",
       "style": "core",
-      "score": 0.717,
-      "weight": 0.125,
+      "score": 0.341,
+      "weight": 0.1667,
       "action": "BUY",
-      "price": 123.1,
-      "shares": 10,
-      "dollar_value": 1250,
+      "price": 380.34,
+      "shares": 4,
+      "dollar_value": 1666,
       "drivers": [
         {
-          "label": "Volatility 20d",
-          "shap": -0.0289
+          "label": "52-Week High Proximity",
+          "shap": -0.029
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.0245
         },
         {
           "label": "Volatility 60d",
-          "shap": -0.0247
-        },
-        {
-          "label": "Momentum PC2",
-          "shap": -0.0193
-        }
-      ]
-    },
-    {
-      "rank": 7,
-      "ticker": "BMO.TO",
-      "sector": "Financials",
-      "style": "core",
-      "score": 0.671,
-      "weight": 0.125,
-      "action": "BUY",
-      "price": 223.93,
-      "shares": 5,
-      "dollar_value": 1250,
-      "drivers": [
-        {
-          "label": "Momentum PC2",
-          "shap": -0.0196
-        },
-        {
-          "label": "Volatility 60d",
-          "shap": 0.0124
-        },
-        {
-          "label": "Volatility 20d",
-          "shap": -0.0077
-        }
-      ]
-    },
-    {
-      "rank": 8,
-      "ticker": "CNQ.TO",
-      "sector": "Energy",
-      "style": "core",
-      "score": 0.55,
-      "weight": 0.125,
-      "action": "BUY",
-      "price": 62.7,
-      "shares": 19,
-      "dollar_value": 1250,
-      "drivers": [
-        {
-          "label": "Momentum PC2",
-          "shap": 0.0389
-        },
-        {
-          "label": "RSI (14-day)",
-          "shap": -0.0213
-        },
-        {
-          "label": "Volatility 20d",
-          "shap": 0.0138
+          "shap": 0.0066
         }
       ]
     }
@@ -226,14 +174,12 @@
   "actions": {
     "sell": [],
     "buy": [
-      "MFC.TO",
-      "CVE.TO",
-      "TRI.TO",
-      "AQN.TO",
-      "EMA.TO",
-      "CP.TO",
-      "BMO.TO",
-      "CNQ.TO"
+      "TXN",
+      "AMZN",
+      "INTC",
+      "ARM",
+      "QCOM",
+      "GOOGL"
     ],
     "hold": []
   },
@@ -821,59 +767,51 @@
     }
   },
   "sector_weights": {
-    "Financials": 0.25,
-    "Energy": 0.25,
-    "Industrials": 0.25,
-    "Utilities": 0.25
+    "Financials": 0,
+    "Energy": 0,
+    "Industrials": 0,
+    "Utilities": 0
   },
   "oos": {
     "months": 1,
-    "avg_monthly": -0.0063,
+    "avg_monthly": 0.2323,
     "monthly_series": [
       {
         "date": "2026-04",
-        "port": -0.0063,
-        "bench": 0.0188,
-        "port_cum": -0.0063,
-        "bench_cum": 0.0188
+        "port": 0.2323,
+        "bench": 0.1057,
+        "port_cum": 0.2323,
+        "bench_cum": 0.1057
       }
     ],
     "latest_month": "2026-04",
     "stock_returns": [
       {
-        "ticker": "BMO.TO",
-        "ret": 0.0826
+        "ticker": "ARM",
+        "ret": 0.6798
       },
       {
-        "ticker": "CP.TO",
-        "ret": 0.042
+        "ticker": "QCOM",
+        "ret": 0.3978
       },
       {
-        "ticker": "EMA.TO",
-        "ret": 0.0051
+        "ticker": "INTC",
+        "ret": 0.2138
       },
       {
-        "ticker": "MFC.TO",
-        "ret": -0.0036
+        "ticker": "TXN",
+        "ret": 0.093
       },
       {
-        "ticker": "CNQ.TO",
-        "ret": -0.033
+        "ticker": "AMZN",
+        "ret": 0.0211
       },
       {
-        "ticker": "AQN.TO",
-        "ret": -0.0423
-      },
-      {
-        "ticker": "CVE.TO",
-        "ret": -0.0423
-      },
-      {
-        "ticker": "TRI.TO",
-        "ret": -0.0588
+        "ticker": "GOOGL",
+        "ret": -0.0116
       }
     ],
-    "bench_return": 0.0188
+    "bench_return": 0.1057
   },
   "macro": {
     "vix": {
@@ -884,17 +822,9 @@
       "val": 87.36,
       "chg_pct": -0.1686
     },
-    "cadusd": {
-      "val": 0.7249,
-      "chg_pct": -0.009
-    },
     "us10y": {
       "val": 4.45,
       "chg_bps": 6.3
-    },
-    "tsx": {
-      "val": 34769.1,
-      "chg_pct": 0.0237
     }
   }
 }
