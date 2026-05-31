@@ -143,6 +143,33 @@ def _picks_from_dashboard():
     return out
 
 
+PICKS_PUBLIC_FILE = "docs/intraday_picks.json"  # 公开的当前选股列表(云端读)
+
+
+def _read_public_picks():
+    import json
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), PICKS_PUBLIC_FILE)
+    try:
+        with open(p, encoding="utf-8") as f:
+            return list(json.load(f).get("tickers", []))
+    except Exception:
+        return []
+
+
+def _write_public_picks(tickers):
+    """把本地(私有 log)解析出的当前选股落成公开文件,供云端 Action 读取。"""
+    import json
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), PICKS_PUBLIC_FILE)
+    try:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump({"tickers": tickers,
+                       "updated": _now_et().strftime("%Y-%m-%d %H:%M ET")},
+                      f, ensure_ascii=False, indent=0)
+    except Exception:
+        pass
+
+
 def load_picks(cli_ticker):
     if cli_ticker:
         return [cli_ticker.upper() if "." not in cli_ticker else cli_ticker]
@@ -153,10 +180,11 @@ def load_picks(cli_ticker):
             if t not in seen:
                 seen.add(t)
                 out.append(t)
-    # 回退(云端:仓库里没有 pick log)→ 用公开的 dashboard json
-    if not out:
-        out = _picks_from_dashboard()
-    return out
+    if out:
+        _write_public_picks(out)   # 落盘,让云端也能拿到全部 CA+US
+        return out
+    # 云端:仓库里没有私有 log → 读公开的当前选股文件,再退到 dashboard json
+    return _read_public_picks() or _picks_from_dashboard()
 
 
 # ── 数据抓取 ───────────────────────────────────────────────────────
