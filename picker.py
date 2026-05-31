@@ -3476,7 +3476,8 @@ def build_report_text(picks, weights, panel_latest, top_features, regime,
 
 def build_report_html(picks, weights, panel_latest, top_features, regime,
                       checks=None, holdings=None, shap_by_ticker=None,
-                      portfolio_value=0.0, prices=None, analyst_summaries=None):
+                      portfolio_value=0.0, prices=None, analyst_summaries=None,
+                      news_summaries=None):
     """HTML actionable monthly report for emailing."""
     date_str = datetime.now().strftime("%Y-%m-%d")
     hs = _health_summary(checks or [])
@@ -3586,6 +3587,17 @@ def build_report_html(picks, weights, panel_latest, top_features, regime,
         else:
             shares_html = "—"
 
+        news_td = ""
+        if news_summaries:
+            news_html = "—"
+            ns = news_summaries.get(ticker)
+            if ns and ns.get("score") is not None and not pd.isna(ns["score"]):
+                sc = ns["score"]
+                color = "#27ae60" if sc >= 0.15 else "#e74c3c" if sc <= -0.15 else "#888"
+                news_html = (f'<span style="color:{color}">{ns["label"]} {sc:+.2f}</span>'
+                             f'<span style="color:#aaa;font-size:10px"> ({ns["n"]})</span>')
+            news_td = f'<td style="font-size:11px">{news_html}</td>'
+
         company = COMPANY_NAMES.get(ticker, ticker)
         rows_html += f"""
         <tr>
@@ -3596,13 +3608,15 @@ def build_report_html(picks, weights, panel_latest, top_features, regime,
           <td>{profile[0]}</td>
           <td style="text-align:right">{price_html}</td>
           <td style="text-align:right">{shares_html}</td>
+          {news_td}
         </tr>"""
 
+    news_th = "<th>News</th>" if news_summaries else ""
     html += f"""
     <div class="card">
       <h2>Target Portfolio ({len(picks)} positions)</h2>
       <table>
-        <tr><th>Company</th><th>Industry</th><th style="text-align:right">Price</th><th style="text-align:right">Shares</th></tr>
+        <tr><th>Company</th><th>Industry</th><th style="text-align:right">Price</th><th style="text-align:right">Shares</th>{news_th}</tr>
         {rows_html}
       </table>
     </div>"""
@@ -5476,7 +5490,8 @@ def main():
             html_report = build_report_html(picks, weights, latest_df, top_features,
                                             regime, checks, holdings, shap_vals,
                                             portfolio_value=portfolio_value, prices=prices,
-                                            analyst_summaries=analyst_summaries)
+                                            analyst_summaries=analyst_summaries,
+                                            news_summaries=news_summaries)
             send_report_email(report, html_body=html_report)
             write_dashboard_data(picks, weights, latest_df, top_features, regime, checks,
                                  shap_vals, te_est, portfolio_value, prices,
