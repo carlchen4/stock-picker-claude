@@ -1,0 +1,47 @@
+name: intraday snapshot
+
+# 盘中每 ~5 分钟重抓行情、重生成 docs/intraday.html 并提交。
+# 不用开 Mac — 手机随时打开 GitHub Pages 都是近实时(粒度~5min)。
+# 注意:GitHub 定时任务是尽力而为,常有几分钟延迟、偶尔跳过;
+# 仓库连续 60 天无活动会被自动停用(手动 push 或 dispatch 可复活)。
+
+on:
+  schedule:
+    # UTC。覆盖 ET 夏令时(13:30–20:00 UTC)与冬令时(14:30–21:00 UTC)。
+    - cron: "*/5 13-21 * * 1-5"
+  workflow_dispatch: {}   # 也可在 Actions 页手动触发
+
+permissions:
+  contents: write
+
+concurrency:
+  group: intraday
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install lightweight deps
+        run: pip install yfinance pandas numpy scipy
+
+      - name: Regenerate intraday.html
+        run: python intraday_monitor.py --once
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- docs/intraday.html; then
+            echo "no change"; exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/intraday.html
+          git commit -m "intraday: auto snapshot [skip ci]"
+          git push
