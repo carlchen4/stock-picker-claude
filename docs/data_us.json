@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-30T21:15:42",
+  "generated_at": "2026-05-30T21:17:09",
   "as_of": "2026-05-30",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
@@ -25,7 +25,20 @@
       "price": 305.68,
       "shares": 5,
       "dollar_value": 1666,
-      "drivers": []
+      "drivers": [
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.0376
+        },
+        {
+          "label": "Volatility 60d",
+          "shap": -0.0323
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": 0.0275
+        }
+      ]
     },
     {
       "rank": 2,
@@ -38,7 +51,20 @@
       "price": 270.64,
       "shares": 6,
       "dollar_value": 1666,
-      "drivers": []
+      "drivers": [
+        {
+          "label": "52-Week High Proximity",
+          "shap": -0.027
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": -0.02
+        },
+        {
+          "label": "Momentum PC2",
+          "shap": 0.0193
+        }
+      ]
     },
     {
       "rank": 3,
@@ -51,7 +77,20 @@
       "price": 114.68,
       "shares": 14,
       "dollar_value": 1666,
-      "drivers": []
+      "drivers": [
+        {
+          "label": "Volatility 60d",
+          "shap": 0.0916
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": 0.0241
+        },
+        {
+          "label": "Momentum PC1",
+          "shap": -0.0217
+        }
+      ]
     },
     {
       "rank": 4,
@@ -64,7 +103,20 @@
       "price": 353.29,
       "shares": 4,
       "dollar_value": 1666,
-      "drivers": []
+      "drivers": [
+        {
+          "label": "Volatility 60d",
+          "shap": 0.0525
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": 0.0232
+        },
+        {
+          "label": "Momentum PC2",
+          "shap": -0.0047
+        }
+      ]
     },
     {
       "rank": 5,
@@ -77,7 +129,20 @@
       "price": 251.02,
       "shares": 6,
       "dollar_value": 1666,
-      "drivers": []
+      "drivers": [
+        {
+          "label": "Volatility 60d",
+          "shap": -0.0402
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.04
+        },
+        {
+          "label": "RSI (14-day)",
+          "shap": -0.0377
+        }
+      ]
     },
     {
       "rank": 6,
@@ -90,7 +155,20 @@
       "price": 380.34,
       "shares": 4,
       "dollar_value": 1666,
-      "drivers": []
+      "drivers": [
+        {
+          "label": "52-Week High Proximity",
+          "shap": -0.029
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.0245
+        },
+        {
+          "label": "Volatility 60d",
+          "shap": 0.0066
+        }
+      ]
     }
   ],
   "actions": {
