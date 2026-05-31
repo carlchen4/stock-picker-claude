@@ -886,55 +886,6 @@ def fetch_quarterly_financials(ticker):
     return result
 
 
-def fetch_annual_fundamentals(ticker):
-    """Fetch 5-year annual BS + income statement for PIT growth features.
-
-    Annual data (vs quarterly) gives ~5 years of coverage, spanning the
-    full backtest period. Cached 7 days since fundamentals update yearly.
-    Returns DataFrame indexed by fiscal year-end date, or None on failure.
-    """
-    if ticker == BENCHMARK_TICKER:
-        return None
-    cache_file = _cache_path(f"{ticker.replace('.', '_')}_annual.parquet")
-    cached = _cache_load(cache_file, max_age_hours=168)
-    if cached is not None:
-        return cached
-    try:
-        tk = yf.Ticker(ticker)
-        bs  = tk.balance_sheet   # annual, up to 5 years
-        inc = tk.financials      # annual income statement
-        if bs is None or bs.empty:
-            return None
-        equity_row = next(
-            (r for r in ["Stockholders Equity", "Total Equity Gross Minority Interest"]
-             if r in bs.index), None
-        )
-        records = []
-        for col in bs.columns:
-            rec = {"date": pd.Timestamp(col)}
-            rec["total_assets"] = (
-                safe_float(bs.loc["Total Assets", col])
-                if "Total Assets" in bs.index else np.nan
-            )
-            rec["total_equity"] = (
-                safe_float(bs.loc[equity_row, col])
-                if equity_row else np.nan
-            )
-            if inc is not None and not inc.empty and col in inc.columns:
-                rec["net_income"] = (
-                    safe_float(inc.loc["Net Income", col])
-                    if "Net Income" in inc.index else np.nan
-                )
-            else:
-                rec["net_income"] = np.nan
-            records.append(rec)
-        result = pd.DataFrame(records).set_index("date").sort_index()
-    except Exception:
-        return None
-    _cache_save(cache_file, result)
-    return result
-
-
 # ══════════════════════════════════════════════════════════════════
 # CONSTRAINT FILTERING
 # ══════════════════════════════════════════════════════════════════

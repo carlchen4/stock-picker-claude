@@ -13,7 +13,11 @@ lightgbm>=4.0
 
 # Stock market data
 yfinance>=0.2.30
-lxml>=5.0  # required by yfinance.get_earnings_dates HTML scraper
+lxml>=5.0       # required by yfinance.get_earnings_dates HTML scraper
+pyarrow>=14.0  # parquet engine for the price/fundamentals cache (else cache silently disabled)
+
+# Explainability & external signals
+shap>=0.44     # per-pick SHAP drivers (graceful no-op if absent)
 
 # Technical analysis indicators
 ta>=0.11
