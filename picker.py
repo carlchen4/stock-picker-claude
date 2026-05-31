@@ -492,15 +492,6 @@ def check_data_health(price_df, universe, required_sectors=None):
     return checks
 
 
-def fetch_macro(years=7):
-    """Download macro indicator time series."""
-    tickers = list(MACRO_TICKERS.values())
-    start = (datetime.now() - timedelta(days=years * 365)).strftime("%Y-%m-%d")
-    data = yf.download(tickers, start=start, auto_adjust=True,
-                       progress=False, threads=True)
-    return data
-
-
 def fetch_fundamentals(tickers):
     """Fetch current fundamentals from yfinance for constraint filtering."""
     cache_file = _cache_path("fundamentals.parquet")
@@ -876,69 +867,6 @@ def fetch_annual_fundamentals(ticker):
         return None
     _cache_save(cache_file, result)
     return result
-
-
-def compute_pit_annual_features(panel, tickers, pit_lag_days=45):
-    """Add PIT growth features derived from annual balance sheet data.
-
-    For each (month, ticker) row, finds the most recent annual report
-    whose fiscal year-end + pit_lag_days <= month (i.e., already filed
-    and publicly available), then computes:
-      - asset_growth_yoy: (assets[t] / assets[t-1]) - 1  (balance sheet quality)
-      - roe_annual: net_income[t] / total_equity[t]       (per-stock ROE, replaces
-                    the current snapshot value from yfinance.info)
-
-    Using annual data gives 5-year coverage (vs 6-8 quarters for quarterly),
-    so nearly every backtest month has a non-NaN value. Remaining NaN rows
-    fall through to smart_impute (sector-median), same as before.
-    """
-    records = []
-    for ticker in tickers:
-        if ticker == BENCHMARK_TICKER:
-            continue
-        ann = fetch_annual_fundamentals(ticker)
-        if ann is None or ann.empty:
-            continue
-        ticker_mask = panel["ticker"] == ticker
-        if not ticker_mask.any():
-            continue
-        ticker_dates = panel.loc[ticker_mask, "date"].values
-
-        for month_date in ticker_dates:
-            month_ts = pd.Timestamp(month_date)
-            cutoff = month_ts - pd.Timedelta(days=pit_lag_days)
-            avail = ann[ann.index <= cutoff].sort_index()
-
-            asset_growth = np.nan
-            roe = np.nan
-            if len(avail) >= 2:
-                latest = avail.iloc[-1]
-                prev   = avail.iloc[-2]
-                if prev["total_assets"] > 0:
-                    asset_growth = latest["total_assets"] / prev["total_assets"] - 1
-                if latest["total_equity"] != 0 and not np.isnan(latest["net_income"]):
-                    roe = latest["net_income"] / abs(latest["total_equity"])
-            elif len(avail) == 1:
-                latest = avail.iloc[-1]
-                if latest["total_equity"] != 0 and not np.isnan(latest["net_income"]):
-                    roe = latest["net_income"] / abs(latest["total_equity"])
-
-            records.append({
-                "date":             month_ts,
-                "ticker":           ticker,
-                "asset_growth_yoy": asset_growth,
-                "roe_annual":       roe,
-            })
-
-    if not records:
-        return panel
-
-    pit_df = pd.DataFrame(records)
-    panel  = panel.merge(pit_df, on=["date", "ticker"], how="left")
-    # Replace snapshot roe with PIT roe_annual (per-stock discrimination vs
-    # the previous sector-median constant).  NaN falls through to smart_impute.
-    panel["roe"] = panel.pop("roe_annual")
-    return panel
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -2221,31 +2149,6 @@ def apply_rebalancing_band(new_picks, new_scores, current_holdings, constraints=
 # ══════════════════════════════════════════════════════════════════
 # POSITION SIZING — Risk Parity
 # ══════════════════════════════════════════════════════════════════
-
-def risk_parity_weights(tickers, price_df, lookback=60):
-    """Inverse-volatility weighting."""
-    vols = {}
-    for t in tickers:
-        close, _ = get_ohlcv(price_df, t)
-        if close is None:
-            vols[t] = 0.20  # default 20% vol
-            continue
-        daily_ret = close.pct_change().tail(lookback)
-        vols[t] = daily_ret.std() * np.sqrt(252) if len(daily_ret) > 20 else 0.20
-
-    inv_vol = {t: 1.0 / max(v, 0.05) for t, v in vols.items()}
-    total = sum(inv_vol.values())
-    weights = {t: v / total for t, v in inv_vol.items()}
-
-    # Cap max allocation
-    max_alloc = CONSTRAINTS["max_single_alloc"]
-    for t in weights:
-        weights[t] = min(weights[t], max_alloc)
-
-    # Renormalize
-    total = sum(weights.values())
-    weights = {t: v / total for t, v in weights.items()}
-    return weights
 
 
 def _backtest_weights(pick_df, method="equal", train_ret=None):
