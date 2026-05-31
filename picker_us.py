@@ -26,6 +26,7 @@ picker.BENCHMARK_TICKER = "QQQ"
 picker.REPORT_LABEL = "US Tech"
 picker.DASHBOARD_FILE = "data_us.json"   # separate dashboard from TSX (docs/us.html)
 picker.DASHBOARD_URL = "https://carlchen4.github.io/stock-picker-claude/us.html"
+picker.USE_NEWS_SENTIMENT = True         # AV news sentiment on US picks (6/run, 24h cached)
 
 # Plain-English company names for report readability (US universe).
 picker.COMPANY_NAMES = {
