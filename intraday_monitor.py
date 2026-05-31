@@ -75,6 +75,16 @@ def _to_et(ts):
         pass
     return ts.strftime("%H:%M")
 
+
+def _et_date(ts):
+    """时间戳的 ET 日期(date 对象),用于判断'今天是否真的有交易'。"""
+    try:
+        if ts.tzinfo is not None:
+            return ts.tz_convert("America/New_York").date()
+    except Exception:
+        pass
+    return ts.date()
+
 # ── ANSI 配色(沿用 run_monitor 风格)──────────────────────────────
 RED, GREEN, YELLOW = "\033[91m", "\033[92m", "\033[93m"
 CYAN, BOLD, DIM, RESET = "\033[96m", "\033[1m", "\033[2m", "\033[0m"
@@ -264,6 +274,7 @@ def analyze(ticker, interval):
         "or_high": or_high, "or_low": or_low,
         "tps": tp_desc, "rsi": rsi_val, "ema_state": ema_state,
         "last_bar_time": _to_et(close.index[-1]),
+        "last_bar_date": _et_date(close.index[-1]),
         "interval": interval if not df.empty else interval,
         "series": series_ds, "tp_pts": tp_pts,
     }
@@ -531,7 +542,16 @@ def main():
 
     # --once:生成一次 HTML 即退出(GitHub Actions 用,提交由 workflow 负责)
     if once:
+        root = os.path.dirname(os.path.abspath(__file__))
+        exists = os.path.exists(os.path.join(root, HTML_FILE))
         data = [analyze(t, interval) for t in picks]
+        # 今天真的有交易吗?看是否有 ticker 的最新 bar 落在今天(ET)。
+        # 这能识别周末/节假日/盘前(此时最新 bar 还停在上一交易日)。
+        today = _now_et().date()
+        traded_today = any(d.get("last_bar_date") == today for d in data)
+        if not traded_today and exists:
+            print("今天未开市 — 保留最近一个交易日的静态快照,跳过重写")
+            return
         path = render_html(data, interval)
         print(f"wrote {path}")
         return
