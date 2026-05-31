@@ -1,0 +1,137 @@
+<!DOCTYPE html><html lang="zh"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="60">
+<title>日内盯盘</title>
+<style>
+  :root { --up:#16a34a; --dn:#dc2626; --fl:#d97706; --bg:#0f172a; --card:#1e293b; --bd:#334155; --mut:#94a3b8; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:#e2e8f0; font-size:14px; -webkit-text-size-adjust:100%; }
+  .wrap { max-width:430px; margin:0 auto; padding:12px; }
+  header { background:linear-gradient(135deg,#0f172a,#1e3a5f 55%,#1d4ed8); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+  header h1 { font-size:18px; font-weight:800; }
+  .sub { font-size:11px; color:var(--mut); margin-top:4px; line-height:1.5; }
+  .ph { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; background:#334155; }
+  .ph.open { background:#14532d; color:#86efac; } .ph.closed { background:#3f3f46; color:#a1a1aa; } .ph.pre { background:#713f12; color:#fde68a; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:12px 14px; margin-bottom:10px; }
+  .row1 { display:flex; justify-content:space-between; align-items:baseline; }
+  .tk { font-size:16px; font-weight:800; }
+  .nm { font-size:11px; color:var(--mut); font-weight:400; margin-left:6px; }
+  .px { font-size:18px; font-weight:800; } .chg { font-size:13px; }
+  .bar { height:6px; background:#334155; border-radius:3px; margin:8px 0 3px; overflow:hidden; }
+  .fill { height:100%; background:linear-gradient(90deg,#16a34a,#d97706,#dc2626); }
+  .rng { display:flex; justify-content:space-between; font-size:11px; color:var(--mut); }
+  .rng b { margin:0 4px; }
+  .metrics { display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; margin-top:8px; font-size:13px; }
+  .metrics label { color:var(--mut); font-size:11px; margin-right:6px; }
+  .tps { margin-top:8px; font-size:11px; color:var(--mut); line-height:1.7; }
+  .tp i { font-style:normal; color:#64748b; }
+  .upd { margin-top:6px; font-size:10px; color:#64748b; text-align:right; }
+  .up { color:var(--up); } .dn { color:var(--dn); } .fl { color:var(--fl); }
+  .na { color:var(--mut); } .err { color:var(--dn); font-size:12px; margin-top:6px; }
+  .foot { font-size:10px; color:#64748b; text-align:center; padding:8px 0 16px; line-height:1.6; }
+</style></head><body><div class="wrap">
+<header>
+  <h1>日内盯盘 <span class="ph closed">已收盘</span></h1>
+  <div class="sub">2026-05-31 11:08 ET · interval=1m · 每60s自动刷新<br>
+  盯盘辅助 · 非择时 · 执行=pick当日市价买入 · 数据可能延迟~15min</div>
+</header>
+
+        <div class="card">
+          <div class="row1">
+            <div class="tk">MFC.TO<span class="nm">Manulife Financial</span></div>
+            <div class="px">52.69 <span class="chg"><span class="dn">-0.08%</span></span></div>
+          </div>
+          <div class="bar"><div class="fill" style="width:68%"></div></div>
+          <div class="rng"><span>52.17</span><b class="dn">上沿</b> 68%<span>52.94</span></div>
+          <div class="metrics">
+            <div><label>VWAP</label>52.75 <span class="dn">-0.11%</span></div>
+            <div><label>量</label>15.0×均量</div>
+            <div><label>RSI</label>19</div>
+            <div><label>EMA</label>EMA9<EMA21</div>
+          </div>
+          <div class="tps">近期拐点 <span class="tp"><i>15:45</i> <b class="dn">高点</b> 52.83<i>(-0.3%)</i></span> <span class="tp"><i>15:55</i> <b class="dn">高点</b> 52.77<i>(-0.2%)</i></span> <span class="tp"><i>15:59</i> <b class="up">低点</b> 52.69<i>(+0.0%)</i></span></div>
+          <div class="upd">更新 15:59 ET</div>
+        </div>
+        <div class="card">
+          <div class="row1">
+            <div class="tk">CVE.TO<span class="nm">Cenovus Energy</span></div>
+            <div class="px">38.03 <span class="chg"><span class="dn">-0.08%</span></span></div>
+          </div>
+          <div class="bar"><div class="fill" style="width:34%"></div></div>
+          <div class="rng"><span>37.73</span><b class="fl">中部</b> 34%<span>38.62</span></div>
+          <div class="metrics">
+            <div><label>VWAP</label>38.00 <span class="up">+0.08%</span></div>
+            <div><label>量</label>20.9×均量</div>
+            <div><label>RSI</label>77</div>
+            <div><label>EMA</label>EMA9>EMA21</div>
+          </div>
+          <div class="tps">近期拐点 <span class="tp"><i>15:46</i> <b class="dn">高点</b> 37.88<i>(+0.4%)</i></span> <span class="tp"><i>15:51</i> <b class="up">低点</b> 37.79<i>(+0.6%)</i></span> <span class="tp"><i>15:59</i> <b class="dn">高点</b> 38.03<i>(+0.0%)</i></span></div>
+          <div class="upd">更新 15:59 ET</div>
+        </div>
+        <div class="card">
+          <div class="row1">
+            <div class="tk">TRI.TO<span class="nm">Thomson Reuters</span></div>
+            <div class="px">119.37 <span class="chg"><span class="dn">-0.14%</span></span></div>
+          </div>
+          <div class="bar"><div class="fill" style="width:85%"></div></div>
+          <div class="rng"><span>114.68</span><b class="dn">上沿</b> 85%<span>120.20</span></div>
+          <div class="metrics">
+            <div><label>VWAP</label>118.79 <span class="up">+0.49%</span></div>
+            <div><label>量</label>9.2×均量</div>
+            <div><label>RSI</label>58</div>
+            <div><label>EMA</label>EMA9>EMA21</div>
+          </div>
+          <div class="tps">近期拐点 <span class="tp"><i>15:42</i> <b class="up">低点</b> 119.00<i>(+0.3%)</i></span> <span class="tp"><i>15:54</i> <b class="dn">高点</b> 119.70<i>(-0.3%)</i></span> <span class="tp"><i>15:59</i> <b class="up">低点</b> 119.37<i>(+0.0%)</i></span></div>
+          <div class="upd">更新 15:59 ET</div>
+        </div>
+        <div class="card">
+          <div class="row1">
+            <div class="tk">AQN.TO<span class="nm">Algonquin Power & Utilities</span></div>
+            <div class="px">8.14 <span class="chg"><span class="dn">-0.25%</span></span></div>
+          </div>
+          <div class="bar"><div class="fill" style="width:33%"></div></div>
+          <div class="rng"><span>8.11</span><b class="fl">中部</b> 33%<span>8.20</span></div>
+          <div class="metrics">
+            <div><label>VWAP</label>8.14 <span class="dn">-0.02%</span></div>
+            <div><label>量</label>5.2×均量</div>
+            <div><label>RSI</label>63</div>
+            <div><label>EMA</label>EMA9<EMA21</div>
+          </div>
+          <div class="tps">近期拐点 <span class="tp"><i>15:51</i> <b class="up">低点</b> 8.12<i>(+0.2%)</i></span> <span class="tp"><i>15:57</i> <b class="up">低点</b> 8.13<i>(+0.1%)</i></span> <span class="tp"><i>15:59</i> <b class="dn">高点</b> 8.14<i>(+0.0%)</i></span></div>
+          <div class="upd">更新 15:59 ET</div>
+        </div>
+        <div class="card">
+          <div class="row1">
+            <div class="tk">EMA.TO<span class="nm">Emera</span></div>
+            <div class="px">71.99 <span class="chg"><span class="dn">-0.15%</span></span></div>
+          </div>
+          <div class="bar"><div class="fill" style="width:13%"></div></div>
+          <div class="rng"><span>71.73</span><b class="up">下沿</b> 13%<span>73.80</span></div>
+          <div class="metrics">
+            <div><label>VWAP</label>72.18 <span class="dn">-0.26%</span></div>
+            <div><label>量</label>23.1×均量</div>
+            <div><label>RSI</label>58</div>
+            <div><label>EMA</label>EMA9>EMA21</div>
+          </div>
+          <div class="tps">近期拐点 <span class="tp"><i>15:47</i> <b class="dn">高点</b> 71.98<i>(+0.0%)</i></span> <span class="tp"><i>15:49</i> <b class="up">低点</b> 71.81<i>(+0.3%)</i></span> <span class="tp"><i>15:56</i> <b class="dn">高点</b> 72.00<i>(-0.0%)</i></span></div>
+          <div class="upd">更新 15:59 ET</div>
+        </div>
+        <div class="card">
+          <div class="row1">
+            <div class="tk">CP.TO<span class="nm">Canadian Pacific Kansas City</span></div>
+            <div class="px">123.10 <span class="chg"><span class="fl">+0.00%</span></span></div>
+          </div>
+          <div class="bar"><div class="fill" style="width:3%"></div></div>
+          <div class="rng"><span>122.99</span><b class="up">下沿</b> 3%<span>126.26</span></div>
+          <div class="metrics">
+            <div><label>VWAP</label>123.99 <span class="dn">-0.72%</span></div>
+            <div><label>量</label>12.6×均量</div>
+            <div><label>RSI</label>37</div>
+            <div><label>EMA</label>EMA9<EMA21</div>
+          </div>
+          <div class="tps">近期拐点 <span class="tp"><i>15:43</i> <b class="up">低点</b> 123.30<i>(-0.2%)</i></span> <span class="tp"><i>15:50</i> <b class="dn">高点</b> 123.61<i>(-0.4%)</i></span> <span class="tp"><i>15:58</i> <b class="up">低点</b> 123.03<i>(+0.1%)</i></span></div>
+          <div class="upd">更新 15:59 ET</div>
+        </div>
+<div class="foot">本页仅态势感知,不构成买卖信号。<br>entry-timing 已实证日内抄底负期望 → 当日市价买入,别等、别抄底。</div>
+</div></body></html>
