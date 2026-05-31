@@ -56,6 +56,11 @@ AUTO_ROLL_HOLDINGS = True
 # trained on all stocks with the full feature set.
 USE_SECTOR_MODELS = True
 
+# Alpha Vantage NEWS_SENTIMENT annotation on picks (pick mode only). OFF by
+# default — the free key is 25 requests/day, so only enable when you want the
+# news line and accept the daily budget. Snapshot-only: never a model feature.
+USE_NEWS_SENTIMENT = False
+
 # Mirrors encode_sector's sector_map; lifted to module scope so the
 # per-sector functions can look up codes from sector names.
 SECTOR_NAME_TO_CODE = {
@@ -642,6 +647,67 @@ def fetch_all_analyst_summaries(picks):
     with ThreadPoolExecutor(max_workers=min(4, len(picks))) as ex:
         results = ex.map(fetch_analyst_summary, picks)
     return dict(zip(picks, results))
+
+
+def fetch_news_sentiment(ticker):
+    """Alpha Vantage NEWS_SENTIMENT for one ticker → aggregate score + count.
+
+    Returns {"score": mean ticker_sentiment_score, "n": article count,
+    "label": Bearish..Bullish} or None (no key / rate-limited / no data / CA
+    .TO not covered). Cached 24h to protect the 25-request/day free budget;
+    throttled ~1.2s. Snapshot only — annotation, never a model feature.
+    """
+    try:
+        from api_config import ALPHAVANTAGE_API_KEY as _AV_KEY
+    except Exception:
+        return None
+    if not _AV_KEY:
+        return None
+
+    cache_file = _cache_path(f"{ticker.replace('.', '_')}_avnews.parquet")
+    cached = _cache_load(cache_file, max_age_hours=24)
+    if cached is not None:
+        row = cached.iloc[0].to_dict()
+        return None if pd.isna(row.get("score")) else row
+
+    import time, requests
+    result = {"score": np.nan, "n": 0, "label": None}
+    try:
+        url = ("https://www.alphavantage.co/query?function=NEWS_SENTIMENT"
+               f"&tickers={ticker}&limit=20&apikey={_AV_KEY}")
+        r = requests.get(url, timeout=20)
+        d = r.json()
+        feed = d.get("feed", []) if isinstance(d, dict) else []
+        scores = []
+        for art in feed:
+            for ts in art.get("ticker_sentiment", []):
+                if ts.get("ticker") == ticker:
+                    try:
+                        scores.append(float(ts["ticker_sentiment_score"]))
+                    except (KeyError, ValueError, TypeError):
+                        pass
+        if scores:
+            s = float(np.mean(scores))
+            lab = ("Bullish" if s >= 0.35 else "Somewhat-Bullish" if s >= 0.15
+                   else "Bearish" if s <= -0.35 else "Somewhat-Bearish" if s <= -0.15
+                   else "Neutral")
+            result = {"score": s, "n": len(scores), "label": lab}
+    except Exception:
+        pass
+    time.sleep(1.2)   # AV free tier: ~1 req/sec
+    _cache_save(cache_file, pd.DataFrame([result]))
+    return None if pd.isna(result.get("score")) else result
+
+
+def fetch_all_news_sentiment(picks):
+    """Sequential (AV 1 req/s) news-sentiment fetch for picks. Cache-first.
+    Returns dict keyed by ticker (missing/failed tickers omitted)."""
+    out = {}
+    for t in picks:
+        ns = fetch_news_sentiment(t)
+        if ns is not None:
+            out[t] = ns
+    return out
 
 
 def compute_earnings_surprise_feature(ticker, monthly_dates, window_months=3):
@@ -3272,7 +3338,7 @@ def _health_summary(checks):
 def _format_report(picks, weights, panel_latest, top_features, regime,
                    checks=None, holdings=None, shap_by_ticker=None,
                    te_estimate=None, portfolio_value=0.0, prices=None,
-                   analyst_summaries=None):
+                   analyst_summaries=None, news_summaries=None):
     """Build the shared monthly report body as a list of lines.
 
     Same content for stdout (print_picks) and email (build_report_text):
@@ -3356,6 +3422,12 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
             if parts:
                 lines.append(f"     {' | '.join(parts)}")
 
+        if news_summaries and ticker in news_summaries:
+            ns = news_summaries[ticker]
+            if ns.get("score") is not None and not pd.isna(ns["score"]):
+                lines.append(f"     News: {ns['label']} {ns['score']:+.2f} "
+                             f"({ns['n']} articles)")
+
     if te_estimate is not None and not np.isnan(te_estimate):
         lines.append(f"  Est. Tracking Error: {te_estimate:.1%}/yr  "
                      f"({'high' if te_estimate > 0.12 else 'normal' if te_estimate > 0.07 else 'low'})")
@@ -3373,13 +3445,14 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
 def print_picks(picks, weights, panel_latest, top_features, regime,
                 checks=None, holdings=None, shap_by_ticker=None,
                 te_estimate=None, portfolio_value=0.0, prices=None,
-                analyst_summaries=None):
+                analyst_summaries=None, news_summaries=None):
     """Print the actionable monthly report to stdout."""
     lines = _format_report(picks, weights, panel_latest, top_features,
                            regime, checks, holdings, shap_by_ticker,
                            te_estimate=te_estimate,
                            portfolio_value=portfolio_value, prices=prices,
-                           analyst_summaries=analyst_summaries)
+                           analyst_summaries=analyst_summaries,
+                           news_summaries=news_summaries)
     print("\n" + "═" * 60)
     for ln in lines:
         print(f"  {ln}" if ln else "")
@@ -3389,13 +3462,14 @@ def print_picks(picks, weights, panel_latest, top_features, regime,
 def build_report_text(picks, weights, panel_latest, top_features, regime,
                       checks=None, holdings=None, shap_by_ticker=None,
                       te_estimate=None, portfolio_value=0.0, prices=None,
-                      analyst_summaries=None):
+                      analyst_summaries=None, news_summaries=None):
     """Plain-text actionable monthly report for emailing."""
     lines = _format_report(picks, weights, panel_latest,
                            top_features, regime, checks, holdings, shap_by_ticker,
                            te_estimate=te_estimate,
                            portfolio_value=portfolio_value, prices=prices,
-                           analyst_summaries=analyst_summaries)
+                           analyst_summaries=analyst_summaries,
+                           news_summaries=news_summaries)
     lines += ["", f"Live dashboard: {DASHBOARD_URL}"]
     return "\n".join(lines)
 
@@ -5385,14 +5459,20 @@ def main():
             print("  Fetching analyst signals for picks...")
             analyst_summaries = fetch_all_analyst_summaries(picks)
 
+            news_summaries = None
+            if USE_NEWS_SENTIMENT:
+                print("  Fetching Alpha Vantage news sentiment (25/day budget)...")
+                news_summaries = fetch_all_news_sentiment(picks)
+
             print_picks(picks, weights, latest_df, top_features, regime, checks, holdings, shap_vals,
                         te_estimate=te_est, portfolio_value=portfolio_value, prices=prices,
-                        analyst_summaries=analyst_summaries)
+                        analyst_summaries=analyst_summaries, news_summaries=news_summaries)
             report = build_report_text(picks, weights, latest_df, top_features,
                                        regime, checks, holdings, shap_vals,
                                        te_estimate=te_est,
                                        portfolio_value=portfolio_value, prices=prices,
-                                       analyst_summaries=analyst_summaries)
+                                       analyst_summaries=analyst_summaries,
+                                       news_summaries=news_summaries)
             html_report = build_report_html(picks, weights, latest_df, top_features,
                                             regime, checks, holdings, shap_vals,
                                             portfolio_value=portfolio_value, prices=prices,
