@@ -21,6 +21,7 @@
 #    ./run.sh backtest-us  US walk-forward
 #    ./run.sh rigor        overfitting audit (DSR/CPCV/PBO)
 #    ./run.sh monitor      daily holdings monitor
+#    ./run.sh test         run unit tests (test_picker.py)
 #
 #  Reminder: execute picks AT MARKET on pick day. Entry timing was tested
 #  (entry_timing.py / limit_buy_test.py) and is negative-expectation — don't
@@ -44,5 +45,6 @@ case "$cmd" in
   backtest-us)  python picker_us.py backtest ;;
   rigor)        python picker.py rigor ;;
   monitor)      python picker.py monitor ;;
-  help|*)       sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//' ;;
+  test)         python test_picker.py ;;
+  help|*)       sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac
