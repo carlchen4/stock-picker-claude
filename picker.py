@@ -328,15 +328,9 @@ CONSTRAINTS = {
     "max_gold_mining": 2,
     "max_base_metals": 1,
     "max_energy_sub": 2,
-    # Risk
-    "dd_halt_threshold": -0.15,
-    "dd_halt_scale": 0.50,
-    "vix_scale_threshold": 25.0,
-    "vix_scale_factor": 0.70,
     # Quality
     "vol_spike_sigma": 3.0,
     "vol_spike_min_days": 2,
-    "min_confidence": 0.15,
     # Portfolio
     "top_n": 8,
 }
@@ -2126,10 +2120,10 @@ def detect_regime(macro_df):
     # BULL allows the full 8 (2 per sector). NEUTRAL = default top_n.
     if current_vix > 25 and tsx_current < tsx_ma200:
         regime = "BEAR"
-        adjustments = {"top_n": 4, "min_confidence": 0.20}
+        adjustments = {"top_n": 4}
     elif current_vix < 15 and tsx_current > tsx_ma200:
         regime = "BULL"
-        adjustments = {"top_n": 8, "min_confidence": 0.10}
+        adjustments = {"top_n": 8}
     else:
         regime = "NEUTRAL"
         adjustments = {}

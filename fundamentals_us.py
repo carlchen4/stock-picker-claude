@@ -38,10 +38,8 @@ WEIGHTS = {"RevGr":0.20, "EarnGr":0.15,          # growth 35
 
 
 def fetch(t):
-    try:
-        i = yf.Ticker(t).info
-    except Exception:
-        i = {}
+    from data_cache import cached_info
+    i = cached_info(t)
     g = lambda *k: next((i[x] for x in k if i.get(x) is not None
                          and not (isinstance(i[x], float) and np.isnan(i[x]))), np.nan)
     return {
@@ -67,7 +65,7 @@ def main():
     rows = []
     for t, (name, sub) in UNIV.items():
         d = fetch(t); d.update(Ticker=t, Name=name, Sub=sub)
-        rows.append(d); print(f"    {t:<6} {name[:22]:<22} {sub}"); time.sleep(0.2)
+        rows.append(d); print(f"    {t:<6} {name[:22]:<22} {sub}")
     df = pd.DataFrame(rows).set_index("Ticker")
 
     sc = pd.DataFrame(index=df.index)

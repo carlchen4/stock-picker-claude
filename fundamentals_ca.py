@@ -59,11 +59,9 @@ PCT = lambda x: x * 100 if x is not None and not pd.isna(x) else np.nan
 
 
 def fetch(ticker):
-    """Pull a fundamental snapshot from yfinance .info (best-effort)."""
-    try:
-        info = yf.Ticker(ticker).info
-    except Exception:
-        info = {}
+    """Pull a fundamental snapshot from yfinance .info (cached 24h)."""
+    from data_cache import cached_info
+    info = cached_info(ticker)
 
     def g(*keys):
         for k in keys:
@@ -118,7 +116,6 @@ def main():
         d["Ticker"], d["Company"], d["Sector"] = t, name, sector
         rows.append(d)
         print(f"    {t:<8} {name[:28]:<28} done")
-        time.sleep(0.2)
 
     df = pd.DataFrame(rows).set_index("Ticker")
     cols_front = ["Company", "Sector", "mktcap_B"]

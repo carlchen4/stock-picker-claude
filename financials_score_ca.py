@@ -41,10 +41,8 @@ WEIGHTS = {"ROE":0.30, "PB":0.20, "RevGr":0.15, "EPSGr":0.15, "DivYld":0.10, "PE
 
 
 def fetch(t):
-    try:
-        i = yf.Ticker(t).info
-    except Exception:
-        i = {}
+    from data_cache import cached_info
+    i = cached_info(t)
     g = lambda *k: next((i[x] for x in k if i.get(x) is not None
                          and not (isinstance(i[x], float) and np.isnan(i[x]))), np.nan)
     dy = g("dividendYield")
@@ -74,7 +72,7 @@ def main():
     rows = []
     for t, (name, typ) in UNIV.items():
         d = fetch(t); d.update(Ticker=t, Name=name, Type=typ)
-        rows.append(d); print(f"    {t:<8} {name[:26]:<26} {typ}"); time.sleep(0.2)
+        rows.append(d); print(f"    {t:<8} {name[:26]:<26} {typ}")
     df = pd.DataFrame(rows).set_index("Ticker")
 
     sc = pd.DataFrame(index=df.index)

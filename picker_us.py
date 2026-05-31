@@ -210,16 +210,10 @@ picker.CONSTRAINTS = {
     "max_single_alloc":     0.25,
     # (gold/base-metal/energy sub caps removed — never accessed for a
     #  tech-only universe; picker.py short-circuits before reading them.)
-    # Risk / regime
-    "dd_halt_threshold":    -0.15,
-    "dd_halt_scale":        0.50,
-    "vix_scale_threshold":  25.0,
-    "vix_scale_factor":     0.70,
     # Quality — vol_spike_sigma raised 3.0→4.0: tech routinely spikes on
     # earnings; 3σ over-excluded freshly-reported names (non-holdings only).
     "vol_spike_sigma":      4.0,
     "vol_spike_min_days":   2,
-    "min_confidence":       0.15,
     # Portfolio
     "top_n":                6,
 }
