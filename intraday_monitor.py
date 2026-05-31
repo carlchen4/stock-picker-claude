@@ -112,15 +112,40 @@ def market_phase(now_et):
 
 
 # ── picks 加载 ─────────────────────────────────────────────────────
+def _picks_from_dashboard():
+    """从已公开的 docs/data*.json 读当天 picks(云端用:pick log 是私有 gitignored)。"""
+    import json
+    root = os.path.dirname(os.path.abspath(__file__))
+    out = []
+    for fn in ("docs/data.json", "docs/data_us.json"):
+        p = os.path.join(root, fn)
+        if not os.path.exists(p):
+            continue
+        try:
+            with open(p, encoding="utf-8") as f:
+                picks = json.load(f).get("picks", [])
+            for it in picks:
+                t = it.get("ticker")
+                if t and it.get("weight", 1) and t not in out:
+                    out.append(t)
+        except Exception:
+            continue
+    return out
+
+
 def load_picks(cli_ticker):
     if cli_ticker:
         return [cli_ticker.upper() if "." not in cli_ticker else cli_ticker]
     out, seen = [], set()
+    # 本地优先:私有 pick log(完整历史)
     for path in ("picks_log.csv", "picks_log_us.csv"):
         for t in last_logged_picks(path):
             if t not in seen:
                 seen.add(t)
                 out.append(t)
+    # 回退(云端:仓库里没有 pick log)→ 用公开的 dashboard json
+    if not out:
+        out = _picks_from_dashboard()
     return out
 
 
