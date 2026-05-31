@@ -24,6 +24,7 @@ import numpy as np
 
 picker.BENCHMARK_TICKER = "QQQ"
 picker.REPORT_LABEL = "US Tech"
+picker.DASHBOARD_FILE = "data_us.json"   # separate dashboard from TSX (docs/us.html)
 
 # Plain-English company names for report readability (US universe).
 picker.COMPANY_NAMES = {

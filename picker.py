@@ -141,6 +141,11 @@ BENCHMARK_TICKER = "XIU.TO"
 # picker_us.py overrides this to "US Tech" etc.
 REPORT_LABEL = "TSX"
 
+# GitHub Pages dashboard data file (in docs/). picker_us.py overrides to
+# "data_us.json" so the two models get separate dashboards (index.html /
+# us.html) instead of overwriting each other.
+DASHBOARD_FILE = "data.json"
+
 TSX_UNIVERSE = [
     "XIU.TO",  # TSX 60 ETF (benchmark)
     # Financials (12) — includes NA.TO and EQB.TO (held but were missing)
@@ -3920,16 +3925,18 @@ def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
             for f, v in top_features[:8]
         ],
         "backtest": _build_backtest_dict(),
+        "label": REPORT_LABEL,
         "sector_weights": {
             s: round(sum(weights.get(t, 0) for t in picks
                          if STOCK_PROFILE.get(t, ("?",))[0] == s), 3)
-            for s in ["Financials", "Energy", "Industrials", "Utilities"]
+            for s in (CONSTRAINTS.get("required_sectors")
+                      or ["Financials", "Energy", "Industrials", "Utilities"])
         },
         "oos": oos_summary,
         "macro": _extract_macro_snapshot(macro_df) if macro_df is not None else {},
     }
 
-    path = os.path.join(out_dir, "data.json")
+    path = os.path.join(out_dir, DASHBOARD_FILE)
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
     print(f"  Dashboard: wrote {path}")
@@ -3940,8 +3947,8 @@ def _push_dashboard(as_of):
     import subprocess, os
     root = os.path.dirname(os.path.abspath(__file__))
     cmds = [
-        ["git", "add", "docs/data.json"],
-        ["git", "commit", "-m", f"dashboard: update picks {as_of}"],
+        ["git", "add", "docs/"],
+        ["git", "commit", "-m", f"dashboard: update {REPORT_LABEL} picks {as_of}"],
         ["git", "push"],
     ]
     for cmd in cmds:
