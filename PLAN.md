@@ -635,16 +635,25 @@ Most-likely cause: the cron hit the **top-of-hour `:00` boundary**, the
 busiest tick, which GitHub explicitly warns is the most likely to be
 delayed/dropped — and `*/5` fires on `:00` every hour.
 
-**Fix:** offset the cron `*/5` → `2/5` (fires `:02,:07,…,:57`, dodging
-`:00`). Re-pushing the workflow also nudges GitHub to re-register the
-schedule. Commit `ea203c4`.
+**Attempted fix (insufficient):** offset cron `*/5` → `2/5` (fires
+`:02,…,:57`, dodging `:00`) + re-push to nudge re-registration
+(`ea203c4`). Monitored another ~20 min across several `2/5` ticks —
+**still zero scheduled runs.** So it's not the `:00` boundary; GitHub's
+scheduler simply isn't running this repo's cron at all (~30 h, zero
+fires), while `workflow_dispatch` works every time.
 
-- ⚠️ **If still flaky after this:** GitHub's `*/5` schedule is
-  best-effort by design (the YAML comment already says so). The robust
-  fallbacks, in order: (1) widen to a looser cron and accept coarser
-  granularity; (2) external uptime pinger hitting `workflow_dispatch`
-  via the API on a real timer; (3) accept best-effort. Not pursued yet —
-  watching whether the `2/5` offset alone restores firing.
+**Resolution — external pinger (chosen 2026-06-01).** Validated the
+exact dispatch call the pinger uses: `POST
+…/actions/workflows/intraday.yml/dispatches {"ref":"main"}` → **HTTP
+204**, run queued instantly. Reliable near-real-time updates now come
+from a free external scheduler (cron-job.org) POSTing that endpoint on a
+real 5-min timer — no Mac needed. Full setup (token scope, headers,
+body, verify) in **`INTRADAY_PINGER.md`**.
+
+- The in-repo `2/5` cron stays as a harmless free backup; the
+  market-closed freeze (`a2519c6`) prevents duplicate commits if both
+  ever fire. User completes the cron-job.org + fine-grained-PAT setup
+  (the one manual, browser-only step).
 - Side note: Actions annotation warns `actions/checkout@v4` +
   `setup-python@v5` run on **Node 20, force-migrated to Node 24 on
   2026-06-16**. v4/v5 are already latest; the runtime swap is GitHub-side
