@@ -8,7 +8,9 @@ name: intraday snapshot
 on:
   schedule:
     # UTC。覆盖 ET 夏令时(13:30–20:00 UTC)与冬令时(14:30–21:00 UTC)。
-    - cron: "*/5 13-21 * * 1-5"
+    # 偏移到第 2 分钟起(2/5 → :02,:07,…,:57),避开整点 :00 边界——
+    # GitHub 官方提示该时刻负载最高、定时任务最易被丢弃/延迟。
+    - cron: "2/5 13-21 * * 1-5"
   workflow_dispatch: {}   # 也可在 Actions 页手动触发
 
 permissions:
