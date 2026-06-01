@@ -616,6 +616,73 @@ than chase more Sharpe.
 
 - **Macro / rate features — assessed, not expanding (2026-05-21)**: Asked whether to add macro/rate signals (interest rates etc.). The panel already carries 13 macro features incl. US 10Y (`rate_chg_3m`), the REAL BoC overnight rate via Valet API (`boc_rate_chg_3m`), a Canadian bond ETF (`cad_bond_mom_1m`), and inflation (`tips_mom_1m`) — rates are well covered. Decided NOT to add more, for a structural reason beyond the spec-coverage regression above: **a macro value is identical across all stocks within a month**, so it cannot discriminate *which* stock outperforms (a cross-sectional question) — it only moves timing / regime (time-series). The model's edge is cross-sectional selection (+10.6pp vs the random-score control), so extra macro is just cross-sectional noise — exactly why spec-coverage (incl. the yield-curve slope) regressed. Macro already contributes where it legitimately can: indirectly via `sector_code` splits (rates→banks/utilities, oil→energy), per the per-sector spec. Deeper "real" macro (BoC 2y/10y curve, FRED CPI, IG OAS) would hit the same cross-sectional wall.
 
+### 2026-06-01 — intraday cron not firing: diagnosed + offset fix
+
+Picked up the 2026-05-31 intraday cloud work (logged below). Found the
+core feature was effectively dead: the `intraday snapshot` workflow was
+`active` but had **only one run ever** (a manual `workflow_dispatch` on
+05-31). Across a full trading day (Mon 06-01, inside the `13-21 UTC`
+window), **zero scheduled runs fired** (`gh run list -e schedule` empty).
+
+Ruled out the usual suspects: repo is public, **not a fork** (forks
+disable schedules), Actions enabled (`all`), workflow `active`, only 16
+days old (not the 60-day-inactivity auto-disable), YAML valid. Manual
+dispatch (`gh workflow run intraday.yml`) succeeded end-to-end —
+regenerated `docs/intraday.html` and committed a fresh snapshot — so the
+**pipeline is fine; the failure is purely GitHub's scheduler**.
+
+Most-likely cause: the cron hit the **top-of-hour `:00` boundary**, the
+busiest tick, which GitHub explicitly warns is the most likely to be
+delayed/dropped — and `*/5` fires on `:00` every hour.
+
+**Fix:** offset the cron `*/5` → `2/5` (fires `:02,:07,…,:57`, dodging
+`:00`). Re-pushing the workflow also nudges GitHub to re-register the
+schedule. Commit `ea203c4`.
+
+- ⚠️ **If still flaky after this:** GitHub's `*/5` schedule is
+  best-effort by design (the YAML comment already says so). The robust
+  fallbacks, in order: (1) widen to a looser cron and accept coarser
+  granularity; (2) external uptime pinger hitting `workflow_dispatch`
+  via the API on a real timer; (3) accept best-effort. Not pursued yet —
+  watching whether the `2/5` offset alone restores firing.
+- Side note: Actions annotation warns `actions/checkout@v4` +
+  `setup-python@v5` run on **Node 20, force-migrated to Node 24 on
+  2026-06-16**. v4/v5 are already latest; the runtime swap is GitHub-side
+  and should be transparent. Flagged, not changed.
+
+### 2026-05-31 — intraday cloud auto-sync (was undocumented until 06-01)
+
+Built a no-Mac-needed near-real-time view: GitHub Actions reruns the
+intraday monitor on a schedule, regenerates `docs/intraday.html`, and
+commits it, so opening GitHub Pages on a phone shows ~5-min-granularity
+quotes. Reconstructed here from the commit log.
+
+- **`intraday_monitor.py` + `intraday.yml`** (`1bb804d`): `--once` mode,
+  resilient picker import with a cloud fallback, SVG line charts with
+  turning-point markers; workflow installs only lightweight deps
+  (yfinance/pandas/numpy/scipy), regenerates + commits the page.
+- **Cloud picks sourcing**: pick-logs are gitignored (private), so the
+  cloud run can't read them. Two-step resolution: derive the ticker list
+  from the already-public `docs/data.json` + `docs/data_us.json`
+  (`a67f229`), then later persist the resolved picks to a dedicated
+  public `docs/intraday_picks.json` on local runs so the cloud reads the
+  full 14-name CA+US list decoupled from stale `data.json` (`806f06d`).
+- **Market-closed freeze** (`a2519c6`): `--once` skips the rewrite unless
+  a ticker's latest bar is today (ET), so weekends/holidays/pre-market
+  keep the last session's static page and the Action produces no commit
+  churn. (This is why the 05-31 16:14 manual run committed nothing — it
+  was a Sunday.)
+- **Mobile snapshot page** (`ad57090`) + `company_names.json` for name
+  lookup in lean cloud runs.
+- **Housekeeping (same day):** added `test_picker.py` — 24 plain-assert
+  tests (no pytest dep) over the deterministic core (config integrity,
+  RSI bounds, normalize, sector encoding, rebalancing-band +
+  concentration constraints, DML theta recovery Y=1.5D→1.49), wired into
+  `run.sh test` (`9920d49`). Removed orphaned `fetch_annual_fundamentals`
+  (−47 lines, dead after the PIT-annual removal) and completed
+  `requirements.txt` (added `pyarrow` for the cache parquet engine and
+  `shap` for per-pick drivers — both used but unlisted) (`f9e7555`).
+
 ### 2026-05-22 — Quantitative rigor sprint
 
 Full rigor audit and metric expansion. All changes are additive (no model/Sharpe change); the canonical backtest is now:
