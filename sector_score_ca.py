@@ -32,6 +32,63 @@ def sector_tickers(sector):
     return [t for t in picker.TSX_UNIVERSE
             if t != "XIU.TO" and picker.STOCK_PROFILE.get(t, ("",))[0] == sector]
 
+# ── Hand-filled B-tier KPIs (sector_data_ca.csv) ─────────────────────────
+# Operating metrics yfinance can't give (AISC, rate-base growth, % contracted,
+# breakeven). Loaded as a per-ticker dict; folded into the score as ONE extra
+# weighted "moat" metric per sector. Missing/VERIFY rows → neutral (50).
+import os
+_HAND = {}  # ticker -> {kpi: (value, direction)}
+_HAND_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sector_data_ca.csv")
+try:
+    _hd = pd.read_csv(_HAND_CSV)
+    for _, r in _hd.iterrows():
+        v = pd.to_numeric(r.get("value"), errors="coerce")
+        if pd.notna(v):
+            _HAND.setdefault(r["ticker"], {})[r["kpi"]] = (float(v), r["direction"])
+except FileNotFoundError:
+    pass
+
+# Per sector: weight of the hand "moat" metric + a label. Industrials has no
+# hand data yet → weight 0 (unchanged). Energy blends two KPIs onto one
+# higher-is-better "structural quality" scale (pct_contracted as-is; oil
+# breakeven mapped to 100-BE so lower cost scores higher).
+HAND_CFG = {
+    "Energy":      (0.15, "HandKPI"),
+    "Utilities":   (0.20, "RateBaseG%"),
+    "Materials":   (0.20, "UnitCost$"),
+}
+
+def _anchor(val, lo, hi):
+    """Map val to 0-100 between lo→0 and hi→100 (clip). lo>hi inverts."""
+    z = (val - lo)/(hi - lo)
+    return float(min(100.0, max(0.0, z*100)))
+
+def hand_quality(sector, ticker):
+    """Return (quality_0to100 | nan, display_str) for the ticker's hand KPI.
+
+    Each KPI is mapped to an ABSOLUTE 0-100 score against sensible anchors
+    (not cross-ticker min-max) so heterogeneous Energy KPIs — pipeline
+    %-contracted vs oil breakeven — sit on one comparable quality scale.
+    """
+    kv = _HAND.get(ticker, {})
+    if sector == "Materials":                      # unit cost, lower=better
+        for k in ("AISC", "cash_cost_geo"):
+            if k in kv:
+                v = kv[k][0]
+                return _anchor(v, 1800, 300), f"{v:.0f}"   # $1800→0, $300→100
+    elif sector == "Utilities":                    # rate-base CAGR, higher=better
+        if "rate_base_cagr" in kv:
+            v = kv["rate_base_cagr"][0]
+            return _anchor(v, 4, 9), f"{v:.1f}"            # 4%→0, 9%→100
+    elif sector == "Energy":
+        if "pct_contracted" in kv:                 # pipeline cash-flow certainty
+            v = kv["pct_contracted"][0]
+            return _anchor(v, 50, 100), f"ct{v:.0f}%"      # 50%→0, 100%→100
+        if "wti_breakeven" in kv:                  # oil breakeven, lower=better
+            v = kv["wti_breakeven"][0]
+            return _anchor(v, 60, 30), f"be${v:.0f}"       # $60→0, $30→100
+    return np.nan, "—"
+
 # (metric_key, weight, higher_is_better)
 SECTOR_METRICS = {
     "Energy": [
@@ -142,18 +199,35 @@ def score_sector(sector):
     rows = {t: pull(t) for t in tickers}
     df = pd.DataFrame(rows).T
     metrics = SECTOR_METRICS[sector]
+    hand_w, hand_lbl = HAND_CFG.get(sector, (0.0, ""))
+    auto_w = 1.0 - hand_w  # auto (yfinance) metrics share the rest of the weight
+
     sc = pd.Series(0.0, index=df.index)
     for key, w, hib in metrics:
-        sc += w * minmax(df[key], hib)
+        sc += auto_w * w * minmax(df[key], hib)
+
+    # Hand "moat" metric: one extra weighted term from sector_data_ca.csv
+    if hand_w > 0:
+        hq = {t: hand_quality(sector, t) for t in df.index}
+        df["_hand_raw"] = pd.Series({t: hq[t][0] for t in df.index})
+        df["_hand_disp"] = pd.Series({t: hq[t][1] for t in df.index})
+        sc += hand_w * df["_hand_raw"].fillna(50.0)  # already 0-100, neutral=50
+
     df["SCORE"] = sc
     df = df.sort_values("SCORE", ascending=False)
 
     cols = [m[0] for m in metrics]
-    disp = df[cols + ["SCORE"]].copy()
+    disp = df[cols].copy()
+    if hand_w > 0:
+        disp[hand_lbl] = df["_hand_disp"]
+    disp["SCORE"] = df["SCORE"]
     disp.insert(0, "Name", [NAMES.get(t, t)[:18] for t in disp.index])
-    disp.columns = ["Name"] + [LABELS.get(c, c) for c in cols] + ["SCORE"]
+    disp.columns = ["Name"] + [LABELS.get(c, c) for c in cols] + \
+                   ([hand_lbl] if hand_w > 0 else []) + ["SCORE"]
 
-    wtxt = " | ".join(f"{LABELS.get(k,k)} {int(w*100)}" for k, w, _ in metrics)
+    wtxt = " | ".join(f"{LABELS.get(k,k)} {int(auto_w*w*100)}" for k, w, _ in metrics)
+    if hand_w > 0:
+        wtxt += f" | {hand_lbl} {int(hand_w*100)} (hand)"
     title = DISPLAY.get(sector, sector)
     print(f"\n{'='*92}\n  Canadian {title} — Fundamental Score & Rank   (yfinance, {pd.Timestamp.today().date()})")
     print(f"  Weights: {wtxt}\n{'='*92}")

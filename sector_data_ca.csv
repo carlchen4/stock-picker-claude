@@ -1,6 +1,6 @@
 ticker,company,sector,kpi,value,unit,direction,asof,source,note
-AEM.TO,Agnico Eagle,Gold,AISC,1339,USD/oz,lower_better,FY2025,agnicoeagle.com,actual; guidance was 1250-1300, beat up on royalties at high gold price
-ABX.TO,Barrick,Gold,AISC,1637,USD/oz,lower_better,FY2025,barrick.com,higher cost producer; Q4 1581
+AEM.TO,Agnico Eagle,Gold,AISC,1339,USD/oz,lower_better,FY2025,agnicoeagle.com,actual; guidance was 1250-1300; beat up on royalties at high gold price
+ABX.TO,Barrick,Gold,AISC,1637,USD/oz,lower_better,FY2025,barrick.com,highest-cost producer; Q4 1581
 WPM.TO,Wheaton,Gold,cash_cost_geo,514,USD/GEO,lower_better,FY2025,wheatonpm.com,streamer - structurally low cost (2024: 438)
 FNV.TO,Franco-Nevada,Gold,cash_cost_geo,325,USD/GEO,lower_better,FY2025,franco-nevada.com,royalty - lowest cost; margin ~3110/GEO
 FTS.TO,Fortis,Utilities,rate_base_cagr,7.0,%,higher_better,2025-2030,fortis FY2025,28.8B capital plan; div growth guidance 4-6%/yr
@@ -8,7 +8,7 @@ H.TO,Hydro One,Utilities,rate_base_cagr,6.0,%,higher_better,2023-2027,hydroone F
 EMA.TO,Emera,Utilities,rate_base_cagr,7.1,%,higher_better,2023-2029,emera FY2025,20B plan 2026-30; ~80% Florida; US arm 8.6% CAGR
 AQN.TO,Algonquin,Utilities,rate_base_cagr,5.5,%,higher_better,2025-2028,algonquin FY2025,post renewable-sale pure-regulated; earned ROE 6.8% (was 5.5%)
 TRP.TO,TC Energy,Energy,pct_contracted,98,%,higher_better,FY2025,tcenergy FY2025,comparable EBITDA rate-regulated or long-term take-or-pay
-ENB.TO,Enbridge,Energy,pct_contracted,98,%,higher_better,FY2025,enbridge,VERIFY - long-standing ~98% cost-of-service/take-or-pay disclosure; FY2025 exact not re-confirmed in this pass
+ENB.TO,Enbridge,Energy,pct_contracted,98,%,higher_better,FY2025,enbridge,VERIFY - long-standing ~98% cost-of-service/take-or-pay disclosure; FY2025 exact not re-confirmed
 CNQ.TO,Canadian Natural,Energy,wti_breakeven,43,USD/bbl,lower_better,2025,cnq FY2025,low-to-mid 40s incl maintenance capex + dividend
 SU.TO,Suncor,Energy,wti_breakeven,42,USD/bbl,lower_better,2025,suncor FY2025,40-45 incl opcost + dividend + sustaining capex
 CVE.TO,Cenovus,Energy,wti_breakeven,,USD/bbl,lower_better,,,VERIFY - not pulled this pass
