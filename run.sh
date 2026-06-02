@@ -12,6 +12,8 @@
 #    ./run.sh banks        7-bank fundamental score & rank
 #                          ** first hand-update CET1/PCL/segment in
 #                             bank_score_ca.py DATA dict from the reports **
+#    ./run.sh sectors      Energy/Industrials/Utilities/Gold fundamental
+#                          score & rank (sector-specific metrics) — auto
 #    ./run.sh bankdeep     bank yfinance trend (ROE/EPS/BVPS/op-lev) — auto
 #    ./run.sh fund         full 30-name CA fundamental screen — auto
 #    ./run.sh fund-us      US tech 21-name fundamental score — auto
@@ -39,6 +41,7 @@ case "$cmd" in
   us)           python picker_us.py pick ;;
   banks)        python bank_score_ca.py ;;
   bankdeep)     python bank_deep_ca.py ;;
+  sectors)      python sector_score_ca.py ;;
   fund)         python fundamentals_ca.py ;;
   fund-us)      python fundamentals_us.py ;;
   backtest)     python picker.py backtest ;;
