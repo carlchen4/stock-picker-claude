@@ -674,6 +674,24 @@ DSR are genuine diversification, not pure return-chasing. Kept per the
 revert-on-regression rule (this is an *improvement*). Reassess if a
 gold-specific drawdown shows up in forward OOS (`picks_log.csv`).
 
+**Rejected alternatives — "put gold inside Energy instead of its own
+sleeve" (both worse, do NOT re-try):** same 4 gold names, same env A/B.
+
+| Design | Sharpe | IR | Max DD | DSR |
+|---|---|---|---|---|
+| **Separate sleeve (kept)** | **2.26** | **1.74** | −11.3% | **97.9%** |
+| Baseline (no gold) | 1.96 | 1.17 | −10.0% | 95.6% |
+| Energy 1 + gold 1 (split the 2 Energy slots, `max_per_sector`) | 1.95 | 1.37 | −13.6% | 94.8% |
+| Gold reclassified to Energy, free top-2 of oil+gold | 1.54 | 0.75 | −14.5% | 79.7% |
+
+Lesson: **gold helps only as an independent, *forced* sleeve with its own
+XGD beta proxy.** Mixing it into Energy destroys the benefit two ways —
+(1) "energy 1 + gold 1" steals an oil slot and under-weights gold (1 name
+can't rescue 2025: only −2.7% vs the sleeve's +12.0%); (2) "free top-2"
+lets the model over-rotate into whichever commodity is hot (2 gold / 0 oil
+or vice-versa), whipsawing returns and spiking overfit risk (DSR 79.7%,
+PBO 20%). Forced min-1 + separate XGD beta is what makes it work.
+
 ### 2026-06-01 — intraday cron not firing: diagnosed + offset fix
 
 Picked up the 2026-05-31 intraday cloud work (logged below). Found the
