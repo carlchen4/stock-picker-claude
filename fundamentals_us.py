@@ -51,6 +51,8 @@ def fetch(t):
         "PS":      g("priceToSalesTrailing12Months"),
         "EVEBITDA": g("enterpriseToEbitda"),
         "PE":      g("trailingPE"),
+        "FCF":     g("freeCashflow"),
+        "Rev":     g("totalRevenue"),
     }
 
 
@@ -91,6 +93,20 @@ def main():
 
     print(f"\n  By sub-sector — avg score:")
     print(out.groupby("Sub")["SCORE"].mean().round(0).sort_values(ascending=False).to_string())
+
+    # ── Rule of 40 — Cloud/SaaS only ────────────────────────────────────
+    # rev growth% + FCF margin% >= 40 = healthy growth/profit balance.
+    # Applies to software economics only; semis (cyclical) & hardware excluded.
+    cloud = out[out["Sub"] == "Cloud"].copy()
+    cloud["FCFm"] = cloud["FCF"] / cloud["Rev"]
+    cloud["Rule40"] = (cloud["RevGr"].astype(float) + cloud["FCFm"]) * 100
+    cloud["Pass"] = np.where(cloud["Rule40"] >= 40, "PASS", "fail")
+    cloud = cloud.sort_values("Rule40", ascending=False)
+    cloud["RevGr%"] = (cloud["RevGr"].astype(float)*100).round(0)
+    cloud["FCFm%"]  = (cloud["FCFm"]*100).round(0)
+    print(f"\n{'─'*72}\n  CLOUD — Rule of 40  (rev growth% + FCF margin% >= 40 healthy)\n{'─'*72}")
+    print(cloud[["Name","RevGr%","FCFm%","Rule40","Pass"]].round({"Rule40":0}).to_string())
+
     out.to_csv("fundamentals_us.csv")
     print(f"\n  Saved -> fundamentals_us.csv\n")
 
