@@ -692,6 +692,33 @@ lets the model over-rotate into whichever commodity is hot (2 gold / 0 oil
 or vice-versa), whipsawing returns and spiking overfit risk (DSR 79.7%,
 PBO 20%). Forced min-1 + separate XGD beta is what makes it work.
 
+**Other sector experiments around the gold sleeve (same env A/B, all
+left the 5-sector config unchanged):**
+
+| Change | Sharpe | Excess | Vol | IR | Max DD | DSR | Verdict |
+|---|---|---|---|---|---|---|---|
+| 5-sector + gold (kept) | 2.26 | 14.7% | 12.7% | 1.74 | −11.3% | 97.9% | — |
+| − Industrials (4-sector) | 1.76 | 8.7% | 12.8% | 0.95 | −12.0% | 89.6% | rejected |
+| + Consumer sleeve (6-sector) | 2.33 | 13.1% | 11.6% | 1.59 | −10.2% | 98.9% | declined |
+
+- **Remove Industrials (CNR/CP/WSP/TRI/WCN/CLS):** tested because it's
+  the highest cross-sector corr (↔Financials 0.67, least diversifying).
+  Regressed hard — Sharpe 2.26→1.76, IR 1.74→0.95, hit 67→55%, vol
+  *unchanged* (12.7→12.8%). 2023/24/25 excess all collapsed: Industrials
+  carries strong selection alpha (CLS/Celestica's AI run, WSP, the
+  rails). **Lesson: high correlation ≠ removable — a sector can be both
+  correlated and a top alpha source.** Mirror image of gold (low-corr,
+  add) — industrials is high-corr but high-alpha, so keep.
+- **Add Consumer sleeve (ATD/DOL/L/QSR as one ConsumerStaples bucket,
+  XST proxy, top_n→12):** a *risk-for-return* trade, not a clear win like
+  gold. Vol 12.7→11.6%, drawdown −11.3→−10.2%, DSR 97.9→98.9% (best
+  overfit profile of any variant), Sharpe nudged 2.26→2.33 — but **all
+  the Sharpe gain came from de-risking**: absolute excess fell 14.7→13.1%
+  and IR fell 1.74→1.59. Consumer overlaps the Utilities defensive sleeve
+  (corr 0.54), so it adds little new. Declined: the Sharpe bump is small,
+  return-dilutive, and IR-negative. Revisit only if a lower-drawdown /
+  more-defensive profile becomes the explicit objective.
+
 ### 2026-06-01 — intraday cron not firing: diagnosed + offset fix
 
 Picked up the 2026-05-31 intraday cloud work (logged below). Found the
