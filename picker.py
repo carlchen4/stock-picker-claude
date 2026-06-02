@@ -78,6 +78,7 @@ SECTOR_ETF = {
     "Energy":      "XEG.TO",   # iShares S&P/TSX Capped Energy
     "Industrials": "ZIN.TO",   # BMO Equal Weight Industrials
     "Utilities":   "XUT.TO",   # iShares S&P/TSX Capped Utilities
+    "Materials":   "XGD.TO",   # iShares S&P/TSX Global Gold (gold-miner beta)
 }
 
 # Per-sector feature subsets (the X for each sector's model). Listed
@@ -168,6 +169,11 @@ TSX_UNIVERSE = [
     "CNR.TO", "CP.TO", "WSP.TO", "TRI.TO", "WCN.TO", "CLS.TO",
     # Utilities (4)
     "FTS.TO", "H.TO", "EMA.TO", "AQN.TO",
+    # Materials — gold sleeve (4): senior producers + royalty/streamers.
+    # Added 2026-06-01 as a diversification experiment — gold is the only
+    # TSX sector near-orthogonal to the other four (avg monthly corr +0.14;
+    # vs Energy -0.05, Industrials +0.04). Beta proxy: XGD.TO.
+    "AEM.TO", "ABX.TO", "WPM.TO", "FNV.TO",
 ]
 
 # Focused 4-sector universe; the TSX Composite extension is NOT merged
@@ -200,6 +206,7 @@ MACRO_TICKERS = {
     "etf_eng": "XEG.TO",
     "etf_ind": "ZIN.TO",
     "etf_uti": "XUT.TO",
+    "etf_mat": "XGD.TO",
     # Tried-and-rejected (kept commented for the record): ^TYX, ^IRX,
     # HYG, LQD, RB=F, ^GSPC, ^IXIC, XLK plus P/B per-ticker. Adding
     # yield-curve-slope, credit-spread, refining-margin, sp500/nasdaq
@@ -331,13 +338,13 @@ CONSTRAINTS = {
     "max_roe": 2.0,
     # History
     "min_listing_days": 252,
-    # Concentration. User rule: picks restricted to the 4 sectors
-    # below, with at least 1 and at most 2 from each. top_n=8 covers
-    # the 2-per-sector maximum (4 sectors x 2).
+    # Concentration. User rule: picks restricted to the 5 sectors
+    # below, with at least 1 and at most 2 from each. top_n=10 covers
+    # the 2-per-sector maximum (5 sectors x 2).
     "max_per_gics": 2,
     "max_per_style": 4,
     "max_per_type": 5,
-    "required_sectors": ["Financials", "Energy", "Industrials", "Utilities"],
+    "required_sectors": ["Financials", "Energy", "Industrials", "Utilities", "Materials"],
     "max_single_alloc": 0.25,
     "max_gold_mining": 2,
     "max_base_metals": 1,
@@ -346,7 +353,7 @@ CONSTRAINTS = {
     "vol_spike_sigma": 3.0,
     "vol_spike_min_days": 2,
     # Portfolio
-    "top_n": 8,
+    "top_n": 10,  # 5 required sectors x 2-per-sector max (was 8 for 4 sectors)
 }
 
 FEATURE_COLS = [
@@ -2070,14 +2077,14 @@ def detect_regime(macro_df):
     tsx_current = tsx.iloc[-1]
 
     # Regime modulates only top_n; max_per_gics stays at 2 per the
-    # user's 1-2-per-sector rule. BEAR shrinks to 4 (1 per sector);
-    # BULL allows the full 8 (2 per sector). NEUTRAL = default top_n.
+    # user's 1-2-per-sector rule. BEAR shrinks to 5 (1 per sector);
+    # BULL allows the full 10 (2 per sector). NEUTRAL = default top_n.
     if current_vix > 25 and tsx_current < tsx_ma200:
         regime = "BEAR"
-        adjustments = {"top_n": 4}
+        adjustments = {"top_n": 5}
     elif current_vix < 15 and tsx_current > tsx_ma200:
         regime = "BULL"
-        adjustments = {"top_n": 8}
+        adjustments = {"top_n": 10}
     else:
         regime = "NEUTRAL"
         adjustments = {}

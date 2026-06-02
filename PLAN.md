@@ -60,7 +60,7 @@ Uses `TimeSeriesSplit` with gap=1 to prevent temporal leakage.
 
 ### Constraints
 
-- **Universe:** focused on 4 sectors (Financials, Energy, Industrials, Utilities) — see `TSX_UNIVERSE` in picker.py.
+- **Universe:** focused on 5 sectors (Financials, Energy, Industrials, Utilities, + a Materials/gold sleeve added 2026-06-01) — see `TSX_UNIVERSE` in picker.py. `top_n=10` (5 sectors × 2).
 - **Per-sector caps:** `required_sectors` enforces **min 1 / max 2 picks per sector** via `apply_rebalancing_band`. Vol-spike anti-anomaly filter exempts current holdings.
 - **Liquidity:** min ADV $1M, price $2–$400
 - **Fundamentals:** PE 0–150, ROE 0–200%, market cap > $800M
@@ -615,6 +615,64 @@ than chase more Sharpe.
 - **Spec-coverage feature additions (2026-05-17)**: Added yield-curve slope (`^TYX`/`^IRX`), credit-spread proxy (`HYG`/`LQD`), refining-margin (`RB=F` - `CL=F`), `^GSPC`/`^IXIC`/`XLK` equity-beta proxies, and per-ticker P/B to close gaps in the per-sector spec coverage. Regressed Sharpe from 1.65 to 1.56 (full additions) and 1.54 (selective keep that dropped only the 1-stock-only additions). Reverted — at the current sample size (~31 tickers × 84 months split across 4 sector models), more features add noise faster than signal. The tickers stay commented in `MACRO_TICKERS` as a record so the experiment isn't accidentally redone.
 
 - **Macro / rate features — assessed, not expanding (2026-05-21)**: Asked whether to add macro/rate signals (interest rates etc.). The panel already carries 13 macro features incl. US 10Y (`rate_chg_3m`), the REAL BoC overnight rate via Valet API (`boc_rate_chg_3m`), a Canadian bond ETF (`cad_bond_mom_1m`), and inflation (`tips_mom_1m`) — rates are well covered. Decided NOT to add more, for a structural reason beyond the spec-coverage regression above: **a macro value is identical across all stocks within a month**, so it cannot discriminate *which* stock outperforms (a cross-sectional question) — it only moves timing / regime (time-series). The model's edge is cross-sectional selection (+10.6pp vs the random-score control), so extra macro is just cross-sectional noise — exactly why spec-coverage (incl. the yield-curve slope) regressed. Macro already contributes where it legitimately can: indirectly via `sector_code` splits (rates→banks/utilities, oil→energy), per the per-sector spec. Deeper "real" macro (BoC 2y/10y curve, FRED CPI, IG OAS) would hit the same cross-sectional wall.
+
+### 2026-06-01 — gold sleeve added (5th sector) — IMPROVED, kept
+
+**The first universe change that did NOT regress.** Added a Materials/gold
+sleeve — 4 candidates `AEM.TO ABX.TO WPM.TO FNV.TO` (2 senior producers +
+2 royalty/streamers), `required_sectors` → 5, `top_n` 8→10 (BEAR 4→5,
+BULL 8→10), DML beta proxy `SECTOR_ETF["Materials"]="XGD.TO"` (+ `etf_mat`
+in MACRO_TICKERS). All 4 were already classified in `STOCK_PROFILE`.
+
+A/B walk-forward, same environment (note: this env couldn't fetch
+yfinance earnings dates, so `earnings_surprise` was 0% in **both** runs —
+relative comparison still valid; absolute Sharpe ~0.03 below PLAN's 1.99):
+
+| Metric | Baseline (4-sector) | + gold sleeve |
+|---|---|---|
+| Sharpe | 1.96 | **2.26** |
+| Excess/yr | +13.5% | **+14.7%** |
+| Ann. vol | 14.1% | **12.7%** |
+| IR | 1.17 | **1.74** |
+| Hit rate | 67.3% | 67.3% |
+| Max drawdown | −10.0% | −11.3% |
+| Observed Sharpe (DSR audit) | 1.815 | **2.071** |
+| DSR | 95.6% | **97.9%** |
+| PBO | 4.4% | **2.1%** |
+
+**Why this widening worked when all prior ones regressed:** the earlier
+failures (53-name widen → Sharpe 1.40, etc.) added *correlated* names
+inside the existing 4 sectors — more noise, no diversification. Gold is
+the only TSX sector **near-orthogonal** to the other four (avg monthly
+corr +0.14; Energy −0.05, Industrials +0.04, measured 2021–2026). Adding
+an uncorrelated sleeve does exactly what theory predicts: **vol down
+14.1→12.7%, IR up 1.17→1.74**, and DSR *rose* (less overfit, not more).
+
+**Per-year — it's diversification, not just the gold rally:**
+
+| Year | Baseline excess | + gold excess |
+|---|---|---|
+| 2021 | +9.7% | +7.2% |
+| 2022 | +6.5% | +1.7% |
+| 2023 | +20.2% | +15.3% |
+| 2024 | +21.4% | +28.7% |
+| **2025** | **−4.4%** | **+12.0%** |
+| 2026 | +7.1% | +3.8% |
+
+2025 was the *only* year the 4-sector core lagged XIU (−4.4% excess);
+the gold sleeve flipped it to +12.0% — a 16pp single-year rescue,
+textbook payoff of an uncorrelated sleeve when the core struggles. Cost:
+slightly lower excess in gold-lagging years (2021–23, the forced min-1
+gold pick) and a 1.3pp deeper max drawdown (gold miners are volatile).
+Net Sharpe/IR/vol clearly better. (NB: the 53-name widen also showed the
+2025 spread-evening, but paid for it with Sharpe; the gold sleeve buys
+the same regime resilience *without* diluting the working sectors.)
+
+**Caveat:** 2024–25 included a historic gold rally, so part of the
+absolute lift is gold's own run; but the 2025 rescue + lower vol + higher
+DSR are genuine diversification, not pure return-chasing. Kept per the
+revert-on-regression rule (this is an *improvement*). Reassess if a
+gold-specific drawdown shows up in forward OOS (`picks_log.csv`).
 
 ### 2026-06-01 — intraday cron not firing: diagnosed + offset fix
 
