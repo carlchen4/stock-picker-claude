@@ -61,6 +61,15 @@ try:
 except ImportError:
     PROFIT_TAKE_TARGET_INVESTED = 0.30
 
+# When True, legacy holdings occupy per-sector caps so the active picks
+# diversify AWAY from sectors you already hold (e.g. don't pile more Financials
+# on top of a big bank legacy). Only affects the live pick (legacy is live-only);
+# backtest is unchanged. Override in portfolio_config.py.
+try:
+    from portfolio_config import LEGACY_OCCUPIES_CAPS
+except ImportError:
+    LEGACY_OCCUPIES_CAPS = True
+
 
 def legacy_sector(ticker):
     """Sector for a legacy ticker: manual override → STOCK_PROFILE → 'Other'.
@@ -153,6 +162,20 @@ def split_legacy(universe=None):
     scored = {t for t in LEGACY_HOLDINGS if t in uni}
     carry = {t for t in LEGACY_HOLDINGS if t not in uni}
     return scored, carry
+
+
+def legacy_sector_counts(required_sectors=None):
+    """{sector: count} of legacy holdings whose sector is a required sector —
+    i.e. the sector capacity already used by the permanent book. Names in other
+    sectors (carry like ETFs/US-only) don't constrain the active picks."""
+    req = set(required_sectors if required_sectors is not None
+              else (CONSTRAINTS.get("required_sectors") or []))
+    counts = {}
+    for t in LEGACY_HOLDINGS:
+        s = legacy_sector(t)
+        if s in req:
+            counts[s] = counts.get(s, 0) + 1
+    return counts
 
 
 def legacy_sell_advisory(latest_df, scored, bottom_pctile=0.33):
@@ -2230,7 +2253,7 @@ def detect_regime(macro_df):
 # ══════════════════════════════════════════════════════════════════
 
 def apply_rebalancing_band(new_picks, new_scores, current_holdings, constraints=None,
-                           hold_bonus=0.0):
+                           hold_bonus=0.0, legacy_sectors=None):
     """Pick top stocks under sector min/max constraints.
 
     Rules enforced (in order):
@@ -2243,6 +2266,11 @@ def apply_rebalancing_band(new_picks, new_scores, current_holdings, constraints=
     hold_bonus: score boost applied to current holdings before ranking.
     Equivalent to "keep unless new candidate scores hold_bonus higher."
     Falls back to plain top_n if `required_sectors` is empty (legacy).
+
+    legacy_sectors: optional {sector: count} of permanent holdings that already
+    occupy sector capacity. Pre-seeds the per-sector counts so the active picks
+    diversify AWAY from sectors legacy already fills (and Phase 1 won't force a
+    pick in a sector legacy already covers). None → unchanged (backtest path).
     """
     C = constraints or CONSTRAINTS
     if not new_picks:
@@ -2271,19 +2299,24 @@ def apply_rebalancing_band(new_picks, new_scores, current_holdings, constraints=
         return [t for t, _ in ranked[:top_n]]
 
     final = []
-    sector_count = {}
+    # Pre-seed sector occupancy with legacy holdings so active picks complement
+    # (diversify away from) sectors legacy already fills. Empty → prior behavior.
+    sector_count = {s: int(c) for s, c in (legacy_sectors or {}).items()}
 
-    # Phase 1: guarantee 1 per required sector (highest-scoring there)
+    # Phase 1: guarantee 1 per required sector (highest-scoring there), unless
+    # that sector is already covered (by legacy or an earlier pick).
     for sector in required_sectors:
+        if sector_count.get(sector, 0) >= 1:
+            continue
         for t, _ in ranked:
             if t in final:
                 continue
             if sector_of(t) == sector:
                 final.append(t)
-                sector_count[sector] = 1
+                sector_count[sector] = sector_count.get(sector, 0) + 1
                 break
 
-    # Phase 2: fill remaining slots by score, capping each sector
+    # Phase 2: fill remaining slots by score, capping each sector (legacy counts)
     for t, _ in ranked:
         if len(final) >= top_n:
             break
@@ -3361,14 +3394,8 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
 
     # Sort and filter
     latest_df = latest_df.sort_values("score", ascending=False)
-    candidates = latest_df["ticker"].tolist()
-
-    # Legacy positions are already held — drop them from the active candidate
-    # pool so the picks are NEW names, not duplicates. They stay in latest_df
-    # so their model score is still available for the sell advisory.
-    if LEGACY_HOLDINGS:
-        _legacy = set(LEGACY_HOLDINGS)
-        candidates = [t for t in candidates if t not in _legacy]
+    candidates = latest_df["ticker"].tolist()  # full ranking (legacy kept here
+    # so their scores feed the sell advisory + the rank history stays aligned)
 
     # Month-over-month rank changes vs the saved history (Step 8). Compute
     # BEFORE saving this month so the diff is against last month.
@@ -3393,11 +3420,21 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
         candidates, fund_df, price_df, mode="pick",
         current_holdings=current_holdings, constraints=constraints
     )
+    # Legacy positions are already held — exclude from active picks (no dup buys).
+    # When LEGACY_OCCUPIES_CAPS, pass their sector occupancy so active picks
+    # diversify away from sectors the permanent book already fills.
+    legacy_sectors = None
+    if LEGACY_HOLDINGS:
+        filtered = [t for t in filtered if t not in LEGACY_HOLDINGS]
+        if LEGACY_OCCUPIES_CAPS:
+            legacy_sectors = legacy_sector_counts(
+                (constraints or CONSTRAINTS).get("required_sectors"))
     final_picks = apply_rebalancing_band(
         filtered,
         latest_df[latest_df["ticker"].isin(filtered)]["score"].tolist(),
         current_holdings or [],
-        constraints=constraints
+        constraints=constraints,
+        legacy_sectors=legacy_sectors,
     )
 
     # Position sizing: equal weight matches backtest assumptions and maximises IR

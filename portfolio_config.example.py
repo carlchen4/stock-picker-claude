@@ -63,3 +63,9 @@ LEGACY_HOLDINGS = {
     # "KO":     {"shares": 7,   "cost": 60.00,  "sector": "ConsumerStaples"},
     # "VFV.TO": {"shares": 27,  "cost": 165.00, "sector": "ETF"},  # S&P 500 ETF
 }
+
+# When True, legacy holdings occupy per-sector caps so the active picks
+# DIVERSIFY AWAY from sectors you already hold heavily (e.g. won't pile more
+# Financials on top of a big bank legacy). When False, legacy only counts
+# toward weights (active picks ignore it → combined book can over-concentrate).
+LEGACY_OCCUPIES_CAPS = True
