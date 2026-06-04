@@ -624,8 +624,11 @@ public dashboard, and intraday cron untouched). Config in the gitignored
 
 **Legacy sleeve (`LEGACY_HOLDINGS`)** — positions the user holds and prefers to
 keep, folded into the monthly report's weights:
-- Default KEEP at real market-value weight; active picks split the remainder.
-  USD positions → CAD via live `usdcad_rate()` (`CAD=X`). `portfolio_value` is CAD.
+- Config records the stable facts — `{shares, cost, currency?, sector?}`;
+  current value & weight = `shares × live price` (`legacy_price()`), cost gives
+  per-position unrealized P&L in the report. Default KEEP at that weight; active
+  picks split the remainder. USD→CAD via live `usdcad_rate()` (`CAD=X`); currency
+  inferred from ticker (.TO→CAD). `portfolio_value` is CAD.
 - Sticky-but-sellable: each picker advises **SELL?** only for legacy names *its*
   model scores — `split_legacy()` keys on the active `TSX_UNIVERSE`, so picker.py
   judges TSX legacy and picker_us.py judges US legacy; the rest are **carry-only**

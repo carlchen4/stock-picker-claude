@@ -38,22 +38,28 @@ CURRENT_HOLDINGS = [
 # legacy. Names neither model covers (other US names, ETFs) are carry-only:
 # held, weighted, never flagged to sell.
 #
-#   value    = market value of the position (in the currency below).
-#   currency = "CAD" (default) or "USD". USD is converted to CAD via live
+#   shares   = number of shares held (quantity).
+#   cost     = average buy price per share (cost basis). Used for the
+#              unrealized P&L shown in the report; current market value /
+#              weight come from shares x LIVE price (fetched automatically).
+#   currency = "CAD" or "USD". OPTIONAL — inferred from the ticker (".TO"/".V"
+#              -> CAD, else USD). USD positions are converted to CAD via live
 #              USDCAD so combined weights are apples-to-apples.
 #   sector   = OPTIONAL. Auto from STOCK_PROFILE for names the model tracks;
 #              REQUIRED for untracked names (US singles, ETFs) for sector mix.
 #
+# (A position's current value = shares x live price; you record only the
+#  stable facts — quantity and what you paid.)
+#
 # Leave empty for no legacy sleeve (behaves exactly as before).
 LEGACY_HOLDINGS = {
     # --- TSX (CA picker scores these -> can advise SELL) ---
-    # "CM.TO":  {"value": 43288},                  # sector auto (Financials)
-    # "RY.TO":  {"value": 6645},
-    # "AEM.TO": {"value": 2000},
+    # "CM.TO":  {"shares": 290, "cost": 145.00},                 # sector auto (Financials)
+    # "RY.TO":  {"shares": 25,  "cost": 240.00},
     # --- US (US picker scores these -> can advise SELL) ---
-    # "MSFT":   {"value": 5139, "currency": "USD", "sector": "Cloud"},
-    # "NVDA":   {"value": 1281, "currency": "USD", "sector": "Semiconductors"},
+    # "MSFT":   {"shares": 12,  "cost": 418.00, "sector": "Cloud"},
+    # "NVDA":   {"shares": 6,   "cost": 150.00, "sector": "Semiconductors"},
     # --- carry-only (neither model scores -> held, never sold) ---
-    # "KO":     {"value": 554,  "currency": "USD", "sector": "ConsumerStaples"},
-    # "VFV.TO": {"value": 5039, "sector": "ETF"},  # S&P 500 ETF
+    # "KO":     {"shares": 7,   "cost": 60.00,  "sector": "ConsumerStaples"},
+    # "VFV.TO": {"shares": 27,  "cost": 165.00, "sector": "ETF"},  # S&P 500 ETF
 }

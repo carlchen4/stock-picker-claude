@@ -92,13 +92,53 @@ def usdcad_rate():
     return _USDCAD_CACHE["rate"]
 
 
-def legacy_value_cad(ticker, meta=None):
-    """CAD market value of a legacy position (converts USD via live USDCAD)."""
+def legacy_currency(ticker, meta=None):
+    """Currency of a legacy position: explicit override → inferred from ticker
+    (.TO/.V/.CN = CAD, else USD)."""
     meta = meta or LEGACY_HOLDINGS.get(ticker) or {}
-    val = float(meta.get("value", 0) or 0)
-    if str(meta.get("currency", "CAD")).upper() == "USD":
-        val *= usdcad_rate()
-    return val
+    if meta.get("currency"):
+        return str(meta["currency"]).upper()
+    return "CAD" if ticker.upper().endswith((".TO", ".V", ".CN")) else "USD"
+
+
+_LEGACY_PRICE_CACHE = {}
+
+def legacy_price(ticker):
+    """Live last close for a legacy ticker (native currency), cached. None if
+    unavailable (e.g. odd ticker)."""
+    if ticker not in _LEGACY_PRICE_CACHE:
+        px = None
+        try:
+            h = yf.Ticker(ticker).history(period="5d")
+            if h is not None and len(h):
+                px = float(h["Close"].dropna().iloc[-1])
+        except Exception:
+            px = None
+        _LEGACY_PRICE_CACHE[ticker] = px
+    return _LEGACY_PRICE_CACHE[ticker]
+
+
+def legacy_value_cad(ticker, meta=None):
+    """CAD market value = shares × live price (USD→CAD via USDCAD). Falls back
+    to shares × cost if the live price is unavailable; or to an explicit
+    "value" field for backward compatibility."""
+    meta = meta or LEGACY_HOLDINGS.get(ticker) or {}
+    fx = usdcad_rate() if legacy_currency(ticker, meta) == "USD" else 1.0
+    if meta.get("shares") is not None:
+        px = legacy_price(ticker)
+        if px is None:
+            px = float(meta.get("cost", 0) or 0)  # fallback: cost basis
+        return float(meta["shares"]) * px * fx
+    return float(meta.get("value", 0) or 0) * fx  # back-compat
+
+
+def legacy_unrealized(ticker, meta=None):
+    """Unrealized return (price/cost − 1) for a legacy position, or None."""
+    meta = meta or LEGACY_HOLDINGS.get(ticker) or {}
+    cost, px = meta.get("cost"), legacy_price(ticker)
+    if cost and px and float(cost) > 0:
+        return px / float(cost) - 1.0
+    return None
 
 
 def split_legacy(universe=None):
@@ -3450,7 +3490,8 @@ def compose_portfolio(active_picks, active_weights, legacy, portfolio_value,
     if not portfolio_value or portfolio_value <= 0:
         for t in legacy:
             legacy_info[t] = {"weight": None, "value_cad": vals[t],
-                              "sector": legacy_sector(t), "flag": _flag(t)}
+                              "sector": legacy_sector(t), "flag": _flag(t),
+                              "unreal": legacy_unrealized(t)}
         return dict(active_weights), legacy_info, None
 
     legacy_total_w = min(total_legacy_val / portfolio_value, 1.0)
@@ -3465,7 +3506,8 @@ def compose_portfolio(active_picks, active_weights, legacy, portfolio_value,
         w = (v / total_legacy_val) if (warning and total_legacy_val) else (v / portfolio_value)
         combined[t] = w
         legacy_info[t] = {"weight": w, "value_cad": v,
-                          "sector": legacy_sector(t), "flag": _flag(t)}
+                          "sector": legacy_sector(t), "flag": _flag(t),
+                          "unreal": legacy_unrealized(t)}
 
     remaining = max(0.0, 1.0 - legacy_total_w)
     if remaining > 0:
@@ -3547,10 +3589,12 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
             wv = m.get("weight")
             wtxt = f"{wv:.1%}" if wv is not None else "—"
             dtxt = f"  ${m['value_cad']:,.0f}" if m.get("value_cad") else ""
+            ur = m.get("unreal")
+            urtxt = f"  P&L {ur:+.0%}" if ur is not None else ""
             flag = m.get("flag", "carry")
             tag = ("⚠️ SELL?" if flag == "SELL?" else
                    "HOLD" if flag == "HOLD" else "carry (not modeled)")
-            lines.append(f"  {t:<10} {m.get('sector','?'):<14} {wtxt}{dtxt}   {tag}")
+            lines.append(f"  {t:<10} {m.get('sector','?'):<14} {wtxt}{dtxt}{urtxt}   {tag}")
         sells = [t for t, m in legacy.items() if m.get("flag") == "SELL?"]
         if sells:
             lines.append(f"  ⚠️  Model is bearish on legacy: {', '.join(sells)} "
