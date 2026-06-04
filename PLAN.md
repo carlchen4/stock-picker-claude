@@ -635,7 +635,10 @@ keep, folded into the monthly report's weights:
   (held, weighted, never flagged). `legacy_sell_advisory()` flags SELL? when a
   name's model score is in the bottom tertile.
 - Legacy excluded from the active candidate pool (no duplicate buys). Combined
-  sector exposure is shown but **not** cap-enforced (user chose weight-only).
+  sector exposure is shown; `LEGACY_OCCUPIES_CAPS` (default on) seeds
+  `apply_rebalancing_band`'s per-sector counts so active picks **diversify away**
+  from sectors the permanent book already fills (demo: combined Financials
+  46.9%→41.7%, active sleeve drops all Financials). Off → weight-only.
 - Helpers: `legacy_sector/legacy_value_cad/split_legacy/legacy_sell_advisory/
   compose_portfolio`. Report via the new `legacy=` arg on `_format_report`.
 
