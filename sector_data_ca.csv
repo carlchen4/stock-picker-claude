@@ -8,10 +8,10 @@ H.TO,Hydro One,Utilities,rate_base_cagr,6.0,%,higher_better,2023-2027,hydroone F
 EMA.TO,Emera,Utilities,rate_base_cagr,7.1,%,higher_better,2023-2029,emera FY2025,20B plan 2026-30; ~80% Florida; US arm 8.6% CAGR
 AQN.TO,Algonquin,Utilities,rate_base_cagr,5.5,%,higher_better,2025-2028,algonquin FY2025,post renewable-sale pure-regulated; earned ROE 6.8% (was 5.5%)
 TRP.TO,TC Energy,Energy,pct_contracted,98,%,higher_better,FY2025,tcenergy FY2025,comparable EBITDA rate-regulated or long-term take-or-pay
-ENB.TO,Enbridge,Energy,pct_contracted,98,%,higher_better,FY2025,enbridge,VERIFY - long-standing ~98% cost-of-service/take-or-pay disclosure; FY2025 exact not re-confirmed
+ENB.TO,Enbridge,Energy,pct_contracted,98,%,higher_better,FY2025,enbridge,co. standard disclosure ~98% cost-of-service/take-or-pay; exact FY2025 line not in filings search
 CNQ.TO,Canadian Natural,Energy,wti_breakeven,43,USD/bbl,lower_better,2025,cnq FY2025,low-to-mid 40s incl maintenance capex + dividend
 SU.TO,Suncor,Energy,wti_breakeven,42,USD/bbl,lower_better,2025,suncor FY2025,40-45 incl opcost + dividend + sustaining capex
-CVE.TO,Cenovus,Energy,wti_breakeven,,USD/bbl,lower_better,,,VERIFY - not pulled this pass
-ARX.TO,ARC Resources,Energy,wti_breakeven,,USD/bbl,lower_better,,,VERIFY - gas-weighted; AECO/gas breakeven more relevant than WTI
-TOU.TO,Tourmaline,Energy,wti_breakeven,,USD/bbl,lower_better,,,VERIFY - gas-weighted; use AECO breakeven
-IMO.TO,Imperial Oil,Energy,wti_breakeven,,USD/bbl,lower_better,,,VERIFY - not pulled this pass
+CVE.TO,Cenovus,Energy,wti_breakeven,45,USD/bbl,lower_better,2025,cenovus FY2025,sustains business + dividend at US$45 WTI
+IMO.TO,Imperial Oil,Energy,wti_breakeven,42,USD/bbl,lower_better,2025,BMO oil-sands analysis,oil-sands majors break even incl dividend at WTI 40.85-43.10
+ARX.TO,ARC Resources,Energy,,,,,2025,n/a,gas-weighted - WTI breakeven N/A; very low-cost gas producer (judge on AECO not WTI)
+TOU.TO,Tourmaline,Energy,,,,,2025,n/a,gas-weighted - WTI breakeven N/A; among lowest-cost gas producers (AECO LT plan ~4.08/mcf)

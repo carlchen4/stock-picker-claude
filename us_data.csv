@@ -1,0 +1,4 @@
+ticker,kpi,value,unit,asof,source,note
+SNOW,nrr,125,%,Q3-FY2026,snowflake,net revenue retention (as of Oct 2025)
+NET,nrr,120,%,Q4-2025,cloudflare,dollar-based net retention
+PLTR,nrr,139,%,Q4-2025,palantir,net dollar retention

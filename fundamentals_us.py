@@ -101,11 +101,21 @@ def main():
     cloud["FCFm"] = cloud["FCF"] / cloud["Rev"]
     cloud["Rule40"] = (cloud["RevGr"].astype(float) + cloud["FCFm"]) * 100
     cloud["Pass"] = np.where(cloud["Rule40"] >= 40, "PASS", "fail")
+    # HAND layer: net revenue retention (us_data.csv) — a SaaS-only metric
+    # yfinance can't give; hyperscalers/networking don't report it (shown "—").
+    nrr = {}
+    try:
+        hd = pd.read_csv("us_data.csv")
+        nrr = dict(zip(hd[hd["kpi"] == "nrr"]["ticker"],
+                       hd[hd["kpi"] == "nrr"]["value"]))
+    except FileNotFoundError:
+        pass
+    cloud["NRR%"] = [f"{nrr[t]:.0f}" if t in nrr else "—" for t in cloud.index]
     cloud = cloud.sort_values("Rule40", ascending=False)
     cloud["RevGr%"] = (cloud["RevGr"].astype(float)*100).round(0)
     cloud["FCFm%"]  = (cloud["FCFm"]*100).round(0)
-    print(f"\n{'─'*72}\n  CLOUD — Rule of 40  (rev growth% + FCF margin% >= 40 healthy)\n{'─'*72}")
-    print(cloud[["Name","RevGr%","FCFm%","Rule40","Pass"]].round({"Rule40":0}).to_string())
+    print(f"\n{'─'*72}\n  CLOUD — Rule of 40 (rev growth%+FCF margin%>=40) + NRR (net rev retention)\n{'─'*72}")
+    print(cloud[["Name","RevGr%","FCFm%","Rule40","Pass","NRR%"]].round({"Rule40":0}).to_string())
 
     out.to_csv("fundamentals_us.csv")
     print(f"\n  Saved -> fundamentals_us.csv\n")
