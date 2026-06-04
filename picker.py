@@ -39,6 +39,99 @@ try:
 except ImportError:
     CURRENT_HOLDINGS = []
 
+try:
+    # Legacy / permanent positions (never sold) — a fixed weight sleeve folded
+    # into the monthly portfolio. See portfolio_config.example.py for the shape:
+    # {ticker: {"value": cad, "sector": optional}}.
+    from portfolio_config import LEGACY_HOLDINGS
+except ImportError:
+    LEGACY_HOLDINGS = {}
+
+# Profit-taking trigger: when the strategy's trailing-12m realized return
+# (from picks_log) reaches PROFIT_TAKE_THRESHOLD, the monthly report raises a
+# DE-RISK alert recommending you trim every position (active + legacy) down to
+# PROFIT_TAKE_TARGET_INVESTED of capital (rest to cash). Advisory only — it
+# does not auto-change picks. Override either in portfolio_config.py.
+try:
+    from portfolio_config import PROFIT_TAKE_THRESHOLD
+except ImportError:
+    PROFIT_TAKE_THRESHOLD = 0.30
+try:
+    from portfolio_config import PROFIT_TAKE_TARGET_INVESTED
+except ImportError:
+    PROFIT_TAKE_TARGET_INVESTED = 0.30
+
+
+def legacy_sector(ticker):
+    """Sector for a legacy ticker: manual override → STOCK_PROFILE → 'Other'.
+
+    Out-of-universe legacy names (untracked TSX, US) won't be in STOCK_PROFILE,
+    so a manual "sector" in LEGACY_HOLDINGS is needed for combined exposure.
+    """
+    meta = LEGACY_HOLDINGS.get(ticker) or {}
+    if meta.get("sector"):
+        return meta["sector"]
+    if ticker in STOCK_PROFILE:
+        return STOCK_PROFILE[ticker][0]
+    return "Other"
+
+
+_USDCAD_CACHE = {}
+
+def usdcad_rate():
+    """Live USD→CAD rate (CAD per 1 USD), cached per process. Fallback 1.38."""
+    if "rate" not in _USDCAD_CACHE:
+        rate = None
+        try:
+            h = yf.Ticker("CAD=X").history(period="5d")  # CAD=X = USD/CAD
+            if h is not None and len(h):
+                rate = float(h["Close"].dropna().iloc[-1])
+        except Exception:
+            rate = None
+        _USDCAD_CACHE["rate"] = rate if (rate and rate > 0) else 1.38
+    return _USDCAD_CACHE["rate"]
+
+
+def legacy_value_cad(ticker, meta=None):
+    """CAD market value of a legacy position (converts USD via live USDCAD)."""
+    meta = meta or LEGACY_HOLDINGS.get(ticker) or {}
+    val = float(meta.get("value", 0) or 0)
+    if str(meta.get("currency", "CAD")).upper() == "USD":
+        val *= usdcad_rate()
+    return val
+
+
+def split_legacy(universe=None):
+    """Split LEGACY_HOLDINGS by whether the ACTIVE model scores them.
+
+    `scored` = legacy names in the current universe (this picker's model can
+    judge them → eligible for a SELL advisory). `carry` = everything else
+    (held + weighted, never flagged to sell). Keyed on TSX_UNIVERSE, which
+    picker_us.py overrides to the US names — so each picker judges its own.
+    """
+    uni = set(universe if universe is not None else TSX_UNIVERSE)
+    scored = {t for t in LEGACY_HOLDINGS if t in uni}
+    carry = {t for t in LEGACY_HOLDINGS if t not in uni}
+    return scored, carry
+
+
+def legacy_sell_advisory(latest_df, scored, bottom_pctile=0.33):
+    """For each scored legacy name, flag SELL? if its model score is in the
+    bottom tertile of the universe, else HOLD. Returns {ticker: (flag, pctile)}.
+    """
+    out = {}
+    if latest_df is None or len(latest_df) == 0 or not scored:
+        return out
+    sc = latest_df.set_index("ticker")["score"]
+    ranks = sc.rank(pct=True)  # higher pct = better score
+    for t in scored:
+        if t in ranks.index:
+            p = float(ranks[t])
+            out[t] = ("SELL?" if p < bottom_pctile else "HOLD", p)
+        else:
+            out[t] = ("HOLD", None)  # in universe set but no score this run
+    return out
+
 # When True, replace mom_{1,3,6,12}m features with 2 PCA components.
 # Set False to keep the raw momentum features (the original baseline).
 USE_MOMENTUM_PCA = True
@@ -3110,6 +3203,45 @@ def oos_track_record(path=None):
     return lines
 
 
+def strategy_trailing_return(months=12, path=None):
+    """Compound the strategy's last `months` realized monthly OOS returns.
+
+    Uses the same weight-weighted monthly return as oos_track_record (picks_log
+    fwd_realized). Returns (cum_return, n_months_used) or (None, 0) if no
+    matured data yet. n < months means it compounds whatever is available.
+    """
+    if path is None:
+        path = PICKS_LOG_FILE
+    if not os.path.exists(path):
+        return None, 0
+    try:
+        log = pd.read_csv(path, parse_dates=["as_of"])
+    except Exception:
+        return None, 0
+    picks_f = log.dropna(subset=["fwd_realized"])
+    picks_f = picks_f[picks_f["weight"] > 0]
+    if picks_f.empty:
+        return None, 0
+    port = picks_f.groupby("as_of").apply(
+        lambda g: (g["weight"] * g["fwd_realized"]).sum() / g["weight"].sum())
+    port = port.sort_index().tail(months)
+    if port.empty:
+        return None, 0
+    return float((1 + port).prod() - 1), len(port)
+
+
+def profit_take_status():
+    """Check the profit-taking trigger against the strategy trailing-12m return.
+
+    Returns {triggered, trailing, n, threshold, target} or None if no data.
+    """
+    cum, n = strategy_trailing_return(12)
+    if cum is None:
+        return None
+    return {"triggered": cum >= PROFIT_TAKE_THRESHOLD, "trailing": cum, "n": n,
+            "threshold": PROFIT_TAKE_THRESHOLD, "target": PROFIT_TAKE_TARGET_INVESTED}
+
+
 def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     """Generate current month stock picks."""
     panel = panel.sort_values("date")
@@ -3190,6 +3322,13 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     # Sort and filter
     latest_df = latest_df.sort_values("score", ascending=False)
     candidates = latest_df["ticker"].tolist()
+
+    # Legacy positions are already held — drop them from the active candidate
+    # pool so the picks are NEW names, not duplicates. They stay in latest_df
+    # so their model score is still available for the sell advisory.
+    if LEGACY_HOLDINGS:
+        _legacy = set(LEGACY_HOLDINGS)
+        candidates = [t for t in candidates if t not in _legacy]
 
     # Month-over-month rank changes vs the saved history (Step 8). Compute
     # BEFORE saving this month so the diff is against last month.
@@ -3279,6 +3418,62 @@ def diff_holdings(picks, holdings):
     return sell, buy, hold
 
 
+def compose_portfolio(active_picks, active_weights, legacy, portfolio_value,
+                      advisory=None):
+    """Fold the sticky legacy sleeve into the active picks' weights.
+
+    Legacy positions sit at their real CAD market-value weights (USD converted
+    via live USDCAD); the active picks (equal-weighted to sum 1.0 within their
+    sleeve) are scaled into whatever capital remains. `portfolio_value` is CAD.
+
+    Returns (combined_weights, legacy_info, warning):
+      combined_weights : {ticker: weight} for legacy + active, summing to ~1.0
+      legacy_info      : {ticker: {"weight","value_cad","sector","flag"}}
+                         flag = "SELL?"/"HOLD" for model-scored legacy, else
+                         "carry" (neither model judges it).
+      warning          : str if legacy >= portfolio value, else None
+    """
+    legacy = legacy or {}
+    advisory = advisory or {}
+    legacy_info, warning = {}, None
+    if not legacy:
+        return dict(active_weights), {}, None
+
+    def _flag(t):
+        return advisory[t][0] if t in advisory else "carry"
+
+    vals = {t: legacy_value_cad(t, m) for t, m in legacy.items()}
+    total_legacy_val = sum(vals.values())
+
+    # Without a portfolio value we can't turn $ into weights — list legacy
+    # un-weighted and leave the active sleeve as-is.
+    if not portfolio_value or portfolio_value <= 0:
+        for t in legacy:
+            legacy_info[t] = {"weight": None, "value_cad": vals[t],
+                              "sector": legacy_sector(t), "flag": _flag(t)}
+        return dict(active_weights), legacy_info, None
+
+    legacy_total_w = min(total_legacy_val / portfolio_value, 1.0)
+    if total_legacy_val >= portfolio_value:
+        warning = (f"legacy value ${total_legacy_val:,.0f} CAD >= portfolio "
+                   f"${portfolio_value:,.0f} — no room for active picks; "
+                   f"legacy weights scaled to 100%.")
+
+    combined = {}
+    for t in legacy:
+        v = vals[t]
+        w = (v / total_legacy_val) if (warning and total_legacy_val) else (v / portfolio_value)
+        combined[t] = w
+        legacy_info[t] = {"weight": w, "value_cad": v,
+                          "sector": legacy_sector(t), "flag": _flag(t)}
+
+    remaining = max(0.0, 1.0 - legacy_total_w)
+    if remaining > 0:
+        for t, w in (active_weights or {}).items():
+            combined[t] = w * remaining
+    return combined, legacy_info, warning
+
+
 def _health_summary(checks):
     """One-line reliability verdict, naming each failed check + its detail."""
     if not checks:
@@ -3296,7 +3491,8 @@ def _health_summary(checks):
 def _format_report(picks, weights, panel_latest, top_features, regime,
                    checks=None, holdings=None, shap_by_ticker=None,
                    te_estimate=None, portfolio_value=0.0, prices=None,
-                   analyst_summaries=None, news_summaries=None):
+                   analyst_summaries=None, news_summaries=None, legacy=None,
+                   profit_take=None):
     """Build the shared monthly report body as a list of lines.
 
     Same content for stdout (print_picks) and email (build_report_text):
@@ -3312,6 +3508,21 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
     if hs:
         lines.append(f"Signal reliability: {hs}")
     lines.append("=" * 60)
+
+    if profit_take and profit_take.get("triggered"):
+        tr, thr = profit_take["trailing"], profit_take["threshold"]
+        tgt = profit_take["target"]
+        lines += [
+            "",
+            f"🎯 PROFIT-TAKING TRIGGERED — strategy trailing-12m {tr:+.1%} "
+            f"≥ {thr:.0%} ({profit_take['n']} mo).",
+            f"   Recommend DE-RISKING to {tgt:.0%} invested (raise ~{1-tgt:.0%} "
+            f"cash): trim EVERY position below — active picks AND legacy — to "
+            f"{tgt:.0%} of its shown weight. (Advisory; your call.)",
+        ]
+    elif profit_take and profit_take.get("trailing") is not None:
+        lines.append(f"Profit-take watch: trailing-12m {profit_take['trailing']:+.1%} "
+                     f"(trigger at {profit_take['threshold']:.0%}).")
 
     sell, buy, hold = diff_holdings(picks, holdings)
     bw = ", ".join(f"{t} {weights.get(t, 0):.0%}" for t in buy)
@@ -3330,7 +3541,23 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
             f"  BUY all ({len(buy)}): {bw}",
         ]
 
-    lines += ["", "Target portfolio:"]
+    if legacy:
+        lines += ["", "LEGACY (sticky — kept unless the model flags SELL?):"]
+        for t, m in legacy.items():
+            wv = m.get("weight")
+            wtxt = f"{wv:.1%}" if wv is not None else "—"
+            dtxt = f"  ${m['value_cad']:,.0f}" if m.get("value_cad") else ""
+            flag = m.get("flag", "carry")
+            tag = ("⚠️ SELL?" if flag == "SELL?" else
+                   "HOLD" if flag == "HOLD" else "carry (not modeled)")
+            lines.append(f"  {t:<10} {m.get('sector','?'):<14} {wtxt}{dtxt}   {tag}")
+        sells = [t for t, m in legacy.items() if m.get("flag") == "SELL?"]
+        if sells:
+            lines.append(f"  ⚠️  Model is bearish on legacy: {', '.join(sells)} "
+                         f"— consider trimming/selling (your call).")
+        lines.append("  (active picks below are sized in the remaining capital)")
+
+    lines += ["", "Target portfolio (active picks):"]
     for i, ticker in enumerate(picks, 1):
         w = weights.get(ticker, 0)
         profile = STOCK_PROFILE.get(ticker, ("?", "?", "?"))
@@ -3390,6 +3617,23 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
         lines.append(f"  Est. Tracking Error: {te_estimate:.1%}/yr  "
                      f"({'high' if te_estimate > 0.12 else 'normal' if te_estimate > 0.07 else 'low'})")
 
+    if legacy:
+        # Combined sector exposure across legacy + active picks. Informational
+        # only — legacy does not consume sector caps, so this surfaces any
+        # over-concentration from layering the permanent sleeve on top.
+        sector_w = {}
+        for t, m in legacy.items():
+            if m.get("weight") is not None:
+                sector_w[m.get("sector", "Other")] = \
+                    sector_w.get(m.get("sector", "Other"), 0) + m["weight"]
+        for t in picks:
+            sec = STOCK_PROFILE.get(t, ("Other",))[0]
+            sector_w[sec] = sector_w.get(sec, 0) + weights.get(t, 0)
+        if sector_w:
+            lines += ["", "Combined sector exposure (legacy + active):"]
+            for sec, w in sorted(sector_w.items(), key=lambda x: -x[1]):
+                lines.append(f"  {sec:<16} {w:.1%}")
+
     lines += ["", "Top Features:"]
     for feat, imp in top_features:
         lines.append(f"  {feat:<20} {imp:.4f}")
@@ -3403,14 +3647,16 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
 def print_picks(picks, weights, panel_latest, top_features, regime,
                 checks=None, holdings=None, shap_by_ticker=None,
                 te_estimate=None, portfolio_value=0.0, prices=None,
-                analyst_summaries=None, news_summaries=None):
+                analyst_summaries=None, news_summaries=None, legacy=None,
+                profit_take=None):
     """Print the actionable monthly report to stdout."""
     lines = _format_report(picks, weights, panel_latest, top_features,
                            regime, checks, holdings, shap_by_ticker,
                            te_estimate=te_estimate,
                            portfolio_value=portfolio_value, prices=prices,
                            analyst_summaries=analyst_summaries,
-                           news_summaries=news_summaries)
+                           news_summaries=news_summaries, legacy=legacy,
+                           profit_take=profit_take)
     print("\n" + "═" * 60)
     for ln in lines:
         print(f"  {ln}" if ln else "")
@@ -3420,14 +3666,16 @@ def print_picks(picks, weights, panel_latest, top_features, regime,
 def build_report_text(picks, weights, panel_latest, top_features, regime,
                       checks=None, holdings=None, shap_by_ticker=None,
                       te_estimate=None, portfolio_value=0.0, prices=None,
-                      analyst_summaries=None, news_summaries=None):
+                      analyst_summaries=None, news_summaries=None, legacy=None,
+                      profit_take=None):
     """Plain-text actionable monthly report for emailing."""
     lines = _format_report(picks, weights, panel_latest,
                            top_features, regime, checks, holdings, shap_by_ticker,
                            te_estimate=te_estimate,
                            portfolio_value=portfolio_value, prices=prices,
                            analyst_summaries=analyst_summaries,
-                           news_summaries=news_summaries)
+                           news_summaries=news_summaries, legacy=legacy,
+                           profit_take=profit_take)
     lines += ["", f"Live dashboard: {DASHBOARD_URL}"]
     return "\n".join(lines)
 
@@ -5428,6 +5676,28 @@ def main():
                 if close is not None and len(close) > 0:
                     prices[t] = float(close.iloc[-1])
 
+            # Fold the sticky legacy sleeve into combined weights for the
+            # personal report (stdout + email). The public dashboard/html stay
+            # on active-only weights — legacy is private (gitignored config).
+            scored_leg, carry_leg = split_legacy()
+            legacy_advisory = legacy_sell_advisory(latest_df, scored_leg)
+            combined_weights, legacy_info, legacy_warn = compose_portfolio(
+                picks, weights, LEGACY_HOLDINGS, portfolio_value,
+                advisory=legacy_advisory)
+            if legacy_warn:
+                print(f"  ⚠️  {legacy_warn}")
+            elif legacy_info:
+                sells = [t for t, (f, _) in legacy_advisory.items() if f == "SELL?"]
+                print(f"  Legacy sleeve: {len(legacy_info)} positions "
+                      f"({len(scored_leg)} modeled, {len(carry_leg)} carry)"
+                      + (f" — model flags SELL?: {', '.join(sells)}" if sells else ""))
+
+            # Profit-taking trigger (strategy trailing-12m vs threshold).
+            profit_take = profit_take_status()
+            if profit_take and profit_take.get("triggered"):
+                print(f"  🎯 PROFIT-TAKING: trailing-12m {profit_take['trailing']:+.1%} "
+                      f">= {profit_take['threshold']:.0%} — de-risk alert in report")
+
             print("  Fetching analyst signals for picks...")
             analyst_summaries = fetch_all_analyst_summaries(picks)
 
@@ -5436,15 +5706,17 @@ def main():
                 print("  Fetching Alpha Vantage news sentiment (25/day budget)...")
                 news_summaries = fetch_all_news_sentiment(picks)
 
-            print_picks(picks, weights, latest_df, top_features, regime, checks, holdings, shap_vals,
+            print_picks(picks, combined_weights, latest_df, top_features, regime, checks, holdings, shap_vals,
                         te_estimate=te_est, portfolio_value=portfolio_value, prices=prices,
-                        analyst_summaries=analyst_summaries, news_summaries=news_summaries)
-            report = build_report_text(picks, weights, latest_df, top_features,
+                        analyst_summaries=analyst_summaries, news_summaries=news_summaries,
+                        legacy=legacy_info, profit_take=profit_take)
+            report = build_report_text(picks, combined_weights, latest_df, top_features,
                                        regime, checks, holdings, shap_vals,
                                        te_estimate=te_est,
                                        portfolio_value=portfolio_value, prices=prices,
                                        analyst_summaries=analyst_summaries,
-                                       news_summaries=news_summaries)
+                                       news_summaries=news_summaries, legacy=legacy_info,
+                                       profit_take=profit_take)
             html_report = build_report_html(picks, weights, latest_df, top_features,
                                             regime, checks, holdings, shap_vals,
                                             portfolio_value=portfolio_value, prices=prices,
