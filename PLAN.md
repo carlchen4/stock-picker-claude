@@ -629,18 +629,27 @@ keep, folded into the monthly report's weights:
   per-position unrealized P&L in the report. Default KEEP at that weight; active
   picks split the remainder. USD→CAD via live `usdcad_rate()` (`CAD=X`); currency
   inferred from ticker (.TO→CAD). `portfolio_value` is CAD.
-- Sticky-but-sellable: each picker advises **SELL?** only for legacy names *its*
-  model scores — `split_legacy()` keys on the active `TSX_UNIVERSE`, so picker.py
-  judges TSX legacy and picker_us.py judges US legacy; the rest are **carry-only**
-  (held, weighted, never flagged). `legacy_sell_advisory()` flags SELL? when a
-  name's model score is in the bottom tertile.
-- Legacy excluded from the active candidate pool (no duplicate buys). Combined
-  sector exposure is shown; `LEGACY_OCCUPIES_CAPS` (default on) seeds
-  `apply_rebalancing_band`'s per-sector counts so active picks **diversify away**
-  from sectors the permanent book already fills (demo: combined Financials
-  46.9%→41.7%, active sleeve drops all Financials). Off → weight-only.
-- Helpers: `legacy_sector/legacy_value_cad/split_legacy/legacy_sell_advisory/
-  compose_portfolio`. Report via the new `legacy=` arg on `_format_report`.
+- **Display-only by default — legacy does NOT affect the monthly picks** (user:
+  "不想影响每月决策"). The model recommends purely on merit; legacy is shown
+  alongside. If a pick happens to be a legacy name it's annotated "already held
+  as legacy — model concurs" (not hidden).
+- **Long-term holds, not sold by default.** `LEGACY_SELL_ADVISORY` (default
+  **False**) → legacy always shows HOLD. Opt in (True) for a SELL? advisory on
+  the names *its* model scores (`split_legacy()` keys on the active
+  `TSX_UNIVERSE`; picker.py judges TSX legacy, picker_us.py judges US legacy;
+  bottom-tertile score → SELL?).
+- **Dividend & earnings calendar** (`legacy_calendar()` via yfinance `.calendar`):
+  a "Legacy income & events" section lists each hold's annual div, ex-dividend
+  date and next earnings date, sorted by nearest — for long-term-hold income/
+  event tracking.
+- `LEGACY_OCCUPIES_CAPS` (default **False**, opt-in): when True, legacy occupy
+  `apply_rebalancing_band` per-sector caps so active picks diversify away from
+  held sectors + skip duplicate buys (demo: combined Financials 46.9%→41.7%).
+- Privacy: legacy stays in the **email + terminal report only**, NOT the public
+  GitHub-Pages dashboard (it would expose real holdings/$).
+- Helpers: `legacy_sector/value_cad/price/calendar/unrealized/split_legacy/
+  sell_advisory/sector_counts`, `compose_portfolio`. Report via `legacy=` on
+  `_format_report`.
 
 **Profit-taking trigger (`PROFIT_TAKE_THRESHOLD`, default 0.30)** — when the
 strategy's trailing-12m realized return (`strategy_trailing_return()` from

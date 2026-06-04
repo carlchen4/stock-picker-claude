@@ -64,8 +64,14 @@ LEGACY_HOLDINGS = {
     # "VFV.TO": {"shares": 27,  "cost": 165.00, "sector": "ETF"},  # S&P 500 ETF
 }
 
-# When True, legacy holdings occupy per-sector caps so the active picks
-# DIVERSIFY AWAY from sectors you already hold heavily (e.g. won't pile more
-# Financials on top of a big bank legacy). When False, legacy only counts
-# toward weights (active picks ignore it → combined book can over-concentrate).
-LEGACY_OCCUPIES_CAPS = True
+# Default False: legacy is DISPLAY-ONLY and does NOT affect the monthly picks
+# (the model recommends purely on merit; legacy is shown alongside with its
+# weight, P&L, and dividend/earnings dates). Set True to let legacy occupy
+# per-sector caps so active picks diversify AWAY from sectors you already hold
+# (and skip duplicate buys).
+LEGACY_OCCUPIES_CAPS = False
+
+# Legacy are long-term holds you don't want to sell, so by default they always
+# show HOLD and are never flagged to sell. Set True to opt into a SELL? advisory
+# when the model scores a legacy name in the bottom tertile (you still decide).
+LEGACY_SELL_ADVISORY = False

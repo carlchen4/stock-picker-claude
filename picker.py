@@ -61,14 +61,23 @@ try:
 except ImportError:
     PROFIT_TAKE_TARGET_INVESTED = 0.30
 
-# When True, legacy holdings occupy per-sector caps so the active picks
-# diversify AWAY from sectors you already hold (e.g. don't pile more Financials
-# on top of a big bank legacy). Only affects the live pick (legacy is live-only);
-# backtest is unchanged. Override in portfolio_config.py.
+# Default False: legacy is DISPLAY-ONLY and never affects the monthly picks.
+# Opt in (True) to let legacy occupy per-sector caps so the active picks
+# diversify AWAY from sectors you already hold (and skip duplicate buys). Live
+# pick only; backtest unchanged. Override in portfolio_config.py.
 try:
     from portfolio_config import LEGACY_OCCUPIES_CAPS
 except ImportError:
-    LEGACY_OCCUPIES_CAPS = True
+    LEGACY_OCCUPIES_CAPS = False
+
+# When True, the model may flag a legacy position SELL? if its score is in the
+# bottom tertile. Default False — legacy are long-term holds you don't want to
+# sell, so they always show HOLD. Set True to opt into "sell only when the
+# model is strongly bearish". Override in portfolio_config.py.
+try:
+    from portfolio_config import LEGACY_SELL_ADVISORY
+except ImportError:
+    LEGACY_SELL_ADVISORY = False
 
 
 def legacy_sector(ticker):
@@ -127,6 +136,35 @@ def legacy_price(ticker):
     return _LEGACY_PRICE_CACHE[ticker]
 
 
+_LEGACY_CAL_CACHE = {}
+
+def legacy_calendar(ticker):
+    """Next ex-dividend date, next earnings date, and annual dividend rate for a
+    legacy ticker — income/event tracking for long-term holds. Cached. Uses
+    yfinance .calendar (preferred) with .info epoch fallbacks."""
+    import datetime as _dt
+    if ticker in _LEGACY_CAL_CACHE:
+        return _LEGACY_CAL_CACHE[ticker]
+    out = {"ex_div": None, "earnings": None, "div_rate": None}
+    try:
+        tk = yf.Ticker(ticker)
+        cal = tk.calendar or {}
+        if isinstance(cal, dict):
+            out["ex_div"] = cal.get("Ex-Dividend Date")
+            ed = cal.get("Earnings Date")
+            out["earnings"] = ed[0] if isinstance(ed, (list, tuple)) and ed else ed
+        info = tk.info
+        out["div_rate"] = info.get("dividendRate")
+        if out["ex_div"] is None and info.get("exDividendDate"):
+            out["ex_div"] = _dt.datetime.utcfromtimestamp(info["exDividendDate"]).date()
+        if out["earnings"] is None and info.get("earningsTimestamp"):
+            out["earnings"] = _dt.datetime.utcfromtimestamp(info["earningsTimestamp"]).date()
+    except Exception:
+        pass
+    _LEGACY_CAL_CACHE[ticker] = out
+    return out
+
+
 def legacy_value_cad(ticker, meta=None):
     """CAD market value = shares × live price (USD→CAD via USDCAD). Falls back
     to shares × cost if the live price is unavailable; or to an explicit
@@ -178,21 +216,25 @@ def legacy_sector_counts(required_sectors=None):
     return counts
 
 
-def legacy_sell_advisory(latest_df, scored, bottom_pctile=0.33):
-    """For each scored legacy name, flag SELL? if its model score is in the
-    bottom tertile of the universe, else HOLD. Returns {ticker: (flag, pctile)}.
+def legacy_sell_advisory(latest_df, scored, bottom_pctile=0.33,
+                         enabled=None):
+    """For each scored legacy name, return (flag, pctile). When the advisory is
+    disabled (default — legacy are long-term holds) every name is HOLD; when
+    enabled, a name scoring in the bottom tertile is flagged SELL?.
     """
+    if enabled is None:
+        enabled = LEGACY_SELL_ADVISORY
     out = {}
     if latest_df is None or len(latest_df) == 0 or not scored:
         return out
     sc = latest_df.set_index("ticker")["score"]
     ranks = sc.rank(pct=True)  # higher pct = better score
     for t in scored:
-        if t in ranks.index:
-            p = float(ranks[t])
-            out[t] = ("SELL?" if p < bottom_pctile else "HOLD", p)
+        p = float(ranks[t]) if t in ranks.index else None
+        if enabled and p is not None and p < bottom_pctile:
+            out[t] = ("SELL?", p)
         else:
-            out[t] = ("HOLD", None)  # in universe set but no score this run
+            out[t] = ("HOLD", p)
     return out
 
 # When True, replace mom_{1,3,6,12}m features with 2 PCA components.
@@ -3420,15 +3462,15 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
         candidates, fund_df, price_df, mode="pick",
         current_holdings=current_holdings, constraints=constraints
     )
-    # Legacy positions are already held — exclude from active picks (no dup buys).
-    # When LEGACY_OCCUPIES_CAPS, pass their sector occupancy so active picks
-    # diversify away from sectors the permanent book already fills.
+    # By default legacy is DISPLAY-ONLY and does not affect selection at all —
+    # the monthly picks are the model's pure recommendation. Only when the
+    # opt-in LEGACY_OCCUPIES_CAPS is set do legacy positions steer the active
+    # picks (exclude duplicates + occupy sector caps so picks diversify away).
     legacy_sectors = None
-    if LEGACY_HOLDINGS:
+    if LEGACY_HOLDINGS and LEGACY_OCCUPIES_CAPS:
         filtered = [t for t in filtered if t not in LEGACY_HOLDINGS]
-        if LEGACY_OCCUPIES_CAPS:
-            legacy_sectors = legacy_sector_counts(
-                (constraints or CONSTRAINTS).get("required_sectors"))
+        legacy_sectors = legacy_sector_counts(
+            (constraints or CONSTRAINTS).get("required_sectors"))
     final_picks = apply_rebalancing_band(
         filtered,
         latest_df[latest_df["ticker"].isin(filtered)]["score"].tolist(),
@@ -3528,7 +3570,7 @@ def compose_portfolio(active_picks, active_weights, legacy, portfolio_value,
         for t in legacy:
             legacy_info[t] = {"weight": None, "value_cad": vals[t],
                               "sector": legacy_sector(t), "flag": _flag(t),
-                              "unreal": legacy_unrealized(t)}
+                              "unreal": legacy_unrealized(t), "cal": legacy_calendar(t)}
         return dict(active_weights), legacy_info, None
 
     legacy_total_w = min(total_legacy_val / portfolio_value, 1.0)
@@ -3544,7 +3586,7 @@ def compose_portfolio(active_picks, active_weights, legacy, portfolio_value,
         combined[t] = w
         legacy_info[t] = {"weight": w, "value_cad": v,
                           "sector": legacy_sector(t), "flag": _flag(t),
-                          "unreal": legacy_unrealized(t)}
+                          "unreal": legacy_unrealized(t), "cal": legacy_calendar(t)}
 
     remaining = max(0.0, 1.0 - legacy_total_w)
     if remaining > 0:
@@ -3621,7 +3663,7 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
         ]
 
     if legacy:
-        lines += ["", "LEGACY (sticky — kept unless the model flags SELL?):"]
+        lines += ["", "LEGACY (long-term holds — kept):"]
         for t, m in legacy.items():
             wv = m.get("weight")
             wtxt = f"{wv:.1%}" if wv is not None else "—"
@@ -3638,13 +3680,34 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
                          f"— consider trimming/selling (your call).")
         lines.append("  (active picks below are sized in the remaining capital)")
 
+        # Income & events for the long-term holds: upcoming ex-dividend +
+        # earnings dates, sorted by the nearest upcoming date.
+        def _d(x):
+            return x.isoformat() if hasattr(x, "isoformat") else (str(x) if x else None)
+        cal_rows = []
+        for t, m in legacy.items():
+            c = m.get("cal") or {}
+            exd, ern, rate = c.get("ex_div"), c.get("earnings"), c.get("div_rate")
+            if exd or ern:
+                nearest = min([d for d in (exd, ern) if d is not None], default=None)
+                cal_rows.append((nearest, t, exd, ern, rate))
+        if cal_rows:
+            cal_rows.sort(key=lambda r: (r[0] is None, r[0]))
+            lines += ["", "Legacy income & events (long-term holds):"]
+            for _, t, exd, ern, rate in cal_rows:
+                dv = f"div ${rate:.2f} ex {_d(exd)}" if (rate and exd) else (
+                     f"ex-div {_d(exd)}" if exd else "no dividend")
+                er = f"earnings {_d(ern)}" if ern else "earnings n/a"
+                lines.append(f"  {t:<10} {dv:<28} {er}")
+
     lines += ["", "Target portfolio (active picks):"]
     for i, ticker in enumerate(picks, 1):
         w = weights.get(ticker, 0)
         profile = STOCK_PROFILE.get(ticker, ("?", "?", "?"))
         row = panel_latest[panel_latest["ticker"] == ticker]
         score = row["score"].iloc[0] if len(row) > 0 else 0
-        lines.append(f"  {i}. {ticker:<10} {profile[0]:<14} {profile[1]:<8} Score: {score:.3f}")
+        held = "  (already held as legacy — model concurs)" if (legacy and ticker in legacy) else ""
+        lines.append(f"  {i}. {ticker:<10} {profile[0]:<14} {profile[1]:<8} Score: {score:.3f}{held}")
         if prices:
             price = prices.get(ticker)
             if price and price > 0:
