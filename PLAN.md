@@ -616,6 +616,38 @@ than chase more Sharpe.
 
 - **Macro / rate features — assessed, not expanding (2026-05-21)**: Asked whether to add macro/rate signals (interest rates etc.). The panel already carries 13 macro features incl. US 10Y (`rate_chg_3m`), the REAL BoC overnight rate via Valet API (`boc_rate_chg_3m`), a Canadian bond ETF (`cad_bond_mom_1m`), and inflation (`tips_mom_1m`) — rates are well covered. Decided NOT to add more, for a structural reason beyond the spec-coverage regression above: **a macro value is identical across all stocks within a month**, so it cannot discriminate *which* stock outperforms (a cross-sectional question) — it only moves timing / regime (time-series). The model's edge is cross-sectional selection (+10.6pp vs the random-score control), so extra macro is just cross-sectional noise — exactly why spec-coverage (incl. the yield-curve slope) regressed. Macro already contributes where it legitimately can: indirectly via `sector_code` splits (rates→banks/utilities, oil→energy), per the per-sector spec. Deeper "real" macro (BoC 2y/10y curve, FRED CPI, IG OAS) would hit the same cross-sectional wall.
 
+### 2026-06-03 — legacy holdings sleeve + profit-taking trigger (live-only)
+
+Two personal-portfolio features (live `pick` report only — backtest, model,
+public dashboard, and intraday cron untouched). Config in the gitignored
+`portfolio_config.py` (see `.example`).
+
+**Legacy sleeve (`LEGACY_HOLDINGS`)** — positions the user holds and prefers to
+keep, folded into the monthly report's weights:
+- Default KEEP at real market-value weight; active picks split the remainder.
+  USD positions → CAD via live `usdcad_rate()` (`CAD=X`). `portfolio_value` is CAD.
+- Sticky-but-sellable: each picker advises **SELL?** only for legacy names *its*
+  model scores — `split_legacy()` keys on the active `TSX_UNIVERSE`, so picker.py
+  judges TSX legacy and picker_us.py judges US legacy; the rest are **carry-only**
+  (held, weighted, never flagged). `legacy_sell_advisory()` flags SELL? when a
+  name's model score is in the bottom tertile.
+- Legacy excluded from the active candidate pool (no duplicate buys). Combined
+  sector exposure is shown but **not** cap-enforced (user chose weight-only).
+- Helpers: `legacy_sector/legacy_value_cad/split_legacy/legacy_sell_advisory/
+  compose_portfolio`. Report via the new `legacy=` arg on `_format_report`.
+
+**Profit-taking trigger (`PROFIT_TAKE_THRESHOLD`, default 0.30)** — when the
+strategy's trailing-12m realized return (`strategy_trailing_return()` from
+`picks_log`) ≥ threshold, the report raises a DE-RISK alert recommending trim
+to `PROFIT_TAKE_TARGET_INVESTED` (default 0.30 invested / ~70% cash) across
+active **and** legacy. Advisory only — does not auto-change picks. Mirror of the
+existing −15% drawdown halt, on the upside. Both knobs overridable in config.
+
+Verification: unit-tested all helpers + `smoke_test` passes (the
+`earnings_surprise=0%` fail is the sandbox's missing yfinance earnings, not
+these changes). Full interactive `pick` (emails + pushes dashboard) left to the
+user. Commit `63a6f8c`.
+
 ### 2026-06-01 — gold sleeve added (5th sector) — IMPROVED, kept
 
 **The first universe change that did NOT regress.** Added a Materials/gold
