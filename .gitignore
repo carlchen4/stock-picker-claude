@@ -41,3 +41,4 @@ logs/
 # Local yfinance data cache (speeds up repeated runs)
 cache/
 my_picks.txt
+ic_log.csv
