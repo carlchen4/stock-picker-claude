@@ -1,172 +1,172 @@
 {
-  "generated_at": "2026-05-30T22:12:41",
-  "as_of": "2026-05-30",
+  "generated_at": "2026-06-07T16:31:30",
+  "as_of": "2026-06-07",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
-  "reliability_detail": "CAUTION \u2014 1 warning \u2014 Feature drift: 2 regime-shifted (|z|>3): ps_ratio_ttm(z=4.8), rev_1m(z=3.0)",
+  "reliability_detail": "CAUTION \u2014 1 warning \u2014 Feature drift: 1 regime-shifted (|z|>3): ps_ratio_ttm(z=9.7)",
   "portfolio_value": 10000.0,
-  "te_estimate": 0.2109,
+  "te_estimate": 0.2132,
   "risk": {
-    "beta": 1.418,
-    "var95": -0.1128,
-    "cvar95": -0.1595,
+    "beta": 1.431,
+    "var95": -0.1221,
+    "cvar95": -0.1781,
     "max_position": 0.1667,
-    "max_position_ticker": "TXN"
+    "max_position_ticker": "QCOM"
   },
   "picks": [
     {
       "rank": 1,
-      "ticker": "TXN",
+      "ticker": "QCOM",
       "sector": "Semiconductors",
       "style": "value",
-      "score": 0.846,
+      "score": 1.101,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 305.68,
-      "shares": 5,
+      "price": 215.94,
+      "shares": 7,
       "dollar_value": 1666,
       "drivers": [
         {
-          "label": "Bollinger Band Z",
-          "shap": -0.0376
+          "label": "Volatility 20d",
+          "shap": 0.0319
+        },
+        {
+          "label": "ADV 20-day Rank",
+          "shap": 0.0197
         },
         {
           "label": "Volatility 60d",
-          "shap": -0.0323
-        },
-        {
-          "label": "Volatility 20d",
-          "shap": 0.0275
+          "shap": 0.019
         }
       ]
     },
     {
       "rank": 2,
-      "ticker": "AMZN",
+      "ticker": "GOOGL",
       "sector": "Cloud",
       "style": "core",
-      "score": 0.89,
+      "score": 0.388,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 270.64,
-      "shares": 6,
+      "price": 368.53,
+      "shares": 4,
       "dollar_value": 1666,
       "drivers": [
         {
-          "label": "52-Week High Proximity",
-          "shap": -0.027
-        },
-        {
           "label": "Volatility 20d",
-          "shap": -0.02
+          "shap": -0.0284
         },
         {
-          "label": "Momentum PC2",
-          "shap": 0.0193
+          "label": "Short-Term Reversal",
+          "shap": -0.0229
+        },
+        {
+          "label": "RSI (14-day)",
+          "shap": 0.0095
         }
       ]
     },
     {
       "rank": 3,
-      "ticker": "INTC",
+      "ticker": "ARM",
       "sector": "Hardware",
-      "style": "value",
-      "score": 1.541,
+      "style": "growth",
+      "score": 1.331,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 114.68,
-      "shares": 14,
+      "price": 342.93,
+      "shares": 4,
       "dollar_value": 1666,
       "drivers": [
         {
           "label": "Volatility 60d",
-          "shap": 0.0916
+          "shap": 0.0628
         },
         {
           "label": "Volatility 20d",
-          "shap": 0.0241
+          "shap": 0.0346
         },
         {
-          "label": "Momentum PC1",
-          "shap": -0.0217
+          "label": "ADV 20-day Rank",
+          "shap": 0.027
         }
       ]
     },
     {
       "rank": 4,
-      "ticker": "ARM",
+      "ticker": "INTC",
       "sector": "Hardware",
-      "style": "growth",
-      "score": 1.036,
+      "style": "value",
+      "score": 0.923,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 353.29,
-      "shares": 4,
+      "price": 99.17,
+      "shares": 16,
       "dollar_value": 1666,
       "drivers": [
         {
           "label": "Volatility 60d",
-          "shap": 0.0525
+          "shap": 0.0458
         },
         {
-          "label": "Volatility 20d",
-          "shap": 0.0232
+          "label": "Bollinger Band Z",
+          "shap": -0.0329
         },
         {
-          "label": "Momentum PC2",
-          "shap": -0.0047
+          "label": "Momentum PC1",
+          "shap": -0.0192
         }
       ]
     },
     {
       "rank": 5,
-      "ticker": "QCOM",
+      "ticker": "TXN",
       "sector": "Semiconductors",
       "style": "value",
-      "score": 0.627,
+      "score": 0.633,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 251.02,
-      "shares": 6,
+      "price": 285.06,
+      "shares": 5,
       "dollar_value": 1666,
       "drivers": [
         {
+          "label": "ADV 20-day Rank",
+          "shap": -0.0475
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": -0.0189
+        },
+        {
           "label": "Volatility 60d",
-          "shap": -0.0402
-        },
-        {
-          "label": "Bollinger Band Z",
-          "shap": -0.04
-        },
-        {
-          "label": "RSI (14-day)",
-          "shap": -0.0377
+          "shap": -0.016
         }
       ]
     },
     {
       "rank": 6,
-      "ticker": "GOOGL",
+      "ticker": "AMZN",
       "sector": "Cloud",
       "style": "core",
-      "score": 0.341,
+      "score": 0.235,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 380.34,
-      "shares": 4,
+      "price": 246.03,
+      "shares": 6,
       "dollar_value": 1666,
       "drivers": [
         {
-          "label": "52-Week High Proximity",
+          "label": "Volatility 20d",
+          "shap": -0.0424
+        },
+        {
+          "label": "Short-Term Reversal",
           "shap": -0.029
         },
         {
-          "label": "Bollinger Band Z",
-          "shap": -0.0245
-        },
-        {
           "label": "Volatility 60d",
-          "shap": 0.0066
+          "shap": -0.0185
         }
       ]
     }
@@ -174,12 +174,12 @@
   "actions": {
     "sell": [],
     "buy": [
-      "TXN",
-      "AMZN",
-      "INTC",
-      "ARM",
       "QCOM",
-      "GOOGL"
+      "GOOGL",
+      "ARM",
+      "INTC",
+      "TXN",
+      "AMZN"
     ],
     "hold": []
   },
@@ -789,8 +789,8 @@
     "Hardware": 0.333
   },
   "oos": {
-    "months": 1,
-    "avg_monthly": 0.2323,
+    "months": 2,
+    "avg_monthly": 0.0753,
     "monthly_series": [
       {
         "date": "2026-04",
@@ -798,49 +798,56 @@
         "bench": 0.1057,
         "port_cum": 0.2323,
         "bench_cum": 0.1057
+      },
+      {
+        "date": "2026-05",
+        "port": -0.0818,
+        "bench": -0.045,
+        "port_cum": 0.1316,
+        "bench_cum": 0.0559
       }
     ],
-    "latest_month": "2026-04",
+    "latest_month": "2026-05",
     "stock_returns": [
       {
         "ticker": "ARM",
-        "ret": 0.6798
-      },
-      {
-        "ticker": "QCOM",
-        "ret": 0.3978
-      },
-      {
-        "ticker": "INTC",
-        "ret": 0.2138
-      },
-      {
-        "ticker": "TXN",
-        "ret": 0.093
-      },
-      {
-        "ticker": "AMZN",
-        "ret": 0.0211
+        "ret": -0.0293
       },
       {
         "ticker": "GOOGL",
-        "ret": -0.0116
+        "ret": -0.0311
+      },
+      {
+        "ticker": "TXN",
+        "ret": -0.0675
+      },
+      {
+        "ticker": "AMZN",
+        "ret": -0.0909
+      },
+      {
+        "ticker": "INTC",
+        "ret": -0.1352
+      },
+      {
+        "ticker": "QCOM",
+        "ret": -0.1366
       }
     ],
-    "bench_return": 0.1057
+    "bench_return": -0.045
   },
   "macro": {
     "vix": {
-      "val": 15.3,
-      "chg": -1.6
+      "val": 21.5,
+      "chg": 6.2
     },
     "oil": {
-      "val": 87.36,
-      "chg_pct": -0.1686
+      "val": 90.54,
+      "chg_pct": 0.0364
     },
     "us10y": {
-      "val": 4.45,
-      "chg_bps": 6.3
+      "val": 4.54,
+      "chg_bps": 8.3
     }
   }
 }
