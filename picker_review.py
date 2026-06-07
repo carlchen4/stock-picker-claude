@@ -12,6 +12,7 @@ picker_review.py — 选股复盘(每月 picker 跑完自动执行)
 import os
 import re
 import csv
+import html as _html
 import subprocess
 from pathlib import Path
 from datetime import datetime
@@ -148,14 +149,72 @@ def picks_review(mine):
     return claude(prompt)
 
 
+# ---------------------------------------------------------------- markdown → HTML
+def _inline(s):
+    s = _html.escape(s)
+    s = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", s)
+    s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    return s
+
+
+def md_to_html(md):
+    """把 Claude 的 markdown(标题/加粗/列表/表格/分割线)渲染成邮件 HTML。"""
+    lines = md.split("\n")
+    out, i = [], 0
+    while i < len(lines):
+        ln = lines[i].rstrip()
+        st = ln.strip()
+        # 表格:连续含 | 的行,第二行是 |---|
+        if "|" in st and i + 1 < len(lines) and re.match(r"^\s*\|?[\s:\-|]+\|?\s*$", lines[i + 1]):
+            header = [c.strip() for c in st.strip("|").split("|")]
+            i += 2
+            rows = []
+            while i < len(lines) and "|" in lines[i]:
+                rows.append([c.strip() for c in lines[i].strip().strip("|").split("|")])
+                i += 1
+            th = "".join(f'<th style="border:1px solid #ddd;padding:5px;background:#f5f5f5">{_inline(c)}</th>' for c in header)
+            trs = ""
+            for r in rows:
+                trs += "<tr>" + "".join(f'<td style="border:1px solid #ddd;padding:5px">{_inline(c)}</td>' for c in r) + "</tr>"
+            out.append(f'<table style="border-collapse:collapse;margin:8px 0"><thead><tr>{th}</tr></thead><tbody>{trs}</tbody></table>')
+            continue
+        if re.match(r"^#{1,6}\s", st):
+            lvl = len(st) - len(st.lstrip("#"))
+            out.append(f'<h{min(lvl+1,5)} style="margin:12px 0 4px">{_inline(st.lstrip("# ").strip())}</h{min(lvl+1,5)}>')
+        elif re.match(r"^(-{3,}|\*{3,}|_{3,})$", st):
+            out.append("<hr style='border:none;border-top:1px solid #eee;margin:10px 0'>")
+        elif re.match(r"^[-*]\s+", st):
+            items = []
+            while i < len(lines) and re.match(r"^\s*[-*]\s+", lines[i]):
+                txt = re.sub(r"^\s*[-*]\s+", "", lines[i])
+                items.append("<li>" + _inline(txt) + "</li>")
+                i += 1
+            out.append("<ul style='margin:4px 0;padding-left:20px'>" + "".join(items) + "</ul>")
+            continue
+        elif re.match(r"^\d+\.\s+", st):
+            items = []
+            while i < len(lines) and re.match(r"^\s*\d+\.\s+", lines[i]):
+                txt = re.sub(r"^\s*\d+\.\s+", "", lines[i])
+                items.append("<li>" + _inline(txt) + "</li>")
+                i += 1
+            out.append("<ol style='margin:4px 0;padding-left:20px'>" + "".join(items) + "</ol>")
+            continue
+        elif st == "":
+            out.append("")
+        else:
+            out.append(f"<p style='margin:6px 0'>{_inline(st)}</p>")
+        i += 1
+    return "\n".join(out)
+
+
 # ---------------------------------------------------------------- 邮件
 def send(sections, n_my):
     import email_config as ec
     body = "\n\n".join(f"{'='*48}\n{title}\n{'='*48}\n{txt}" for title, txt in sections)
     html_parts = []
     for title, txt in sections:
-        html_parts.append(f'<h3 style="border-bottom:2px solid #333">{title}</h3>'
-                          f'<div style="white-space:pre-wrap">{txt}</div>')
+        html_parts.append(f'<h2 style="border-bottom:2px solid #333;margin-top:18px">{title}</h2>'
+                          f'<div>{md_to_html(txt)}</div>')
     html = ('<div style="font-family:-apple-system,Arial;font-size:14px;line-height:1.5">'
             f'<p>🧠 <b>选股复盘</b> {datetime.now():%Y-%m-%d}</p>' + "".join(html_parts) + '</div>')
     msg = EmailMessage()
