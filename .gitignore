@@ -40,3 +40,6 @@ logs/
 
 # Local yfinance data cache (speeds up repeated runs)
 cache/
+
+# Claude Code internal (plans/settings) — keep local
+.claude/

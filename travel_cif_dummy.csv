@@ -1,0 +1,11 @@
+customer_id,first_name,last_name,date_of_birth,nationality,passport_number,email,phone_number,address,city,state,postal_code,trip_destination,trip_start_date,trip_end_date,trip_purpose,hotel_name,flight_number,visa_status
+CIF001,John,Smith,1985-03-15,USA,A12345678,john.smith@email.com,+1-555-0101,123 Main St,New York,NY,10001,Paris,2026-06-01,2026-06-15,Leisure,Hotel Le Marais,UA101,Approved
+CIF002,Emily,Johnson,1990-07-22,Canada,B87654321,emily.j@email.com,+1-416-555-0202,456 Oak Ave,Toronto,ON,M5H2N2,Tokyo,2026-05-25,2026-06-10,Business,ANA Hotel,JAL202,Approved
+CIF003,Michael,Chen,1988-11-10,Singapore,C11223344,m.chen@email.com,+65-6789-0303,789 Elm Rd,Singapore,SG,018957,Bangkok,2026-06-05,2026-06-12,Leisure,Mandarin Oriental,SQ303,Approved
+CIF004,Sophia,Martinez,1995-05-18,Spain,D55667788,sophia.m@email.com,+34-91-555-0404,321 Pine St,Madrid,MD,28001,Barcelona,2026-05-28,2026-06-02,Business,Espanya Hotel,IB404,Approved
+CIF005,David,Wilson,1982-09-30,UK,E99887766,d.wilson@email.com,+44-20-7555-0505,654 Birch Ln,London,LN,SW1A2AA,Amsterdam,2026-06-10,2026-06-20,Leisure,Canal House,BA505,Approved
+CIF006,Lucia,Ferrari,1993-02-14,Italy,F44332211,lucia.f@email.com,+39-6-5555-0606,987 Cedar Dr,Rome,RM,00100,Dublin,2026-06-03,2026-06-08,Business,Temple Bar Hotel,EI606,Approved
+CIF007,James,Thompson,1987-12-25,USA,G77889900,j.thompson@email.com,+1-213-555-0707,234 Maple Ct,Los Angeles,CA,90001,Sydney,2026-07-01,2026-07-20,Leisure,Hilton Sydney,UA707,Processing
+CIF008,Olivia,Garcia,1991-08-07,Mexico,H11111222,olivia.g@email.com,+52-55-5555-0808,567 Spruce Way,Mexico City,MX,06500,Cancun,2026-06-15,2026-06-22,Leisure,Cancun Resort,AM808,Approved
+CIF009,Robert,Anderson,1986-04-12,Canada,I22334455,robert.a@email.com,+1-416-555-0909,890 Queen St W,Toronto,ON,M5H3A1,Vancouver,2026-06-08,2026-06-15,Business,Fairmont Pacific,AC909,Approved
+CIF010,Christopher,Williams,1989-01-28,Canada,J55667788,c.williams@email.com,+1-416-555-1010,123 King St E,Toronto,ON,M5C1A1,Montreal,2026-06-20,2026-06-27,Leisure,Hotel Montreal,AC1010,Approved
