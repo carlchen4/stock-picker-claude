@@ -51,7 +51,7 @@ VIX_HIGH = float(os.environ.get("VOL_VIX_HIGH", "28"))
 VIX_LOW = float(os.environ.get("VOL_VIX_LOW", "18"))
 DEFENSIVE = _env_list("VOL_DEFENSIVE", ["KO", "XLE", "ZEO.TO", "FTS.TO"])
 AGGRESSIVE = _env_list("VOL_AGGRESSIVE",
-                       ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "AMD", "SNOW"])
+                       ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "AMD", "SNOW", "SPCX"])
 CORR_WINDOW = int(os.environ.get("VOL_CORR_WINDOW", "90"))
 EXIT_MODE = os.environ.get("VOL_EXIT_MODE", "timebox")   # timebox | threshold
 HOLD_DAYS = int(os.environ.get("VOL_HOLD_DAYS", "10"))   # timebox 模式进攻持有交易日数
