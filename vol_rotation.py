@@ -289,7 +289,15 @@ def main():
     since_date = state.get("since_date") or today
 
     tickers = [VIX_TICKER] + TECH
-    print(f"取价 {len(tickers)} 个标的…")
+    # 每天的信号必须用最新 VIX:清掉 picker 的 ~20h 价格缓存,强制拉最新
+    # (否则早上 09:10 跑会吃到昨天的缓存 → VIX 卡住不更新)
+    try:
+        cf = picker._cache_path(f"prices_{len(tickers)}_2y.parquet")
+        if cf.exists():
+            cf.unlink()
+    except Exception as e:
+        print("清缓存失败(不致命):", e)
+    print(f"取价 {len(tickers)} 个标的(强制最新)…")
     price_df = picker.fetch_prices(tickers, years=2)
     closes = get_closes(price_df, tickers)
 
