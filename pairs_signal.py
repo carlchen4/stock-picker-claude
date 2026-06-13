@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-pairs_signal.py — 5 对相对价值信号面板(多头版,不做空)
+pairs_signal.py — 相对价值信号面板(多头版,不做空)
 ========================================================
-对验证过的 5 对(V-MA / ADP-PAYX / CB-TRV / AZO-ORLY / MCO-SPGI):
+对验证过的 4 对(V-MA / ADP-PAYX / AZO-ORLY / MCO-SPGI;CB-TRV 已剔除):
 每天算 价差 z-score(log(A/B),60日窗),给出"该持哪只 + 偏离程度",记录 CSV 供 paper-track。
 规则:z<-ENTRY → A 相对便宜 → 持 A;z>+ENTRY → 持 B;|z|<EXIT → 接近均衡(维持/各半)。
 ⚠️ 已验证(样本外+跨期+参数),但 edge 温和(+0.1 Sharpe)。先纸上跟踪 2-3 月,别急投真钱。非投资建议。
@@ -47,8 +47,9 @@ def chart_pair_png(sa, sb, la, lb, title):
     buf = io.BytesIO(); fig.tight_layout(); fig.savefig(buf, format="png", dpi=110); plt.close(fig)
     return buf.getvalue()
 
+# CB-TRV(财险)2026-06-13 剔除:保险巨灾/准备金噪声大、基本面最不同质、统计最弱(post仅+0.02)
 PAIRS = [("V", "MA", "支付双寡头"), ("ADP", "PAYX", "薪资处理"),
-         ("CB", "TRV", "财险"), ("AZO", "ORLY", "汽配零售"), ("MCO", "SPGI", "评级机构")]
+         ("AZO", "ORLY", "汽配零售"), ("MCO", "SPGI", "评级机构")]
 LOOKBACK = 60
 ENTRY = 1.5
 EXIT = 0.5
@@ -137,13 +138,13 @@ def main():
         charts += f'<img src="cid:{cid}" style="width:100%;max-width:560px;display:block;margin:8px 0"><br>'
 
     html = (f'<div style="font-family:-apple-system,Arial;font-size:14px;max-width:600px">'
-            f'<p style="font-size:16px"><b>📐 相对价值信号(5对)</b> &nbsp; {datetime.now():%Y-%m-%d}</p>'
+            f'<p style="font-size:16px"><b>📐 相对价值信号({len(PAIRS)}对)</b> &nbsp; {datetime.now():%Y-%m-%d}</p>'
             f'<p style="color:#666;font-size:13px">z=log(A/B)的60日z-score;z&lt;0→A相对便宜→持A。|z|≥{ENTRY}显著。</p>'
             f'<table style="border-collapse:collapse;border:1px solid #eee">'
             f'<tr style="background:#f5f5f5"><th style="padding:4px 10px;text-align:left">配对</th>'
             f'<th style="padding:4px 10px">z</th><th style="padding:4px 10px">持</th>'
             f'<th style="padding:4px 10px;text-align:left">动作</th></tr>{trs}</table>'
-            f'<p style="font-weight:bold;margin-top:12px">📈 五对价格走势(各自归一到100)</p>{charts}'
+            f'<p style="font-weight:bold;margin-top:12px">📈 {len(PAIRS)}对价格走势(各自归一到100)</p>{charts}'
             f'<p style="color:#999;font-size:12px">已验证(样本外+跨期+参数稳)但edge温和(+0.1Sh);'
             f'paper-track中,先别投真钱。多头相对价值、注册账户可执行。非投资建议。</p></div>')
     text = "相对价值信号\n" + "\n".join(
@@ -152,7 +153,7 @@ def main():
     try:
         import email_config as cfg
         msg = EmailMessage()
-        msg["Subject"] = f"📐 相对价值信号(5对)— {datetime.now():%m-%d}"
+        msg["Subject"] = f"📐 相对价值信号({len(PAIRS)}对)— {datetime.now():%m-%d}"
         msg["From"], msg["To"] = cfg.EMAIL_FROM, cfg.EMAIL_TO
         msg.set_content(text)
         msg.add_alternative(html, subtype="html")
