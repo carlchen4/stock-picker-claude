@@ -27,9 +27,57 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+import urllib.parse
+from datetime import timedelta
+
 DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(DIR))
-import picker  # noqa: E402
+QDIR = Path.home() / "Library/Application Support/stockwatch-tracker"
+sys.path.insert(0, str(QDIR))
+import questrade as q  # noqa: E402  价格走 Questrade(Plaid只取持仓、QT取价/股息、Yahoo兜底)
+
+
+def qt_closes(tickers, days=320):
+    """从 Questrade 日K取收盘价 {ticker: Series}。失败的 ticker 由 yfinance 兜底。"""
+    out = {}
+    try:
+        sess = q.Session(); sess.ensure()
+        ids = q.symbol_ids(sess, tickers)
+        now = datetime.now().astimezone()
+        start = now - timedelta(days=int(days * 1.6))
+        for t in tickers:
+            sid = ids.get(t)
+            if not sid:
+                continue
+            try:
+                qs = urllib.parse.urlencode({"startTime": start.isoformat(),
+                                             "endTime": now.isoformat(), "interval": "OneDay"})
+                d = sess.get(f"/v1/markets/candles/{sid}?{qs}")
+                data = {pd.Timestamp(c["start"][:10]): float(c["close"])
+                        for c in d.get("candles", []) if c.get("close") is not None}
+                if data:
+                    out[t] = pd.Series(data).sort_index()
+            except Exception:
+                continue
+    except Exception as e:
+        print("Questrade 会话/取价失败:", str(e)[:80])
+    # yfinance 兜底
+    miss = [t for t in tickers if t not in out]
+    if miss:
+        try:
+            import yfinance as yf
+            df = yf.download(miss, period="2y", interval="1d", progress=False,
+                             group_by="ticker", auto_adjust=True)
+            for t in miss:
+                try:
+                    c = (df[t] if len(miss) > 1 else df)["Close"].dropna()
+                    if len(c):
+                        out[t] = c
+                        print(f"  {t}: Questrade无,yfinance兜底")
+                except Exception:
+                    continue
+        except Exception:
+            pass
+    return out
 
 
 def chart_pair_png(sa, sb, la, lb, title):
@@ -56,19 +104,10 @@ EXIT = 0.5
 LOG = DIR / "pairs_signal_log.csv"
 
 
-def closes(px, t):
-    c, _ = picker.get_ohlcv(px, t)
-    return c.dropna() if c is not None else None
-
-
 def main():
     email = "--email" in sys.argv
     tk = sorted({t for a, b, _ in PAIRS for t in (a, b)})
-    cf = picker._cache_path(f"prices_{len(tk)}_2y.parquet")
-    if os.path.exists(cf):
-        os.remove(cf)
-    px = picker.fetch_prices(tk, years=2)
-    cl = {t: closes(px, t) for t in tk}
+    cl = qt_closes(tk)              # Questrade 日K(yfinance 兜底)
 
     rows = []
     prices = {}       # "A-B" -> (近252日 A价, B价),画走势图用
