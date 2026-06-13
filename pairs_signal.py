@@ -13,16 +13,39 @@ pairs_signal.py — 5 对相对价值信号面板(多头版,不做空)
 import os
 import sys
 import csv
+import io
+import ssl
+import smtplib
 import html as _html
 from datetime import datetime
 from pathlib import Path
+from email.message import EmailMessage
 
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(DIR))
 import picker  # noqa: E402
+
+
+def chart_pair_png(sa, sb, la, lb, title):
+    """两只股票价格走势(各自归一到100)画在一起,返回 PNG bytes。"""
+    sa, sb = sa.dropna(), sb.dropna()
+    idx = sa.index.intersection(sb.index)
+    sa, sb = sa[idx], sb[idx]
+    na, nb = sa / sa.iloc[0] * 100, sb / sb.iloc[0] * 100
+    fig, ax = plt.subplots(figsize=(5.4, 2.1))
+    ax.plot(range(len(na)), na.values, color="#1565c0", lw=1.4, label=f"{la} {sa.iloc[-1]:.0f}")
+    ax.plot(range(len(nb)), nb.values, color="#e65100", lw=1.4, label=f"{lb} {sb.iloc[-1]:.0f}")
+    ax.set_title(title, fontsize=10)
+    ax.set_xticks([]); ax.set_ylabel("归一=100", fontsize=8); ax.grid(alpha=0.2)
+    ax.legend(fontsize=8, loc="upper left", frameon=False)
+    buf = io.BytesIO(); fig.tight_layout(); fig.savefig(buf, format="png", dpi=110); plt.close(fig)
+    return buf.getvalue()
 
 PAIRS = [("V", "MA", "支付双寡头"), ("ADP", "PAYX", "薪资处理"),
          ("CB", "TRV", "财险"), ("AZO", "ORLY", "汽配零售"), ("MCO", "SPGI", "评级机构")]
@@ -47,6 +70,7 @@ def main():
     cl = {t: closes(px, t) for t in tk}
 
     rows = []
+    prices = {}       # "A-B" -> (近252日 A价, B价),画走势图用
     for a, b, desc in PAIRS:
         ca, cb = cl.get(a), cl.get(b)
         if ca is None or cb is None:
@@ -54,7 +78,9 @@ def main():
         df = pd.concat([ca.rename("a"), cb.rename("b")], axis=1).dropna()
         spread = np.log(df["a"] / df["b"])
         m, s = spread.rolling(LOOKBACK).mean(), spread.rolling(LOOKBACK).std()
-        z = float(((spread - m) / s).iloc[-1])
+        zs = ((spread - m) / s).dropna()
+        z = float(zs.iloc[-1])
+        prices[f"{a}-{b}"] = (df["a"].tail(252), df["b"].tail(252))
         pa, pb = float(df["a"].iloc[-1]), float(df["b"].iloc[-1])
         cheap = a if z < 0 else b               # z<0: A 相对便宜
         if abs(z) < EXIT:
@@ -93,8 +119,11 @@ def main():
             print("无 actionable 信号(|z|<1.5),不发邮件。")
     if not email:
         return
-    trs = ""
-    for desc, a, b, z, pa, pb, cheap, action in rows:
+
+    # 表格 + 5 张走势图(CID 内嵌,Hotmail/Outlook 可显示)
+    imgs = []          # (cid, png_bytes)
+    trs = charts = ""
+    for i, (desc, a, b, z, pa, pb, cheap, action) in enumerate(rows):
         if z is None:
             continue
         col = "#c62828" if abs(z) >= ENTRY else ("#888" if abs(z) < EXIT else "#1565c0")
@@ -102,19 +131,39 @@ def main():
                 f'<td style="padding:4px 10px;text-align:right;color:{col}"><b>{z:+.2f}</b></td>'
                 f'<td style="padding:4px 10px"><b>{cheap}</b></td>'
                 f'<td style="padding:4px 10px">{_html.escape(action)}</td></tr>')
-    html = (f'<div style="font-family:-apple-system,Arial;font-size:14px;max-width:680px">'
+        sa, sb = prices[f"{a}-{b}"]
+        cid = f"chart{i}"
+        imgs.append((cid, chart_pair_png(sa, sb, a, b, f"{desc} {a}-{b}  (z={z:+.2f} → 持{cheap})")))
+        charts += f'<img src="cid:{cid}" style="width:100%;max-width:560px;display:block;margin:8px 0"><br>'
+
+    html = (f'<div style="font-family:-apple-system,Arial;font-size:14px;max-width:600px">'
             f'<p style="font-size:16px"><b>📐 相对价值信号(5对)</b> &nbsp; {datetime.now():%Y-%m-%d}</p>'
             f'<p style="color:#666;font-size:13px">z=log(A/B)的60日z-score;z&lt;0→A相对便宜→持A。|z|≥{ENTRY}显著。</p>'
             f'<table style="border-collapse:collapse;border:1px solid #eee">'
             f'<tr style="background:#f5f5f5"><th style="padding:4px 10px;text-align:left">配对</th>'
             f'<th style="padding:4px 10px">z</th><th style="padding:4px 10px">持</th>'
             f'<th style="padding:4px 10px;text-align:left">动作</th></tr>{trs}</table>'
+            f'<p style="font-weight:bold;margin-top:12px">📈 五对价格走势(各自归一到100)</p>{charts}'
             f'<p style="color:#999;font-size:12px">已验证(样本外+跨期+参数稳)但edge温和(+0.1Sh);'
             f'paper-track中,先别投真钱。多头相对价值、注册账户可执行。非投资建议。</p></div>')
     text = "相对价值信号\n" + "\n".join(
         f"{a}-{b}: z={z:+.2f} 持{cheap} {action}" for desc, a, b, z, pa, pb, cheap, action in rows if z is not None)
-    picker.send_report_email(text, html, f"📐 相对价值信号(5对)— {datetime.now():%m-%d}")
-    print("📧 已发邮件")
+
+    try:
+        import email_config as cfg
+        msg = EmailMessage()
+        msg["Subject"] = f"📐 相对价值信号(5对)— {datetime.now():%m-%d}"
+        msg["From"], msg["To"] = cfg.EMAIL_FROM, cfg.EMAIL_TO
+        msg.set_content(text)
+        msg.add_alternative(html, subtype="html")
+        html_part = msg.get_payload()[1]
+        for cid, png in imgs:
+            html_part.add_related(png, maintype="image", subtype="png", cid=f"<{cid}>")
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context()) as s:
+            s.login(cfg.EMAIL_FROM, cfg.EMAIL_APP_PASSWORD); s.send_message(msg)
+        print(f"📧 已发邮件(含 {len(imgs)} 张走势图)")
+    except Exception as e:
+        print("发邮件失败:", e)
 
 
 if __name__ == "__main__":
