@@ -54,7 +54,7 @@ AGGRESSIVE = _env_list("VOL_AGGRESSIVE",
                        ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "AMD", "SNOW", "SPCX"])
 CORR_WINDOW = int(os.environ.get("VOL_CORR_WINDOW", "90"))
 EXIT_MODE = os.environ.get("VOL_EXIT_MODE", "timebox")   # timebox | threshold
-HOLD_DAYS = int(os.environ.get("VOL_HOLD_DAYS", "10"))   # timebox 模式进攻持有交易日数
+HOLD_DAYS = int(os.environ.get("VOL_HOLD_DAYS", "10"))   # timebox 进攻持有交易日数(5年完整回测最优;事件研究偏好5天但两法矛盾→不过拟合,留10)
 VOL_AI = os.environ.get("VOL_AI", "1") == "1"
 CLAUDE_CANDIDATES = [
     os.environ.get("VOL_CLAUDE_BIN", ""),

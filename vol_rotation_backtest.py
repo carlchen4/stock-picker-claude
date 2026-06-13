@@ -113,7 +113,7 @@ def compute_curves(data, vix_high, vix_low):
         "⚖️ 50-50":   (data["def"] + data["agg"]) / 2,
     }
     tb_meta = {}
-    for hold in (10, 15, 20):
+    for hold in (5, 10, 15, 20):
         r, sw, st = simulate("timebox", hold)
         curves[f"⏱️ 限时进攻{hold}天"] = r
         tb_meta[hold] = (sw, st)
@@ -147,7 +147,7 @@ def run(years, vix_high, vix_low):
     yrs = len(data) / TRADING_DAYS
     print(f"\n[原版] 切换 {len(switches)} 次 (~{len(switches)/yrs:.1f}/年),"
           f"处于进攻 {sum(1 for s in states if s=='AGGRESSIVE')/n*100:.0f}% 的时间")
-    for hold in (10, 15, 20):
+    for hold in (5, 10, 15, 20):
         sw, st = tb_meta[hold]
         print(f"[限时{hold}天] 切换 {len(sw)} 次 (~{len(sw)/yrs:.1f}/年),"
               f"处于进攻 {sum(1 for s in st if s=='AGGRESSIVE')/n*100:.0f}% 的时间")
