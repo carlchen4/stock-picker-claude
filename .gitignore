@@ -43,3 +43,6 @@ cache/
 
 # Claude Code internal (plans/settings) — keep local
 .claude/
+
+# 本地 paper-track 产物
+pairs_signal_log.csv
