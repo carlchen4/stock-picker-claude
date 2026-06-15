@@ -24,6 +24,8 @@
 #    ./run.sh rigor        overfitting audit (DSR/CPCV/PBO)
 #    ./run.sh monitor      daily holdings monitor
 #    ./run.sh test         run unit tests (test_picker.py)
+#    ./run.sh sell TSLA    sell-timing: price(15m)+analyst+news for a name
+#                          (or 'sell legacy' for all LEGACY_HOLDINGS)
 #
 #  Reminder: execute picks AT MARKET on pick day. Entry timing was tested
 #  (entry_timing.py / limit_buy_test.py) and is negative-expectation — don't
@@ -48,6 +50,7 @@ case "$cmd" in
   backtest-us)  python picker_us.py backtest ;;
   rigor)        python picker.py rigor ;;
   monitor)      python picker.py monitor ;;
+  sell)         shift; python sell_timing.py "$@" ;;
   test)         python test_picker.py ;;
-  help|*)       sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//' ;;
+  help|*)       sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac
