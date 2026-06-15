@@ -167,9 +167,17 @@ def report(tk, with_news=True):
         lean.append("现价在VWAP之上(卖方有利)")
     else:
         lean.append("现价在VWAP之下(本周弱)")
-    print(f"\n[合议] {' · '.join(lean)}  ->  "
-          f"反弹到 {p['resist']:.0f}–{p['hi']:.0f} 挂限价卖, "
-          f"跌破 VWAP {p['vwap']:.0f} 视为强势结束")
+    print(f"\n[合议] {' · '.join(lean)}")
+
+    # concrete sell plan (deterministic parts only)
+    best_tod = p["tod"].index[0]          # strongest 15m bucket this week
+    print(f"\n[挂单计划]")
+    print(f"  分批限价:  一半 @ {p['resist']:.2f} (成交密集区, 易成交)")
+    print(f"             一半 @ {p['hi']:.2f} (本周高, 占便宜卖)")
+    print(f"  底线:      跌破 VWAP {p['vwap']:.2f} 视为强势结束, 别再等")
+    print(f"  几点跑工具: 美东 11:00–11:30 (开盘乱杀后, 价格/VWAP 最新)")
+    print(f"  挂单等哪个窗口成交: 本周最强时段 {best_tod} 附近 (一天跑一次即可)")
+    print(f"  ⚠️ 当周事件(FOMC/财报/突发)本脚本不抓 — 让 Claude 联网确认有无")
 
     if with_news:
         nx = news_layer(tk)
