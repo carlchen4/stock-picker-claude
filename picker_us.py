@@ -27,6 +27,10 @@ picker.REPORT_LABEL = "US Tech"
 picker.DASHBOARD_FILE = "data_us.json"   # separate dashboard from TSX (docs/us.html)
 picker.DASHBOARD_URL = "https://carlchen4.github.io/stock-picker-claude/us.html"
 picker.USE_NEWS_SENTIMENT = True         # AV news sentiment on US picks (6/run, 24h cached)
+picker.CONCENTRATION_ALLOWED = False     # US names are all tech & highly correlated
+                                         # (0.46 calm / 0.84 in crash) — concentrating
+                                         # ≈ leveraged single bet. CONCENTRATED_MODE is
+                                         # CA-only; ignored here even if set in config.
 
 # Plain-English company names for report readability (US universe).
 picker.COMPANY_NAMES = {

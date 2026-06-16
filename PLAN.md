@@ -616,6 +616,42 @@ than chase more Sharpe.
 
 - **Macro / rate features — assessed, not expanding (2026-05-21)**: Asked whether to add macro/rate signals (interest rates etc.). The panel already carries 13 macro features incl. US 10Y (`rate_chg_3m`), the REAL BoC overnight rate via Valet API (`boc_rate_chg_3m`), a Canadian bond ETF (`cad_bond_mom_1m`), and inflation (`tips_mom_1m`) — rates are well covered. Decided NOT to add more, for a structural reason beyond the spec-coverage regression above: **a macro value is identical across all stocks within a month**, so it cannot discriminate *which* stock outperforms (a cross-sectional question) — it only moves timing / regime (time-series). The model's edge is cross-sectional selection (+10.6pp vs the random-score control), so extra macro is just cross-sectional noise — exactly why spec-coverage (incl. the yield-curve slope) regressed. Macro already contributes where it legitimately can: indirectly via `sector_code` splits (rates→banks/utilities, oil→energy), per the per-sector spec. Deeper "real" macro (BoC 2y/10y curve, FRED CPI, IG OAS) would hit the same cross-sectional wall.
 
+### 2026-06-16 — CONCENTRATED_MODE toggle (CA-only, default off)
+
+User asked whether the picker can target **return instead of Sharpe**. Framed
+the answer: you don't swap the metric — you turn the **concentration** knob, and
+directly optimizing a metric on small samples overfits (the existing `max_sharpe`
+weighting is proof: it *tanks* to 17.9% ann / IR -0.10 / MaxDD -15.9% — covariance
+overfit; equal weight stays the default).
+
+A/B backtest (`ab_concentration.py`, train=36m, weight=equal):
+
+| config | ann.ret | Sharpe | IR | MaxDD |
+|---|---|---|---|---|
+| top10 equal (current) | 30.2% | 2.22 | 1.33 | -6.2% |
+| **top5 equal (1/sector)** | **37.9%** | 2.08 | **1.45** | -9.9% |
+
+top5 lifts return ~8pp with *higher* IR. Ran rigor at top5 (`rigor_top5.py`):
+**DSR 93.6%, PBO 6.4%, WRC 100%, CPCV mean Sharpe 1.54, 100% paths > 0** → the
+edge is real, NOT overfit. The cost is **tail drawdown**: CPCV worst paths
+(early-period combos) hit **-25% ~ -33%** — the single walk-forward's -9.9% was a
+benign window.
+
+Why tail risk, given 5 different sectors? Correlation work (CA sector ETFs):
+**avg pairwise 0.25 calm → 0.66 in the 2020 crash, 0.37 in 2022** — diversified
+in normal times, but they correlate up in a crash, and at top5 each name is a
+full 20% of the book. So concentration buys return by accepting a fatter left tail.
+
+**US picker excluded by design.** US names are all tech: avg pairwise corr **0.46
+calm / 0.84 (2020) / 0.74 (2022)** — concentrating there ≈ a leveraged single
+bet (consistent with the US model's -45% MDD). So `CONCENTRATION_ALLOWED=False`
+in picker_us.py; the toggle is CA-only.
+
+Implementation: `CONCENTRATED_MODE` (portfolio_config, default **False**) →
+live `predict_now` sets `top_n=min(top_n, 5)` when `CONCENTRATION_ALLOWED`.
+Backtest/model/dashboard untouched. Diagnostics kept: `ab_concentration.py`,
+`rigor_top5.py`.
+
 ### 2026-06-03 — legacy holdings sleeve + profit-taking trigger (live-only)
 
 Two personal-portfolio features (live `pick` report only — backtest, model,

@@ -75,3 +75,14 @@ LEGACY_OCCUPIES_CAPS = False
 # show HOLD and are never flagged to sell. Set True to opt into a SELL? advisory
 # when the model scores a legacy name in the bottom tertile (you still decide).
 LEGACY_SELL_ADVISORY = False
+
+# Concentration toggle (CA picker ONLY — the US model ignores it). Default False
+# = the safe top-10 sleeve (~30%/yr, shallow drawdowns). Set True to shrink the
+# live pick to 5 names (1 per required sector) to chase higher return.
+#   Validated 2026-06-16 (CA): top5 ~30%→38%/yr, comparable IR, DSR 93.6%
+#   (real edge, not overfit) — BUT CPCV worst-path drawdowns hit -25%~-33%
+#   (vs ~-6% at top10), because in a crash the 5 sectors correlate up (0.25
+#   calm → 0.66 in 2020) and each name is a full 20% of the book.
+# Only flip this if you can stomach occasional ~-30% drawdowns. Live pick only;
+# backtest unchanged.
+CONCENTRATED_MODE = False

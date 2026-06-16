@@ -79,6 +79,24 @@ try:
 except ImportError:
     LEGACY_SELL_ADVISORY = False
 
+# Concentration toggle. When True, the live NEUTRAL/BULL pick shrinks to
+# CONCENTRATED_TOP_N (1 per required sector) to chase higher return — at the
+# cost of materially deeper drawdowns. Validated on CA (2026-06-16): top5 lifts
+# annualized return ~30%→38% with comparable IR and DSR 93.6% (real edge, not
+# overfit), but CPCV worst-path drawdowns reach -25%~-33% (vs ~-6% at top10).
+# Backtest path unchanged; this only affects the live `predict_now` pick.
+#
+# CONCENTRATION_ALLOWED gates it per-model. CA = True. The US model sets this
+# False (picker_us.py): its names are all tech and highly correlated (avg 0.46
+# calm, 0.84 in the 2020 crash), so concentrating there ≈ a leveraged single
+# bet — not a diversified sleeve. So the toggle is CA-only by design.
+CONCENTRATION_ALLOWED = True
+CONCENTRATED_TOP_N = 5
+try:
+    from portfolio_config import CONCENTRATED_MODE
+except ImportError:
+    CONCENTRATED_MODE = False
+
 
 def legacy_sector(ticker):
     """Sector for a legacy ticker: manual override → STOCK_PROFILE → 'Other'.
@@ -3433,6 +3451,13 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     regime, regime_adj = detect_regime(macro_df)
     constraints = {**CONSTRAINTS, **regime_adj}
     print(f"  Market regime: {regime}")
+
+    # Concentration toggle (CA-only via CONCENTRATION_ALLOWED). Shrinks the pick
+    # to CONCENTRATED_TOP_N for higher return / deeper drawdowns. Never expands.
+    if CONCENTRATED_MODE and CONCENTRATION_ALLOWED:
+        constraints["top_n"] = min(constraints["top_n"], CONCENTRATED_TOP_N)
+        print(f"  ⚠️ CONCENTRATED mode: top_n={constraints['top_n']} "
+              f"(higher return, deeper drawdowns — CA only)")
 
     # Sort and filter
     latest_df = latest_df.sort_values("score", ascending=False)
