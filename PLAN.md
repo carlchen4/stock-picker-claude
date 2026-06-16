@@ -616,6 +616,48 @@ than chase more Sharpe.
 
 - **Macro / rate features — assessed, not expanding (2026-05-21)**: Asked whether to add macro/rate signals (interest rates etc.). The panel already carries 13 macro features incl. US 10Y (`rate_chg_3m`), the REAL BoC overnight rate via Valet API (`boc_rate_chg_3m`), a Canadian bond ETF (`cad_bond_mom_1m`), and inflation (`tips_mom_1m`) — rates are well covered. Decided NOT to add more, for a structural reason beyond the spec-coverage regression above: **a macro value is identical across all stocks within a month**, so it cannot discriminate *which* stock outperforms (a cross-sectional question) — it only moves timing / regime (time-series). The model's edge is cross-sectional selection (+10.6pp vs the random-score control), so extra macro is just cross-sectional noise — exactly why spec-coverage (incl. the yield-curve slope) regressed. Macro already contributes where it legitimately can: indirectly via `sector_code` splits (rates→banks/utilities, oil→energy), per the per-sector spec. Deeper "real" macro (BoC 2y/10y curve, FRED CPI, IG OAS) would hit the same cross-sectional wall.
 
+### 2026-06-16 — Utilities sleeve ETF-ized (FTS/H/EMA/AQN → ZUT.TO) — ADOPTED
+
+Per-sector selection IC diagnostic (`sector_ic.py`, OOS rank-corr of score vs
+fwd_ret within each sector) found the model selects well in some sectors and
+NOT in others:
+
+| sector | selection IC | read |
+|---|---|---|
+| Industrials | +0.179 | real edge — keep stock-picking |
+| Energy | +0.084 | real edge — keep |
+| Financials | +0.036 | weak (banks ~0.005 drag it; insurers/BAM carry) |
+| **Utilities** | **−0.088** | **anti-signal — picking utilities is WORSE than random** |
+| Materials (gold) | n/a | score NaN-filtered out of perstock — still TBD |
+
+A/B (`ab_utilities.py`, train=28, same data) — replace the 4 utilities with
+ZUT.TO (BMO Equal Weight Utilities; XUT.TO stays the DML treatment, no conflict):
+
+| | ann.ret | Sharpe | IR | MaxDD | hit |
+|---|---|---|---|---|---|
+| select utilities (old) | 28.1% | 2.04 | 1.69 | -11.3% | 65% |
+| **ZUT.TO (adopted)** | 33.1% | 2.20 | **2.10** | **-8.2%** | 73% |
+
+A **Pareto win** — better on every axis incl. drawdown (because the old sleeve
+had negative selection IC). Rigor: **DSR 99.7%, PBO 0.3%, STRONG; CPCV mean 1.61,
+87% paths >1.0**. smoke_test passes.
+
+**Also tested, NOT adopted:**
+- **Banks → ZEB.TO**: validated STRONG on its own (DSR 98.3%, IR 1.33→1.50), but
+  combining ZEB+ZUT pushed MaxDD to -12.9% (freeing two defensive sectors tilts
+  the book toward high-beta Industrials/Energy/Materials). The marginal +0.14 IR
+  wasn't worth +4.7pp drawdown for a stable-portfolio user → banks left as
+  individual picks. (Diagnostics: `ab_bankbasket.py`, `rigor_bankbasket.py`, `ab_combined.py`.)
+- **Utilities → XST.TO (Consumer Staples ETF)**: higher raw return (35.2%) but
+  WORSE risk-adjusted than ZUT (Sharpe 2.12, IR 1.96, MaxDD -10.3%). Return-for-
+  drawdown trade, same pattern as top5 — rejected. (`ab_staples.py`.)
+
+Net change: TSX_UNIVERSE 34→31 names; Utilities sector now = ZUT.TO; individual
+utility names kept in STOCK_PROFILE for legacy resolution. `required_sectors`
+unchanged (Utilities slot now filled by the ETF). Industrials/Energy/Financials/
+Materials still stock-picked. **TODO: fix Materials/gold IC measurement (scores
+NaN-dropped from perstock) to decide if the gold sleeve also needs ETF-izing.**
+
 ### 2026-06-16 — CONCENTRATED_MODE toggle (CA-only, default off)
 
 User asked whether the picker can target **return instead of Sharpe**. Framed

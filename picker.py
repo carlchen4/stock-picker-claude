@@ -383,8 +383,12 @@ TSX_UNIVERSE = [
     "ENB.TO", "TRP.TO", "IMO.TO",
     # Industrials (6)
     "CNR.TO", "CP.TO", "WSP.TO", "TRI.TO", "WCN.TO", "CLS.TO",
-    # Utilities (4)
-    "FTS.TO", "H.TO", "EMA.TO", "AQN.TO",
+    # Utilities (1 ETF) — ETF-ized 2026-06-16. The model had NEGATIVE selection
+    # IC here (-0.088: picking individual utilities was worse than random), so
+    # holding ZUT.TO (BMO Equal Weight Utilities) beats stock-picking the sleeve:
+    # IR 1.69->2.10, drawdown -11.3%->-8.2%, DSR 99.7% STRONG. ZUT is the holding;
+    # XUT.TO stays as the DML treatment (no conflict). Banks left as-is for now.
+    "ZUT.TO",
     # Materials — gold sleeve (4): senior producers + royalty/streamers.
     # Added 2026-06-01 as a diversification experiment — gold is the only
     # TSX sector near-orthogonal to the other four (avg monthly corr +0.14;
@@ -487,7 +491,9 @@ STOCK_PROFILE = {
     # Communication
     "BCE.TO": ("Communication", "value", "telecom"), "T.TO": ("Communication", "value", "telecom"),
     "RCI-B.TO": ("Communication", "core", "telecom"),
-    # Utilities
+    # Utilities — sleeve ETF-ized 2026-06-16 (ZUT.TO holds the slot; individual
+    # names kept here so they still resolve if held as legacy).
+    "ZUT.TO": ("Utilities", "core", "util_etf"),
     "FTS.TO": ("Utilities", "value", "utility"), "EMA.TO": ("Utilities", "value", "utility"),
     "AQN.TO": ("Utilities", "value", "utility"), "CU.TO": ("Utilities", "value", "utility"),
     "H.TO": ("Utilities", "value", "utility"),
