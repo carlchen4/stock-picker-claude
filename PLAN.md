@@ -652,6 +652,14 @@ live `predict_now` sets `top_n=min(top_n, 5)` when `CONCENTRATION_ALLOWED`.
 Backtest/model/dashboard untouched. Diagnostics kept: `ab_concentration.py`,
 `rigor_top5.py`.
 
+**Verdict (2026-06-16): keep OFF on the main book — decision: stay top10.**
+Risk-adjusted, top5 is NOT better — walk-forward Sharpe 1.68 / CPCV mean 1.54 is
+the same league as top10; the +8pp is just leverage on the same edge, paid for
+with -25%~-33% tail drawdowns. Incompatible with the user's stable-portfolio +
+legacy-holding profile (each name = 20% of book = single-name blow-up risk).
+The toggle exists only for a small, separately-funded "loss-affordable" sleeve
+or a strong bull regime — never the core portfolio.
+
 ### 2026-06-03 — legacy holdings sleeve + profit-taking trigger (live-only)
 
 Two personal-portfolio features (live `pick` report only — backtest, model,
