@@ -38,6 +38,49 @@ picker.py
 
 ---
 
+## Five-Sector Design Logic (current state, 2026-06-16)
+
+The CA picker is a **focused 5-sector model**, not a broad-universe one. This focus
+IS the edge — every breadth-widening experiment (universe expansion, adding
+Consumer Staples / Consumer Discretionary as a 6th sector) has regressed (see
+Tried & Rejected). The 5 required sectors are `Financials, Energy, Industrials,
+Utilities, Materials`.
+
+**Why these 5:** TSX is concentrated — Financials + Energy + Materials are ~60% of
+the index; Industrials (rails/logistics) and Utilities add quality/defense. The
+other TSX sectors (Tech/Healthcare/Staples/Discretionary) are thin or weak, and
+adding them forces a guaranteed mediocre allocation that dilutes the alpha sectors
+(proven: +Staples IR 2.10→1.64, +Discretionary 2.10→1.27).
+
+**Per-sector handling depends on whether the model can actually SELECT (OOS IC):**
+
+| sector | sel. IC | handling | reason |
+|---|---|---|---|
+| Industrials | +0.179 | stock-pick | strongest selection alpha |
+| Energy | +0.084 | stock-pick | real selection signal |
+| Financials | +0.036 | stock-pick | insurers/BAM differentiate; the 7 banks get ~identical scores (no selection) but are kept as low-beta dividend ballast |
+| Utilities | **−0.088** | **ETF (ZUT.TO)** | model picks utilities WORSE than random → hold the ETF instead (adopted 2026-06-16: IR 1.69→2.10, MaxDD -11.3%→-8.2%) |
+| Materials (gold) | ≈0 (identical) | stock-pick (4 names) | model doesn't select, but the curated AEM/ABX/WPM/FNV (seniors + low-vol royalty/streamers) beat a broad gold ETF (ZGD tanks IR to 0.97) |
+
+Rule of thumb: **selection IC > 0 → pick stocks; negative IC → ETF-ize; ≈0 →
+keep whichever basket (curated names vs ETF) backtests better.**
+
+**Each sector is its own model.** Independent ExtraTrees per sector (banks vs oil
+have nothing in common), each on a curated feature subset (`SECTOR_FEATURES`:
+utilities use rate/electricity proxies, energy uses oil/refining-margin, etc.),
+each with its own DML treatment ETF (`SECTOR_ETF`: XFN/XEG/ZIN/XUT/XGD) that
+removes the sector-beta so only cross-sectional alpha remains.
+
+**Portfolio construction:** ≥1 and ≤2 per required sector (`max_per_gics=2`),
+`top_n=10` (5×2; regime shrinks to 5 in BEAR), equal weight (empirically best IR),
+single-name cap 25%, small `hold_bonus` to cut turnover.
+
+**The edge in one line:** focus (5 signal/diversifying sectors, not a wide net)
++ DML (earn stock selection, not sector bets) + the 1–2-per-sector diversification
+constraint (controls drawdown). That trio is why IR is high and drawdowns shallow.
+
+---
+
 ## Key Components
 
 ### XGBoost Ensemble
