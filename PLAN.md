@@ -655,8 +655,38 @@ had negative selection IC). Rigor: **DSR 99.7%, PBO 0.3%, STRONG; CPCV mean 1.61
 Net change: TSX_UNIVERSE 34→31 names; Utilities sector now = ZUT.TO; individual
 utility names kept in STOCK_PROFILE for legacy resolution. `required_sectors`
 unchanged (Utilities slot now filled by the ETF). Industrials/Energy/Financials/
-Materials still stock-picked. **TODO: fix Materials/gold IC measurement (scores
-NaN-dropped from perstock) to decide if the gold sleeve also needs ETF-izing.**
+Materials still stock-picked.
+
+**Definitive same-settings sweep (train=28, one consistent run, `ab_zeb_vs_zut.py`):**
+
+| config | ann | Sharpe | IR | MaxDD | hit |
+|---|---|---|---|---|---|
+| baseline (all individual) | 28.1% | 2.04 | 1.69 | -11.3% | 65% |
+| ZEB only (banks→ETF) | 28.8% | 1.98 | 1.65 | **-15.3%** | 69% |
+| **ZUT only (utils→ETF) ✓** | 33.1% | **2.20** | **2.10** | **-8.2%** | 73% |
+| ZEB+ZUT (both) | 33.6% | 2.20 | 2.24 | -12.9% | 73% |
+| utils→XST (staples ETF) | 35.2% | 2.12 | 1.96 | -10.3% | 71% |
+
+Conclusion: **only Utilities should be ETF-ized, and with ZUT (not staples).**
+- **ZEB (banks)**: the earlier train=36 "win" did NOT replicate at train=28 —
+  here it's worse than baseline on IR and MaxDD. Not robust → banks stay individual.
+- **ZEB+ZUT**: highest IR (2.24) but MaxDD -12.9% (freeing two defensive sectors
+  over-tilts to high-beta). +0.14 IR for +4.7pp DD vs ZUT-only → not worth it.
+- **XST (staples) for the defensive slot**: highest raw return (35.2%) but worse
+  risk-adjusted than ZUT (IR 1.96 vs 2.10, MaxDD -10.3% vs -8.2%) — return-for-
+  drawdown, same anti-pattern as top5. Rejected.
+
+**Gold/Materials (`ab_gold.py`) — keep individual, do NOT ETF-ize.** Diagnostic:
+Materials scores are NOT NaN (220 rows, 0 NaN) — the IC was uncomputable because
+the 4 gold names get near-identical scores (same non-selection as banks). But
+unlike banks, the A/B says keep the names: gold→ZGD.TO **tanks IR 1.69→0.97,
+Sharpe 2.04→1.51**. The hand-picked 4 (AEM/ABX/WPM/FNV — senior producers +
+low-vol royalty/streamers) are a *better* basket than the broad equal-weight
+global gold ETF. So Materials stays stock-picked.
+
+**Final: across the whole universe, Utilities was the ONLY sector that benefited
+from ETF-izing. Banks/Gold/Energy/Industrials all stay individual.** Diagnostics
+kept: `ab_zeb_vs_zut.py`, `ab_gold.py`.
 
 ### 2026-06-16 — CONCENTRATED_MODE toggle (CA-only, default off)
 
