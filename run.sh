@@ -26,6 +26,8 @@
 #    ./run.sh test         run unit tests (test_picker.py)
 #    ./run.sh sell TSLA    sell-timing: price(15m)+analyst+news for a name
 #                          (or 'sell legacy' for all LEGACY_HOLDINGS)
+#    ./run.sh allocate --ca 100000 --us 40000
+#                          80/20 CA/US sizing + rebalance plan from picks_log
 #
 #  Reminder: execute picks AT MARKET on pick day. Entry timing was tested
 #  (entry_timing.py / limit_buy_test.py) and is negative-expectation — don't
@@ -51,6 +53,7 @@ case "$cmd" in
   rigor)        python picker.py rigor ;;
   monitor)      python picker.py monitor ;;
   sell)         shift; python sell_timing.py "$@" ;;
+  allocate)     shift; python allocate.py "$@" ;;
   test)         python test_picker.py ;;
-  help|*)       sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//' ;;
+  help|*)       sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac
