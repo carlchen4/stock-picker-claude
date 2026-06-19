@@ -44,6 +44,39 @@ except Exception:
     legacy_currency = None
 
 
+def volume_profile(df, bins=50):
+    """Volume Profile over the bars -> POC / Value Area High / Low.
+
+    Bins the [low, high] price range, sums each bar's volume into the bin of
+    its typical price ((H+L+C)/3). POC = highest-volume price. Value Area =
+    contiguous bins around POC holding 70% of total volume (VAH=top, VAL=bottom).
+    """
+    lo, hi = df["Low"].min(), df["High"].max()
+    if not (hi > lo) or df["Volume"].sum() <= 0:
+        return None
+    edges = np.linspace(lo, hi, bins + 1)
+    centers = (edges[:-1] + edges[1:]) / 2
+    tp = (df["High"] + df["Low"] + df["Close"]) / 3
+    idx = np.clip(np.digitize(tp, edges) - 1, 0, bins - 1)
+    vol = np.zeros(bins)
+    for i, v in zip(idx, df["Volume"].values):
+        vol[i] += v
+    total = vol.sum()
+    poc = int(vol.argmax())
+    # expand from POC until 70% volume captured
+    lo_i = hi_i = poc
+    acc = vol[poc]
+    target = 0.70 * total
+    while acc < target and (lo_i > 0 or hi_i < bins - 1):
+        down = vol[lo_i - 1] if lo_i > 0 else -1
+        up = vol[hi_i + 1] if hi_i < bins - 1 else -1
+        if up >= down:
+            hi_i += 1; acc += vol[hi_i]
+        else:
+            lo_i -= 1; acc += vol[lo_i]
+    return dict(poc=centers[poc], vah=centers[hi_i], val=centers[lo_i])
+
+
 def price_layer(tk):
     """Last ~5 sessions of 15m bars -> VWAP, range, resistance, time-of-day."""
     df = yf.Ticker(tk).history(period="5d", interval="15m", prepost=False)
@@ -62,9 +95,10 @@ def price_layer(tk):
     resist = top["Close"].mean()
     df["tod"] = df.index.strftime("%H:%M")
     tod = df.groupby("tod")["ret"].mean().sort_values(ascending=False)
+    vp = volume_profile(df)
     return dict(
         last=last, hi=hi, lo=lo, hi_t=hi_t, lo_t=lo_t,
-        vwap=vwap, resist=resist, tod=tod,
+        vwap=vwap, resist=resist, tod=tod, vp=vp,
     )
 
 
@@ -136,6 +170,10 @@ def report(tk, with_news=True):
           f"周低 {p['lo']:.2f} @ {p['lo_t']:%m-%d %H:%M}")
     print(f"  上方阻力区 ~{p['resist']:.2f}  ->  卖出限价参考: "
           f"{p['resist']:.2f}–{p['hi']:.2f}")
+    if p.get("vp"):
+        vp = p["vp"]
+        print(f"  Volume Profile:  POC {vp['poc']:.2f}(成交最密/磁吸价)  "
+              f"VAH {vp['vah']:.2f}(价值区上沿)  VAL {vp['val']:.2f}(下沿)")
     strong = p["tod"].head(3)
     weak = p["tod"].tail(2)
     print(f"  偏强时段(挂卖等反弹): " +
@@ -171,9 +209,17 @@ def report(tk, with_news=True):
 
     # concrete sell plan (deterministic parts only)
     best_tod = p["tod"].index[0]          # strongest 15m bucket this week
+    vp = p.get("vp")
     print(f"\n[挂单计划]")
-    print(f"  分批限价:  一半 @ {p['resist']:.2f} (成交密集区, 易成交)")
-    print(f"             一半 @ {p['hi']:.2f} (本周高, 占便宜卖)")
+    if vp:
+        # 卖单优先挂在 Value Area High(成交密集上沿,挂得掉又卖得高)
+        a1 = max(vp["vah"], p["last"])    # 别挂在现价之下
+        print(f"  分批限价:  一半 @ {a1:.2f} (VAH 价值区上沿, 成交密集易成交)")
+        print(f"             一半 @ {p['hi']:.2f} (本周高, 占便宜卖)")
+        print(f"  POC 参考:  {vp['poc']:.2f} 是磁吸价 — 跌破它易回落至 VAL {vp['val']:.2f}")
+    else:
+        print(f"  分批限价:  一半 @ {p['resist']:.2f} (成交密集区, 易成交)")
+        print(f"             一半 @ {p['hi']:.2f} (本周高, 占便宜卖)")
     print(f"  底线:      跌破 VWAP {p['vwap']:.2f} 视为强势结束, 别再等")
     print(f"  几点跑工具: 美东 11:00–11:30 (开盘乱杀后, 价格/VWAP 最新)")
     print(f"  挂单等哪个窗口成交: 本周最强时段 {best_tod} 附近 (一天跑一次即可)")
