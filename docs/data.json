@@ -1,16 +1,16 @@
 {
-  "generated_at": "2026-06-22T11:46:57",
+  "generated_at": "2026-06-22T15:21:41",
   "as_of": "2026-06-22",
   "regime": "NEUTRAL",
   "reliability": "OK",
   "reliability_detail": "OK \u2014 all checks passed",
   "portfolio_value": 70000.0,
-  "te_estimate": 0.0947,
+  "te_estimate": 0.076,
   "risk": {
-    "beta": 0.568,
-    "var95": -0.0498,
-    "cvar95": -0.064,
-    "max_position": 0.1429,
+    "beta": 0.943,
+    "var95": -0.0615,
+    "cvar95": -0.0955,
+    "max_position": 0.1111,
     "max_position_ticker": "NA.TO"
   },
   "picks": [
@@ -19,12 +19,12 @@
       "ticker": "NA.TO",
       "sector": "Financials",
       "style": "growth",
-      "score": 0.958,
-      "weight": 0.1429,
+      "score": 0.917,
+      "weight": 0.1111,
       "action": "BUY",
-      "price": 221.68,
-      "shares": 45,
-      "dollar_value": 10000,
+      "price": 222.62,
+      "shares": 34,
+      "dollar_value": 7777,
       "drivers": []
     },
     {
@@ -33,11 +33,11 @@
       "sector": "Energy",
       "style": "value",
       "score": 1.0,
-      "weight": 0.1429,
+      "weight": 0.1111,
       "action": "BUY",
-      "price": 158.2,
-      "shares": 63,
-      "dollar_value": 10000,
+      "price": 161.25,
+      "shares": 48,
+      "dollar_value": 7777,
       "drivers": []
     },
     {
@@ -46,11 +46,11 @@
       "sector": "Industrials",
       "style": "core",
       "score": 0.833,
-      "weight": 0.1429,
+      "weight": 0.1111,
       "action": "BUY",
-      "price": 159.73,
-      "shares": 62,
-      "dollar_value": 10000,
+      "price": 161.55,
+      "shares": 48,
+      "dollar_value": 7777,
       "drivers": []
     },
     {
@@ -59,50 +59,76 @@
       "sector": "Utilities",
       "style": "core",
       "score": 1.0,
-      "weight": 0.1429,
+      "weight": 0.1111,
       "action": "BUY",
-      "price": 29.97,
-      "shares": 333,
-      "dollar_value": 10000,
+      "price": 30.18,
+      "shares": 257,
+      "dollar_value": 7777,
       "drivers": []
     },
     {
       "rank": 5,
-      "ticker": "RY.TO",
-      "sector": "Financials",
-      "style": "core",
-      "score": 0.875,
-      "weight": 0.1429,
+      "ticker": "WPM.TO",
+      "sector": "Materials",
+      "style": "growth",
+      "score": 0.625,
+      "weight": 0.1111,
       "action": "BUY",
-      "price": 284.08,
-      "shares": 35,
-      "dollar_value": 10000,
+      "price": 172.12,
+      "shares": 45,
+      "dollar_value": 7777,
       "drivers": []
     },
     {
       "rank": 6,
-      "ticker": "CNQ.TO",
-      "sector": "Energy",
+      "ticker": "RY.TO",
+      "sector": "Financials",
       "style": "core",
-      "score": 0.75,
-      "weight": 0.1429,
+      "score": 0.917,
+      "weight": 0.1111,
       "action": "BUY",
-      "price": 58.66,
-      "shares": 170,
-      "dollar_value": 10000,
+      "price": 287.17,
+      "shares": 27,
+      "dollar_value": 7777,
       "drivers": []
     },
     {
       "rank": 7,
+      "ticker": "CNQ.TO",
+      "sector": "Energy",
+      "style": "core",
+      "score": 0.75,
+      "weight": 0.1111,
+      "action": "BUY",
+      "price": 58.93,
+      "shares": 131,
+      "dollar_value": 7777,
+      "drivers": []
+    },
+    {
+      "rank": 8,
       "ticker": "WSP.TO",
       "sector": "Industrials",
       "style": "growth",
       "score": 0.417,
-      "weight": 0.1429,
+      "weight": 0.1111,
       "action": "BUY",
-      "price": 176.7,
-      "shares": 56,
-      "dollar_value": 10000,
+      "price": 173.83,
+      "shares": 44,
+      "dollar_value": 7777,
+      "drivers": []
+    },
+    {
+      "rank": 9,
+      "ticker": "FNV.TO",
+      "sector": "Materials",
+      "style": "growth",
+      "score": 0.25,
+      "weight": 0.1111,
+      "action": "BUY",
+      "price": 311.16,
+      "shares": 24,
+      "dollar_value": 7777,
       "drivers": []
     }
   ],
@@ -113,24 +139,26 @@
       "IMO.TO",
       "CNR.TO",
       "ZUT.TO",
+      "WPM.TO",
       "RY.TO",
       "CNQ.TO",
-      "WSP.TO"
+      "WSP.TO",
+      "FNV.TO"
     ],
     "hold": []
   },
   "top_features": [
     {
       "name": "Short-Term Reversal",
-      "importance": 0.177
+      "importance": 0.1773
     },
     {
       "name": "Momentum PC1",
-      "importance": 0.1257
+      "importance": 0.1253
     },
     {
       "name": "ADV 20-day Rank",
-      "importance": 0.1179
+      "importance": 0.1178
     },
     {
       "name": "Volatility 60d",
@@ -138,15 +166,15 @@
     },
     {
       "name": "Bollinger Band Z",
-      "importance": 0.0955
+      "importance": 0.0958
     },
     {
       "name": "Volatility 20d",
-      "importance": 0.0954
+      "importance": 0.0952
     },
     {
       "name": "Momentum PC2",
-      "importance": 0.0935
+      "importance": 0.0934
     },
     {
       "name": "RSI (14-day)",
@@ -165,77 +193,85 @@
   },
   "label": "TSX",
   "sector_weights": {
-    "Financials": 0.286,
-    "Energy": 0.286,
-    "Industrials": 0.286,
-    "Utilities": 0.143,
-    "Materials": 0
+    "Financials": 0.222,
+    "Energy": 0.222,
+    "Industrials": 0.222,
+    "Utilities": 0.111,
+    "Materials": 0.222
   },
   "oos": {
     "months": 1,
-    "avg_monthly": -0.0032,
+    "avg_monthly": -0.0082,
     "monthly_series": [
       {
         "date": "2026-05",
-        "port": -0.0032,
-        "bench": 0.0138,
-        "port_cum": -0.0032,
-        "bench_cum": 0.0138
+        "port": -0.0082,
+        "bench": 0.0184,
+        "port_cum": -0.0082,
+        "bench_cum": 0.0184
       }
     ],
     "latest_month": "2026-05",
     "stock_returns": [
       {
         "ticker": "NA.TO",
-        "ret": 0.101
+        "ret": 0.1057
       },
       {
         "ticker": "RY.TO",
-        "ret": 0.0743
+        "ret": 0.086
       },
       {
         "ticker": "ZUT.TO",
-        "ret": 0.0064
+        "ret": 0.0134
       },
       {
         "ticker": "CNR.TO",
-        "ret": -0.0162
+        "ret": -0.005
       },
       {
         "ticker": "IMO.TO",
-        "ret": -0.028
+        "ret": -0.0093
+      },
+      {
+        "ticker": "FNV.TO",
+        "ret": -0.0236
       },
       {
         "ticker": "CNQ.TO",
-        "ret": -0.0644
+        "ret": -0.0601
+      },
+      {
+        "ticker": "WPM.TO",
+        "ret": -0.0714
       },
       {
         "ticker": "WSP.TO",
-        "ret": -0.0951
+        "ret": -0.1098
       }
     ],
-    "bench_return": 0.0138
+    "bench_return": 0.0184
   },
   "macro": {
     "vix": {
-      "val": 16.4,
-      "chg": 1.1
+      "val": 17.5,
+      "chg": 2.1
     },
     "oil": {
-      "val": 76.54,
-      "chg_pct": -0.1239
+      "val": 74.08,
+      "chg_pct": -0.152
     },
     "cadusd": {
       "val": 0.7061,
-      "chg_pct": -0.0268
+      "chg_pct": -0.0267
     },
     "us10y": {
-      "val": 4.45,
-      "chg_bps": -0.2
+      "val": 4.51,
+      "chg_bps": 5.6
     },
     "tsx": {
-      "val": 34968.9,
-      "chg_pct": 0.0057
+      "val": 34988.78,
+      "chg_pct": 0.0063
     }
   }
 }
