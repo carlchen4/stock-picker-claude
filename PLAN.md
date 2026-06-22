@@ -659,6 +659,36 @@ than chase more Sharpe.
 
 - **Macro / rate features — assessed, not expanding (2026-05-21)**: Asked whether to add macro/rate signals (interest rates etc.). The panel already carries 13 macro features incl. US 10Y (`rate_chg_3m`), the REAL BoC overnight rate via Valet API (`boc_rate_chg_3m`), a Canadian bond ETF (`cad_bond_mom_1m`), and inflation (`tips_mom_1m`) — rates are well covered. Decided NOT to add more, for a structural reason beyond the spec-coverage regression above: **a macro value is identical across all stocks within a month**, so it cannot discriminate *which* stock outperforms (a cross-sectional question) — it only moves timing / regime (time-series). The model's edge is cross-sectional selection (+10.6pp vs the random-score control), so extra macro is just cross-sectional noise — exactly why spec-coverage (incl. the yield-curve slope) regressed. Macro already contributes where it legitimately can: indirectly via `sector_code` splits (rates→banks/utilities, oil→energy), per the per-sector spec. Deeper "real" macro (BoC 2y/10y curve, FRED CPI, IG OAS) would hit the same cross-sectional wall.
 
+### 2026-06-22 — Gold/Materials sleeve was silently broken since launch — TWO bugs fixed
+
+Discovered the gold sleeve (added 2026-06-01) **never actually participated in
+selection** — it was cosmetically present but functionally dead. Two independent
+bugs, both now fixed:
+
+1. **`SECTOR_FEATURES["Materials"]` was missing.** When the gold sleeve launched
+   we added the universe / STOCK_PROFILE / SECTOR_ETF / required_sectors entries
+   but forgot the feature list. `_resolve_sector_features` returned `[]` →
+   `fit_sector_models` skipped Materials (`if not feats: continue`) → gold
+   (AEM/ABX/WPM/FNV) always scored 0.000, never ranked, IC uncomputable. Fixed by
+   adding Materials features: `_BASE_SECTOR_FEATURES` + gold drivers (rate_chg_3m,
+   boc_rate_chg_3m, cad_mom_1m, vix_level, tips_mom_1m, tsx_mom_1m) + fundamentals.
+   After fix: Materials trains, DML θ=+0.97 t=28 (sig), ABX scored 1.00.
+
+2. **Volume-spike anti-anomaly filter false-positived on gold.** Even after #1,
+   gold still wasn't *picked*: `apply_constraints`' vol-spike filter (≥2 days
+   >3σ volume in last 60) dropped AEM/WPM/FNV during the 2025-26 gold rally.
+   Gold's volume surges are macro/trend-driven (rates/geopolitical/safe-haven),
+   not idiosyncratic one-off pumps → false positive that killed the sleeve in
+   exactly the regime you'd want to hold gold. Fixed by exempting sub_type
+   gold/gold_royalty from the vol-spike check (holdings were already exempt).
+   After fix: gold (WPM) now appears in the monthly picks; Materials active.
+
+Lesson: adding a sector requires FIVE coordinated edits (universe, STOCK_PROFILE,
+SECTOR_ETF, required_sectors, **SECTOR_FEATURES**) — missing the last one fails
+silently (model just skips the sector, no error). Also flagged US universe with
+inline fundamental-health markers (🔴 ARM/NET/SNOW/INTC etc.) since the momentum
+model chases froth. Diagnostics: `example_month.py` shows per-month picks+scores.
+
 ### 2026-06-16 — Utilities sleeve ETF-ized (FTS/H/EMA/AQN → ZUT.TO) — ADOPTED
 
 Per-sector selection IC diagnostic (`sector_ic.py`, OOS rank-corr of score vs
