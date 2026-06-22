@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-22T09:51:01",
+  "generated_at": "2026-06-22T11:46:57",
   "as_of": "2026-06-22",
   "regime": "NEUTRAL",
   "reliability": "OK",
@@ -122,35 +122,35 @@
   "top_features": [
     {
       "name": "Short-Term Reversal",
-      "importance": 0.1821
+      "importance": 0.177
     },
     {
       "name": "Momentum PC1",
-      "importance": 0.136
-    },
-    {
-      "name": "Volatility 60d",
-      "importance": 0.1186
+      "importance": 0.1257
     },
     {
       "name": "ADV 20-day Rank",
-      "importance": 0.106
+      "importance": 0.1179
     },
     {
-      "name": "Volatility 20d",
-      "importance": 0.0973
-    },
-    {
-      "name": "Momentum PC2",
-      "importance": 0.0923
+      "name": "Volatility 60d",
+      "importance": 0.1017
     },
     {
       "name": "Bollinger Band Z",
-      "importance": 0.09
+      "importance": 0.0955
+    },
+    {
+      "name": "Volatility 20d",
+      "importance": 0.0954
+    },
+    {
+      "name": "Momentum PC2",
+      "importance": 0.0935
     },
     {
       "name": "RSI (14-day)",
-      "importance": 0.0763
+      "importance": 0.0877
     }
   ],
   "backtest": {
