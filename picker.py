@@ -351,6 +351,19 @@ SECTOR_FEATURES = {
         "roe", "pe_ratio", "div_yield", "debt_equity",
         "sector_code",
     ],
+    # Materials = gold sleeve. Added 2026-06-22 (was MISSING since the gold
+    # sleeve launched 2026-06-01 → Materials model never trained, gold always
+    # scored 0). Gold drivers: real rates (inverse), USD, inflation, safe-haven.
+    "Materials": _BASE_SECTOR_FEATURES + [
+        "rate_chg_3m",       # real-rate proxy — gold inversely sensitive
+        "boc_rate_chg_3m",   # REAL BOC overnight rate
+        "cad_mom_1m",        # USD/CAD — gold priced in USD
+        "vix_level",         # safe-haven / fear demand
+        "tips_mom_1m",       # inflation proxy
+        "tsx_mom_1m",        # market beta
+        "roe", "pe_ratio", "div_yield", "debt_equity",
+        "sector_code",
+    ],
 }
 
 # ══════════════════════════════════════════════════════════════════

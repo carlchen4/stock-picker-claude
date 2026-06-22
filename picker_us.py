@@ -63,14 +63,19 @@ picker.TSX_UNIVERSE = [
 # STOCK PROFILE  (sector, style, sub_type)
 # ══════════════════════════════════════════════════════════════════
 
+# ⚠️ FUNDAMENTAL HEALTH FLAGS (snapshot 2026-06-22) — the model picks on
+# momentum/revenue, NOT valuation, so it can chase froth. Names marked 🔴 are
+# expensive AND/OR unprofitable (high blow-up risk in a tech selloff); 🟡 very
+# expensive but profitable; 🟢 fundamentally sound. Use as a sanity overlay
+# when a 🔴 lands in the monthly picks — size small / prefer in registered only.
 picker.STOCK_PROFILE = {
     # Cloud / Internet (MSFT moved here)
     "MSFT":  ("Cloud", "core",   "hyperscaler"),
     # Semiconductors
     "NVDA":  ("Semiconductors", "growth", "gpu"),
-    "AMD":   ("Semiconductors", "growth", "cpu"),
+    "AMD":   ("Semiconductors", "growth", "cpu"),       # 🟡 PE~180 / PS~24, profitable
     "AVGO":  ("Semiconductors", "value",  "broadband"),
-    "QCOM":  ("Semiconductors", "value",  "mobile"),
+    "QCOM":  ("Semiconductors", "value",  "mobile"),    # 🟢 PE~21, ROE 36%, margin 22% — the sound one
     "TXN":   ("Semiconductors", "value",  "analog"),
     "AMAT":  ("Semiconductors", "core",   "equipment"),
     "MU":    ("Semiconductors", "value",  "memory"),
@@ -81,14 +86,14 @@ picker.STOCK_PROFILE = {
     "META":  ("Cloud", "core",   "social"),
     "GOOGL": ("Cloud", "core",   "search"),
     "ANET":  ("Cloud", "growth", "networking"),
-    "PLTR":  ("Cloud", "growth", "analytics"),
-    "NET":   ("Cloud", "growth", "cdn"),
-    "SNOW":  ("Cloud", "growth", "data_platform"),
+    "PLTR":  ("Cloud", "growth", "analytics"),          # 🟡 perennial high PS
+    "NET":   ("Cloud", "growth", "cdn"),                # 🔴 unprofitable (margin ~-4%), PS~33
+    "SNOW":  ("Cloud", "growth", "data_platform"),      # 🔴 unprofitable (margin -24%, ROE -55%), PS~16
     # Hardware / Mixed
     "AAPL":  ("Hardware", "core",  "consumer"),
-    "TSLA":  ("Hardware", "growth", "ev"),
-    "ARM":   ("Hardware", "growth", "cpu_ip"),
-    "INTC":  ("Hardware", "value",  "cpu"),
+    "TSLA":  ("Hardware", "growth", "ev"),              # 🟡 PE ~160, high vol
+    "ARM":   ("Hardware", "growth", "cpu_ip"),          # 🔴 bubble valuation: PE~489 / PS~88
+    "INTC":  ("Hardware", "value",  "cpu"),             # 🔴 losing money (margin -6%), fwd PE~90, turnaround risk
     # Benchmark
     "QQQ":   ("Unknown", "etf",    "benchmark"),
 }
