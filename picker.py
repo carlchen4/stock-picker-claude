@@ -1164,7 +1164,13 @@ def apply_constraints(candidates, fundamentals_df, price_df, mode="pick",
             # produced a spike isn't a reason to forcibly sell — the band
             # gets to decide based on score instead.
             is_holding = current_holdings and ticker in current_holdings
-            if not is_holding:
+            # Gold (Materials) is exempt: its volume surges are macro/trend-driven
+            # (rate/geopolitical/safe-haven), not idiosyncratic one-off spikes, so
+            # the anti-anomaly filter was a FALSE POSITIVE that silently killed the
+            # whole gold sleeve during gold rallies (fixed 2026-06-22).
+            _sub = STOCK_PROFILE.get(ticker, ("", "", ""))[2]
+            is_gold = _sub in ("gold", "gold_royalty")
+            if not is_holding and not is_gold:
                 vol_series = vol.tail(60)
                 vol_mean = vol_series.mean()
                 vol_std = vol_series.std()
