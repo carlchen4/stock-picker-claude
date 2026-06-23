@@ -2338,7 +2338,7 @@ def detect_regime(macro_df):
 # ══════════════════════════════════════════════════════════════════
 
 def apply_rebalancing_band(new_picks, new_scores, current_holdings, constraints=None,
-                           hold_bonus=0.0, legacy_sectors=None):
+                           hold_bonus=0.35, legacy_sectors=None):
     """Pick top stocks under sector min/max constraints.
 
     Rules enforced (in order):
@@ -2723,7 +2723,7 @@ def walk_forward(panel, feature_cols, train_months=28, min_train=24,
                  embargo_months=1, return_importance=False,
                  return_raw_importance=False, expanding=False,
                  half_life=6, weight_method="equal",
-                 trade_cost=0.001, hold_bonus=0.03,
+                 trade_cost=0.001, hold_bonus=0.35,
                  use_alpha_label=False):
     """
     Walk-forward backtester with rolling window (default) or expanding window.
@@ -5094,7 +5094,7 @@ def _print_equity_curve(results_df, width=50):
 # ══════════════════════════════════════════════════════════════════
 
 def _wf_metrics(panel, model_features, embargo_months=1, half_life=12, train_months=36,
-                weight_method="equal", trade_cost=0.001, hold_bonus=0.03,
+                weight_method="equal", trade_cost=0.001, hold_bonus=0.35,
                 use_alpha_label=False):
     """Run walk_forward; return (sharpe, ir, ann_ret, max_dd, hit_rate)."""
     results = walk_forward(panel, model_features, embargo_months=embargo_months,

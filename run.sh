@@ -54,6 +54,7 @@ case "$cmd" in
   monitor)      python picker.py monitor ;;
   sell)         shift; python sell_timing.py "$@" ;;
   allocate)     shift; python allocate.py "$@" ;;
+  advise)       shift; ./venv/bin/python monthly_advisor.py "$@" ;;
   test)         python test_picker.py ;;
   help|*)       sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac
