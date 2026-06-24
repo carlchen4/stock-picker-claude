@@ -659,6 +659,30 @@ than chase more Sharpe.
 
 - **Macro / rate features — assessed, not expanding (2026-05-21)**: Asked whether to add macro/rate signals (interest rates etc.). The panel already carries 13 macro features incl. US 10Y (`rate_chg_3m`), the REAL BoC overnight rate via Valet API (`boc_rate_chg_3m`), a Canadian bond ETF (`cad_bond_mom_1m`), and inflation (`tips_mom_1m`) — rates are well covered. Decided NOT to add more, for a structural reason beyond the spec-coverage regression above: **a macro value is identical across all stocks within a month**, so it cannot discriminate *which* stock outperforms (a cross-sectional question) — it only moves timing / regime (time-series). The model's edge is cross-sectional selection (+10.6pp vs the random-score control), so extra macro is just cross-sectional noise — exactly why spec-coverage (incl. the yield-curve slope) regressed. Macro already contributes where it legitimately can: indirectly via `sector_code` splits (rates→banks/utilities, oil→energy), per the per-sector spec. Deeper "real" macro (BoC 2y/10y curve, FRED CPI, IG OAS) would hit the same cross-sectional wall.
 
+### 2026-06-24 — ETF sleeve silently dropped by stock filters (Utilities/ZUT empty) — FIXED
+
+Third instance of the "filter false-positive silently empties a sleeve" class
+(after the two 2026-06-22 gold bugs). The Utilities sleeve was ETF-ized to ZUT.TO
+on 2026-06-16, but **ZUT never once reached picks** — Utilities sector_weight was 0
+in every run since. ZUT scored #1 (Score 1.000) yet got filtered out by THREE
+constraints that treat it as if it were a single stock:
+1. **min_adv_cad ($1M)**: ZUT on-screen ADV ~$0.82M. ETF screen volume understates
+   true liquidity (creation/redemption via market makers) — false positive.
+2. **min_mktcap_cad ($0.8B)**: an ETF's "market cap" is its AUM (~$0.4B for ZUT),
+   not comparable to a stock's market cap — false positive.
+3. **max_per_style "core" cap (4)** in `_apply_concentration_limits`: ZUT's style is
+   "core"; AUTO_ROLL current holdings already had exactly 4 core names (CNQ/CP/BMO/TRI)
+   which get priority and fill the cap → the sole Utilities name was blocked.
+
+Fix (`apply_constraints` + `_apply_concentration_limits`): compute
+`is_etf = STOCK_PROFILE[t][2].endswith("_etf")` once per ticker; ETFs bypass
+min-ADV, vol-spike, the PE/ROE/mktcap fundamental checks, AND the style/type
+concentration caps (still counted toward gics cap). An ETF is a whole-sector sleeve,
+not a single-name style/liquidity/valuation bet. After fix: ZUT enters at 1/9 ≈ 11%,
+Utilities sector_weight 0.111, picks went 8→9. smoke_test passes. Diagnostic note:
+`diagnose_constraints.py` has its OWN inline copy of the min_adv check (not the real
+`apply_constraints`) — it misled the first diagnosis; trust the real function.
+
 ### 2026-06-24 — hold_bonus 0.35 (turnover halved), rigor audit (CA STRONG / US WEAK), CA:US allocation = CA picker + VOO
 
 Four linked decisions this session, all backtested same-environment (this env
