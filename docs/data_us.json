@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-06-23T14:22:18",
-  "as_of": "2026-06-23",
+  "generated_at": "2026-06-24T11:01:16",
+  "as_of": "2026-06-24",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
   "reliability_detail": "CAUTION \u2014 1 warning \u2014 Feature drift: 1 regime-shifted (|z|>3): ps_ratio_ttm(z=10.2)",
   "portfolio_value": 10000.0,
-  "te_estimate": 0.2174,
+  "te_estimate": 0.2183,
   "risk": {
-    "beta": 1.454,
-    "var95": -0.1337,
-    "cvar95": -0.1803,
+    "beta": 1.462,
+    "var95": -0.1364,
+    "cvar95": -0.1897,
     "max_position": 0.1667,
     "max_position_ticker": "QCOM"
   },
@@ -22,8 +22,8 @@
       "score": 1.091,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 221.9,
-      "shares": 7,
+      "price": 204.13,
+      "shares": 8,
       "dollar_value": 1666,
       "drivers": [
         {
@@ -48,7 +48,7 @@
       "score": 0.427,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 349.68,
+      "price": 346.13,
       "shares": 4,
       "dollar_value": 1666,
       "drivers": [
@@ -74,7 +74,7 @@
       "score": 1.288,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 407.72,
+      "price": 366.39,
       "shares": 4,
       "dollar_value": 1666,
       "drivers": [
@@ -100,8 +100,8 @@
       "score": 0.86,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 140.94,
-      "shares": 11,
+      "price": 132.28,
+      "shares": 12,
       "dollar_value": 1666,
       "drivers": [
         {
@@ -126,7 +126,7 @@
       "score": 0.561,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 332.28,
+      "price": 304.36,
       "shares": 5,
       "dollar_value": 1666,
       "drivers": [
@@ -152,7 +152,7 @@
       "score": 0.272,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 232.79,
+      "price": 234.11,
       "shares": 7,
       "dollar_value": 1666,
       "drivers": [
@@ -773,7 +773,7 @@
   },
   "oos": {
     "months": 2,
-    "avg_monthly": 0.1276,
+    "avg_monthly": 0.0977,
     "monthly_series": [
       {
         "date": "2026-04",
@@ -784,53 +784,53 @@
       },
       {
         "date": "2026-05",
-        "port": 0.0229,
-        "bench": 0.0006,
-        "port_cum": 0.2605,
-        "bench_cum": 0.1064
+        "port": -0.037,
+        "bench": -0.0323,
+        "port_cum": 0.1867,
+        "bench_cum": 0.0699
       }
     ],
     "latest_month": "2026-05",
     "stock_returns": [
       {
         "ticker": "INTC",
-        "ret": 0.229
+        "ret": 0.1535
       },
       {
         "ticker": "ARM",
-        "ret": 0.1541
+        "ret": 0.0371
       },
       {
         "ticker": "TXN",
-        "ret": 0.087
+        "ret": -0.0043
       },
       {
         "ticker": "GOOGL",
-        "ret": -0.0801
-      },
-      {
-        "ticker": "QCOM",
-        "ret": -0.1127
+        "ret": -0.0894
       },
       {
         "ticker": "AMZN",
-        "ret": -0.1399
+        "ret": -0.135
+      },
+      {
+        "ticker": "QCOM",
+        "ret": -0.1838
       }
     ],
-    "bench_return": 0.0006
+    "bench_return": -0.0323
   },
   "macro": {
     "vix": {
-      "val": 17.3,
-      "chg": 2.0
+      "val": 19.5,
+      "chg": 4.2
     },
     "oil": {
-      "val": 74.82,
-      "chg_pct": -0.1435
+      "val": 72.56,
+      "chg_pct": -0.1694
     },
     "us10y": {
-      "val": 4.51,
-      "chg_bps": 5.6
+      "val": 4.49,
+      "chg_bps": 4.0
     }
   }
 }
