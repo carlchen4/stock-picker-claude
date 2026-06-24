@@ -659,6 +659,57 @@ than chase more Sharpe.
 
 - **Macro / rate features — assessed, not expanding (2026-05-21)**: Asked whether to add macro/rate signals (interest rates etc.). The panel already carries 13 macro features incl. US 10Y (`rate_chg_3m`), the REAL BoC overnight rate via Valet API (`boc_rate_chg_3m`), a Canadian bond ETF (`cad_bond_mom_1m`), and inflation (`tips_mom_1m`) — rates are well covered. Decided NOT to add more, for a structural reason beyond the spec-coverage regression above: **a macro value is identical across all stocks within a month**, so it cannot discriminate *which* stock outperforms (a cross-sectional question) — it only moves timing / regime (time-series). The model's edge is cross-sectional selection (+10.6pp vs the random-score control), so extra macro is just cross-sectional noise — exactly why spec-coverage (incl. the yield-curve slope) regressed. Macro already contributes where it legitimately can: indirectly via `sector_code` splits (rates→banks/utilities, oil→energy), per the per-sector spec. Deeper "real" macro (BoC 2y/10y curve, FRED CPI, IG OAS) would hit the same cross-sectional wall.
 
+### 2026-06-24 — hold_bonus 0.35 (turnover halved), rigor audit (CA STRONG / US WEAK), CA:US allocation = CA picker + VOO
+
+Four linked decisions this session, all backtested same-environment (this env
+fetches no earnings → absolute Sharpe ~0.03 under PLAN headline; relative A/B valid).
+
+**1. `hold_bonus` 0.0/0.03 → 0.35 (ADOPTED, committed + pushed).**
+Live pick path (`apply_rebalancing_band` at predict_now, ~line 3524) passed NO
+hold_bonus → default was 0.0 (zero stickiness); `walk_forward`/`_wf_metrics`
+defaulted 0.03. Measured turnover was very high: US ~485%/yr (40%/mo, 0 zero-churn
+months), CA ~462%/yr. Swept hold_bonus → **0.35 is the sweet spot** (deliberately
+left of the curve peak at 0.50 to avoid overfitting):
+- US: turnover 485%→230%, total +311%→+425%, Sharpe 1.00→1.12, DD ~-45%.
+- CA: turnover 462%→198%, total +256%→+264%, Sharpe 2.19→2.14 (flat), DD -8%→-13%.
+Mechanism = let winners run (same lesson as buy-hold > monthly-rebalance for a
+basket with one mega-winner). Set default to 0.35 in all 3 spots (apply_rebalancing_band,
+walk_forward, _wf_metrics). Higher (0.50/0.75) looked better on US but sits on the
+curve peak — NOT adopted (overfit risk; no real-world cost reason to push lower since
+picker lives in registered accounts, WS commission-free, large-cap tight spreads).
+
+**2. `com.carl.picker` schedule: monthly (Day 1, 07:00) → daily 11:00.** User wants
+a daily refreshed signal. Picks stay monthly-rebalance discipline; daily output is
+informational. Reversible (re-add `Day=1`).
+
+**3. Rigor audit (`picker.py rigor` / `picker_us.py rigor`) — the headline finding:**
+- **CA = STRONG.** Sharpe 2.14, PSR 100%, **DSR 99.4%**, **PBO 0.6%**, CPCV 100% of
+  paths Sharpe>0 (worst path +0.86), survives Benjamini-Hochberg FDR. Real alpha.
+- **US = WEAK.** Sharpe 1.12, **DSR 65.3%**, **PBO 34.7%**, verdict "likely
+  overfitting, do not rely on backtest." CPCV 87% paths positive (mildly reassuring,
+  not nothing) but range −0.79…+2.76. US edge is real-but-noisy, time-sensitive.
+
+**4. CA:US allocation analysis (`ab_ca_us_blend.py`).** Correlations (55mo): CA picker
+vs US picker **+0.40**; CA picker vs **VOO −0.13** (negative!); US picker vs VOO −0.10.
+Blend frontiers:
+- CA picker + US picker → max Sharpe at CA 90% (2.14); adding US picker only buys
+  return via more risk/DD (Sharpe falls to 1.57 at 50:50).
+- CA picker + **VOO** → max Sharpe at **CA 70% / VOO 30% = Sharpe 2.43, DD -11.4%**
+  (better than pure CA's 2.14/-13.1%). VOO's negative corr = genuine diversification.
+- **Conclusion: get US exposure via VOO (passive), NOT the US picker.** US picker
+  demoted to optional ≤10% speculative sleeve. Recommended core = CA picker 70% + VOO 30%.
+  Caveat: −0.13 is partly period-specific (FX/sector rotation); direction is robust.
+
+**Bench sanity (`ab_pus_vs_nq10_2021.py`):** vs the honest 2021-vintage equal-weight
+Nasdaq-top10 (incl. faded ADBE −57%, PYPL −81% — no survivorship bias), US picker
++311% vs +81% (monthly-rebal) / +131% (buy-hold), Sharpe 1.00 vs 0.61/0.78. The
+earlier "Sharpe tie" was a survivorship-bias artifact (today's-winners basket).
+
+**CA pairs scan (`pairs_scan.py`):** 17 candidate TSX pairs; **0 are tradeable**
+(half-life <60d AND RV beats 50/50). Best is FTS-EMA (67d half-life, RV 0.93 vs 0.81)
+— borderline, paper-track only. CA lacks US-style fast-reverting duopolies (CA "twins"
+co-move but spreads drift on idiosyncratic commodity/rate factors). Not a CA battleground.
+
 ### 2026-06-22 — Gold/Materials sleeve was silently broken since launch — TWO bugs fixed
 
 Discovered the gold sleeve (added 2026-06-01) **never actually participated in
