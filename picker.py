@@ -1146,6 +1146,14 @@ def apply_constraints(candidates, fundamentals_df, price_df, mode="pick",
         if ticker == BENCHMARK_TICKER:
             continue  # benchmark only
 
+        # ETFs (sleeve holdings like ZUT.TO) are exempt from min-ADV, vol-spike AND
+        # fundamental (PE/ROE/mktcap) filters: on-screen volume understates true ETF
+        # liquidity (creation/redemption via market makers), and an ETF's "market cap"
+        # is its AUM (~$0.4B for ZUT), not comparable to a stock's — the $0.8B mktcap
+        # + $1M ADV thresholds were FALSE POSITIVES that silently emptied the Utilities
+        # sleeve (ZUT scored #1 yet never reached picks; fixed 2026-06-24).
+        is_etf = STOCK_PROFILE.get(ticker, ("", "", ""))[2].endswith("_etf")
+
         prices, vol = get_ohlcv(price_df, ticker)
         if prices is None or len(prices) < C["min_listing_days"]:
             continue
@@ -1156,7 +1164,7 @@ def apply_constraints(candidates, fundamentals_df, price_df, mode="pick",
 
         if vol is not None:
             adv = (vol.tail(20) * prices.tail(20)).mean()
-            if adv < C["min_adv_cad"]:
+            if not is_etf and adv < C["min_adv_cad"]:
                 continue
 
             # Volume-spike anti-anomaly filter only applies to new picks.
@@ -1170,7 +1178,7 @@ def apply_constraints(candidates, fundamentals_df, price_df, mode="pick",
             # whole gold sleeve during gold rallies (fixed 2026-06-22).
             _sub = STOCK_PROFILE.get(ticker, ("", "", ""))[2]
             is_gold = _sub in ("gold", "gold_royalty")
-            if not is_holding and not is_gold:
+            if not is_holding and not is_gold and not is_etf:
                 vol_series = vol.tail(60)
                 vol_mean = vol_series.mean()
                 vol_std = vol_series.std()
@@ -1179,8 +1187,8 @@ def apply_constraints(candidates, fundamentals_df, price_df, mode="pick",
                     if spike_days >= C["vol_spike_min_days"]:
                         continue
 
-        # Fundamental checks (pick mode only)
-        if mode == "pick" and ticker in fundamentals_df.index:
+        # Fundamental checks (pick mode only; ETFs exempt — see is_etf note above)
+        if mode == "pick" and not is_etf and ticker in fundamentals_df.index:
             row = fundamentals_df.loc[ticker]
             pe = safe_float(row.get("pe"))
             if not np.isnan(pe) and (pe < C["min_pe"] or pe > C["max_pe"]):
@@ -1221,6 +1229,15 @@ def _apply_concentration_limits(candidates, C, current_holdings=None):
     for t in priority + rest:
         profile = STOCK_PROFILE.get(t, ("Unknown", "core", "other"))
         gics, style, sub_type = profile
+
+        # ETFs (sleeve holdings like ZUT.TO) bypass the style/type concentration
+        # caps — an ETF represents a whole sector sleeve, not a single-name style
+        # bet. Without this, current holdings filling the "core" style cap (4) would
+        # block the sole Utilities ETF and silently empty the sector (fixed 2026-06-24).
+        if sub_type.endswith("_etf"):
+            gics_count[gics] = gics_count.get(gics, 0) + 1
+            selected.append(t)
+            continue
 
         # Check limits
         if gics_count.get(gics, 0) >= C["max_per_gics"]:
