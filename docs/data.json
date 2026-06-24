@@ -1,16 +1,16 @@
 {
-  "generated_at": "2026-06-24T18:20:02",
+  "generated_at": "2026-06-24T18:21:58",
   "as_of": "2026-06-24",
   "regime": "NEUTRAL",
   "reliability": "OK",
   "reliability_detail": "OK \u2014 all checks passed",
   "portfolio_value": 10000.0,
-  "te_estimate": 0.0991,
+  "te_estimate": 0.0887,
   "risk": {
-    "beta": 0.965,
-    "var95": -0.0677,
-    "cvar95": -0.1045,
-    "max_position": 0.125,
+    "beta": 0.888,
+    "var95": -0.062,
+    "cvar95": -0.0946,
+    "max_position": 0.1111,
     "max_position_ticker": "MFC.TO"
   },
   "picks": [
@@ -20,11 +20,11 @@
       "sector": "Financials",
       "style": "value",
       "score": 0.667,
-      "weight": 0.125,
+      "weight": 0.1111,
       "action": "BUY",
       "price": 56.79,
-      "shares": 22,
-      "dollar_value": 1250,
+      "shares": 19,
+      "dollar_value": 1111,
       "drivers": [
         {
           "label": "52-Week High Proximity",
@@ -46,11 +46,11 @@
       "sector": "Energy",
       "style": "core",
       "score": 0.75,
-      "weight": 0.125,
+      "weight": 0.1111,
       "action": "BUY",
       "price": 56.45,
-      "shares": 22,
-      "dollar_value": 1250,
+      "shares": 19,
+      "dollar_value": 1111,
       "drivers": [
         {
           "label": "Bollinger Band Z",
@@ -72,11 +72,11 @@
       "sector": "Industrials",
       "style": "core",
       "score": 0.667,
-      "weight": 0.125,
+      "weight": 0.1111,
       "action": "BUY",
       "price": 122.38,
-      "shares": 10,
-      "dollar_value": 1250,
+      "shares": 9,
+      "dollar_value": 1111,
       "drivers": [
         {
           "label": "Momentum PC1",
@@ -94,15 +94,41 @@
     },
     {
       "rank": 4,
+      "ticker": "ZUT.TO",
+      "sector": "Utilities",
+      "style": "core",
+      "score": 1.0,
+      "weight": 0.1111,
+      "action": "BUY",
+      "price": 30.26,
+      "shares": 36,
+      "dollar_value": 1111,
+      "drivers": [
+        {
+          "label": "Short-Term Reversal",
+          "shap": -0.0932
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": 0.0261
+        },
+        {
+          "label": "ADV 20-day Rank",
+          "shap": -0.0109
+        }
+      ]
+    },
+    {
+      "rank": 5,
       "ticker": "WPM.TO",
       "sector": "Materials",
       "style": "growth",
       "score": 0.625,
-      "weight": 0.125,
+      "weight": 0.1111,
       "action": "BUY",
       "price": 161.51,
-      "shares": 7,
-      "dollar_value": 1250,
+      "shares": 6,
+      "dollar_value": 1111,
       "drivers": [
         {
           "label": "ADV 20-day Rank",
@@ -119,16 +145,16 @@
       ]
     },
     {
-      "rank": 5,
+      "rank": 6,
       "ticker": "CVE.TO",
       "sector": "Energy",
       "style": "value",
       "score": 0.375,
-      "weight": 0.125,
+      "weight": 0.1111,
       "action": "BUY",
       "price": 35.19,
-      "shares": 35,
-      "dollar_value": 1250,
+      "shares": 31,
+      "dollar_value": 1111,
       "drivers": [
         {
           "label": "Bollinger Band Z",
@@ -145,16 +171,16 @@
       ]
     },
     {
-      "rank": 6,
+      "rank": 7,
       "ticker": "BMO.TO",
       "sector": "Financials",
       "style": "core",
       "score": 0.333,
-      "weight": 0.125,
+      "weight": 0.1111,
       "action": "BUY",
       "price": 246.61,
-      "shares": 5,
-      "dollar_value": 1250,
+      "shares": 4,
+      "dollar_value": 1111,
       "drivers": [
         {
           "label": "RSI (14-day)",
@@ -171,16 +197,16 @@
       ]
     },
     {
-      "rank": 7,
+      "rank": 8,
       "ticker": "FNV.TO",
       "sector": "Materials",
       "style": "growth",
       "score": 0.25,
-      "weight": 0.125,
+      "weight": 0.1111,
       "action": "BUY",
       "price": 297.0,
-      "shares": 4,
-      "dollar_value": 1250,
+      "shares": 3,
+      "dollar_value": 1111,
       "drivers": [
         {
           "label": "ADV 20-day Rank",
@@ -197,16 +223,16 @@
       ]
     },
     {
-      "rank": 8,
+      "rank": 9,
       "ticker": "TRI.TO",
       "sector": "Industrials",
       "style": "core",
       "score": 0.25,
-      "weight": 0.125,
+      "weight": 0.1111,
       "action": "BUY",
       "price": 115.97,
-      "shares": 10,
-      "dollar_value": 1250,
+      "shares": 9,
+      "dollar_value": 1111,
       "drivers": [
         {
           "label": "Momentum PC1",
@@ -229,6 +255,7 @@
       "MFC.TO",
       "CNQ.TO",
       "CP.TO",
+      "ZUT.TO",
       "WPM.TO",
       "CVE.TO",
       "BMO.TO",
@@ -821,15 +848,15 @@
   },
   "label": "TSX",
   "sector_weights": {
-    "Financials": 0.25,
-    "Energy": 0.25,
-    "Industrials": 0.25,
-    "Utilities": 0,
-    "Materials": 0.25
+    "Financials": 0.222,
+    "Energy": 0.222,
+    "Industrials": 0.222,
+    "Utilities": 0.111,
+    "Materials": 0.222
   },
   "oos": {
     "months": 2,
-    "avg_monthly": -0.0165,
+    "avg_monthly": -0.0142,
     "monthly_series": [
       {
         "date": "2026-04",
@@ -840,9 +867,9 @@
       },
       {
         "date": "2026-05",
-        "port": -0.0268,
+        "port": -0.022,
         "bench": 0.0193,
-        "port_cum": -0.0329,
+        "port_cum": -0.0282,
         "bench_cum": 0.0385
       }
     ],
@@ -855,6 +882,10 @@
       {
         "ticker": "MFC.TO",
         "ret": 0.077
+      },
+      {
+        "ticker": "ZUT.TO",
+        "ret": 0.0161
       },
       {
         "ticker": "CP.TO",
