@@ -368,6 +368,15 @@ picker.apply_dml_adjustment = lambda scores, *a, **k: scores
 # stay MONTHLY (still run picker monthly); only the model's training target is 3m.
 picker.LABEL_HORIZON = 3
 
+# Allocation reminder shown atop every US report/email: the US picker is a small
+# speculative satellite, NOT your core US holding. Put the bulk in VOO/SPYM.
+picker.REPORT_TOP_NOTE = (
+    "⚠️ 配置提醒:美股大部分仓位请买 VOO/SPYM(S&P 宽基)。\n"
+    "   此 US picker 仅作 ≤5-10% 科技小卫星 —— 过拟合偏高(DSR 77%, WEAK)、\n"
+    "   且与 CA picker 正相关(+0.40)分散差。别拿它当美股核心仓。\n"
+    "   分散靠:CA picker(5 行业)+ VOO(宽基,与 CA 负相关 -0.13)。"
+)
+
 # ══════════════════════════════════════════════════════════════════
 # PICKS LOG  (separate file so US picks don't mix with TSX log)
 # ══════════════════════════════════════════════════════════════════

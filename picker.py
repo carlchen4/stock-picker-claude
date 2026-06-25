@@ -376,6 +376,10 @@ BENCHMARK_TICKER = "XIU.TO"
 # picker_us.py overrides this to "US Tech" etc.
 REPORT_LABEL = "TSX"
 
+# Optional allocation note shown near the top of every report (stdout + email).
+# Empty for CA; picker_us.py sets the "most of your US money → VOO" reminder.
+REPORT_TOP_NOTE = ""
+
 # GitHub Pages dashboard data file (in docs/). picker_us.py overrides to
 # "data_us.json" so the two models get separate dashboards (index.html /
 # us.html) instead of overwriting each other.
@@ -3723,6 +3727,9 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
     if hs:
         lines.append(f"Signal reliability: {hs}")
     lines.append("=" * 60)
+
+    if REPORT_TOP_NOTE:
+        lines += ["", REPORT_TOP_NOTE, "=" * 60]
 
     if profit_take and profit_take.get("triggered"):
         tr, thr = profit_take["trailing"], profit_take["threshold"]
