@@ -368,13 +368,16 @@ picker.apply_dml_adjustment = lambda scores, *a, **k: scores
 # stay MONTHLY (still run picker monthly); only the model's training target is 3m.
 picker.LABEL_HORIZON = 3
 
-# Allocation reminder shown atop every US report/email: the US picker is a small
-# speculative satellite, NOT your core US holding. Put the bulk in VOO/SPYM.
+# Deployment guide shown atop every US report/email: how to deploy $10,000 USD,
+# split 1/3 US picker (active tech, the picks below) + 1/3 VOO (broad S&P) +
+# 1/3 QQQM (Nasdaq tech beta). top_n=6 → picker slice is ~$555 per name.
 picker.REPORT_TOP_NOTE = (
-    "⚠️ 配置提醒:美股大部分仓位请买 VOO/SPYM(S&P 宽基)。\n"
-    "   此 US picker 仅作 ≤5-10% 科技小卫星 —— 过拟合偏高(DSR 77%, WEAK)、\n"
-    "   且与 CA picker 正相关(+0.40)分散差。别拿它当美股核心仓。\n"
-    "   分散靠:CA picker(5 行业)+ VOO(宽基,与 CA 负相关 -0.13)。"
+    "💵 $10,000 USD 怎么买(各 1/3 ≈ $3,333):\n"
+    "   ① $3,333 → US picker:下面的 picks 等权买(6 只 → 每只约 $555)\n"
+    "   ② $3,333 → VOO(S&P 宽基,稳、回撤浅)\n"
+    "   ③ $3,333 → QQQM(纳指科技 beta)\n"
+    "   ETF 股数 = $3,333 ÷ 当日股价。提醒:US picker 是主动科技(博超额、"
+    "波动大、DSR 77% WEAK),VOO/QQQM 是可靠底仓。"
 )
 
 # ══════════════════════════════════════════════════════════════════
