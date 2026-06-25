@@ -1501,11 +1501,27 @@ def build_panel(price_df, macro_df, tickers):
     return panel
 
 
+# Training-label horizon in MONTHS. Trades stay monthly (port_ret always uses the
+# 1-month fwd_ret); only the model's TRAINING target looks LABEL_HORIZON months
+# ahead. Longer-horizon forward returns are less noisy → less overfitting. CA keeps
+# 1 (default); the US picker sets 3 (validated: DSR +~4pp same-environment).
+LABEL_HORIZON = 1
+
+
 def add_labels(panel):
     """Add next-month return as label (regression target and classification)."""
     panel = panel.sort_values(["ticker", "date"])
     panel["fwd_ret"] = panel.groupby("ticker")["mom_1m"].shift(-1)
     panel = panel.dropna(subset=["fwd_ret"])
+    # Multi-month forward training label (compounded). =fwd_ret when horizon=1.
+    if LABEL_HORIZON > 1:
+        _g = panel.groupby("ticker")["mom_1m"]
+        _comp = 1.0
+        for _k in range(1, LABEL_HORIZON + 1):
+            _comp = _comp * (1.0 + _g.shift(-_k))
+        panel["train_ret_h"] = (_comp - 1.0).fillna(panel["fwd_ret"])
+    else:
+        panel["train_ret_h"] = panel["fwd_ret"]
     # Benchmark-relative alpha label (for use_alpha_label experiment)
     tsx_fwd = (panel.loc[panel["ticker"] == BENCHMARK_TICKER, ["date", "fwd_ret"]]
                .rename(columns={"fwd_ret": "_tsx_fwd"}))
@@ -2807,11 +2823,16 @@ def walk_forward(panel, feature_cols, train_months=28, min_train=24,
         _d2w = dict(zip(_ud, _dw))
         weights = np.array([_d2w[d] for d in train_df["date"]])
 
-        # Optionally swap training label to benchmark-relative alpha
+        # Optionally swap training label to benchmark-relative alpha, or to the
+        # multi-month horizon label (LABEL_HORIZON>1). port_ret still uses the
+        # original 1-month fwd_ret from test_df below.
         train_df_fit = train_df
         if use_alpha_label and "alpha_fwd_ret" in train_df.columns:
             train_df_fit = train_df.copy()
             train_df_fit["fwd_ret"] = train_df_fit["alpha_fwd_ret"]
+        elif LABEL_HORIZON > 1 and "train_ret_h" in train_df.columns:
+            train_df_fit = train_df.copy()
+            train_df_fit["fwd_ret"] = train_df_fit["train_ret_h"]
 
         # Fit and predict — per-sector or global depending on the flag
         try:
@@ -3435,9 +3456,15 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
     _d2w3 = dict(zip(_ud3, _dw3))
     weights = np.array([_d2w3[d] for d in train_df["date"]])
 
+    # Train on the LABEL_HORIZON-month target (US=3) while scoring/holding monthly.
+    train_df_fit = train_df
+    if LABEL_HORIZON > 1 and "train_ret_h" in train_df.columns:
+        train_df_fit = train_df.copy()
+        train_df_fit["fwd_ret"] = train_df_fit["train_ret_h"]
+
     sec_dml_stats = {}
     if USE_SECTOR_MODELS:
-        sec_models, sec_dml_stats = fit_sector_models(train_df, sample_weights=weights)
+        sec_models, sec_dml_stats = fit_sector_models(train_df_fit, sample_weights=weights)
         scores = predict_sector_models(latest_df, sec_models)
         scores = np.nan_to_num(scores, nan=0.0)
         print(f"  Sector models trained: {sorted(sec_models.keys())}")
