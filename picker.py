@@ -3999,6 +3999,12 @@ def build_report_html(picks, weights, panel_latest, top_features, regime,
       <span class="badge" style="background:{badge_color}">{reliability_text}</span>
     </div>"""
 
+    # Allocation reminder banner (US: "most of your US money → VOO"). Empty for CA.
+    if REPORT_TOP_NOTE:
+        _note_html = REPORT_TOP_NOTE.replace("\n", "<br>")
+        html += (f'<div class="card" style="background:#fff8e1;border-left:5px solid #f59e0b;'
+                 f'color:#7c4a02;font-size:14px;line-height:1.6;font-weight:500">{_note_html}</div>')
+
     # ── Actions card ─────────────────────────────────────────────────────────
     def action_cells(tickers, tag_class, label):
         if not tickers:
