@@ -3728,8 +3728,10 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
         lines.append(f"Signal reliability: {hs}")
     lines.append("=" * 60)
 
-    if REPORT_TOP_NOTE:
-        lines += ["", REPORT_TOP_NOTE, "=" * 60]
+    _note = (REPORT_TOP_NOTE(picks, weights, prices) if callable(REPORT_TOP_NOTE)
+             else REPORT_TOP_NOTE)
+    if _note:
+        lines += ["", _note, "=" * 60]
 
     if profit_take and profit_take.get("triggered"):
         tr, thr = profit_take["trailing"], profit_take["threshold"]
@@ -3999,9 +4001,11 @@ def build_report_html(picks, weights, panel_latest, top_features, regime,
       <span class="badge" style="background:{badge_color}">{reliability_text}</span>
     </div>"""
 
-    # Allocation reminder banner (US: "most of your US money → VOO"). Empty for CA.
-    if REPORT_TOP_NOTE:
-        _note_html = REPORT_TOP_NOTE.replace("\n", "<br>")
+    # Allocation/deployment banner (US: $10k 1/3 split with live shares). Empty for CA.
+    _note = (REPORT_TOP_NOTE(picks, weights, prices) if callable(REPORT_TOP_NOTE)
+             else REPORT_TOP_NOTE)
+    if _note:
+        _note_html = _note.replace("\n", "<br>")
         html += (f'<div class="card" style="background:#fff8e1;border-left:5px solid #f59e0b;'
                  f'color:#7c4a02;font-size:14px;line-height:1.6;font-weight:500">{_note_html}</div>')
 

@@ -368,17 +368,29 @@ picker.apply_dml_adjustment = lambda scores, *a, **k: scores
 # stay MONTHLY (still run picker monthly); only the model's training target is 3m.
 picker.LABEL_HORIZON = 3
 
-# Deployment guide shown atop every US report/email: how to deploy $10,000 USD,
-# split 1/3 US picker (active tech, the picks below) + 1/3 VOO (broad S&P) +
-# 1/3 QQQM (Nasdaq tech beta). top_n=6 → picker slice is ~$555 per name.
-picker.REPORT_TOP_NOTE = (
-    "💵 $10,000 USD 怎么买(各 1/3 ≈ $3,333):\n"
-    "   ① $3,333 → US picker:下面的 picks 等权买(6 只 → 每只约 $555)\n"
-    "   ② $3,333 → VOO(S&P 宽基,稳、回撤浅)\n"
-    "   ③ $3,333 → QQQM(纳指科技 beta)\n"
-    "   ETF 股数 = $3,333 ÷ 当日股价。提醒:US picker 是主动科技(博超额、"
-    "波动大、DSR 77% WEAK),VOO/QQQM 是可靠底仓。"
-)
+# Deployment guide shown atop every US report/email. Dynamic: computes share counts
+# from the CURRENT prices each run. $10,000 USD split 1/3 US picker (the picks,
+# equal weight) + 1/3 VOO + 1/3 QQQM. Callable form → picker.py passes picks/prices.
+def _deploy_note(picks, weights, prices):
+    third = 10000.0 / 3.0
+    per_pick = third / max(len(picks), 1)
+    out = [f"💵 $10,000 USD 怎么买(各 1/3 ≈ ${third:,.0f},按当前价):",
+           f"  ① US picker(等权,每只 ~${per_pick:,.0f}):"]
+    for t in picks:
+        p = (prices or {}).get(t)
+        out.append(f"      {t}: {int(per_pick // p)} 股 @ ${p:.2f}" if (p and p > 0)
+                   else f"      {t}: (无价)")
+    for etf in ("VOO", "QQQM"):
+        try:
+            import yfinance as _yf
+            p = float(_yf.Ticker(etf).history(period="1d")["Close"].iloc[-1])
+            out.append(f"  ② {etf}: {int(third // p)} 股 @ ${p:.2f}  (≈ ${third:,.0f})")
+        except Exception:
+            out.append(f"  ② {etf}: ${third:,.0f} ÷ 当日股价")
+    out.append("US picker=主动科技(博超额,DSR 77% WEAK);VOO/QQQM=可靠底仓。")
+    return "\n".join(out)
+
+picker.REPORT_TOP_NOTE = _deploy_note
 
 # ══════════════════════════════════════════════════════════════════
 # PICKS LOG  (separate file so US picks don't mix with TSX log)
