@@ -376,9 +376,22 @@ BENCHMARK_TICKER = "XIU.TO"
 # picker_us.py overrides this to "US Tech" etc.
 REPORT_LABEL = "TSX"
 
-# Optional allocation note shown near the top of every report (stdout + email).
-# Empty for CA; picker_us.py sets the "most of your US money → VOO" reminder.
-REPORT_TOP_NOTE = ""
+# Deployment guide shown atop every report (stdout + email). Default = CA picker's
+# "$10,000 CAD equal-weight across the picks, with live share counts". picker_us.py
+# overrides this with the US 1/3 picker+VOO+QQQM version. Callable(picks, weights, prices).
+def _ca_deploy_note(picks, weights, prices):
+    if not picks:
+        return ""
+    per = 10000.0 / len(picks)
+    out = [f"💵 $10,000 CAD 怎么买(等权,每只 ~${per:,.0f},按当前价):"]
+    for t in picks:
+        p = (prices or {}).get(t)
+        out.append(f"   {t}: {int(per // p)} 股 @ ${p:.2f}" if (p and p > 0)
+                   else f"   {t}: (无价)")
+    return "\n".join(out)
+
+
+REPORT_TOP_NOTE = _ca_deploy_note
 
 # GitHub Pages dashboard data file (in docs/). picker_us.py overrides to
 # "data_us.json" so the two models get separate dashboards (index.html /
