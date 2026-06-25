@@ -353,6 +353,19 @@ for sec in picker.SECTOR_FEATURES:
     picker.SECTOR_FEATURES[sec] = picker.SECTOR_FEATURES[sec] + ["ps_ratio_ttm"]
 
 # ══════════════════════════════════════════════════════════════════
+# EXPERIMENT 2026-06-24 — simplify model to cut overfitting (tech-only, small
+# universe → can't add data/dispersion, so reduce complexity). Revert via git.
+# A: features → cross-sectional momentum/technical core only (drop macro, which
+#    is time-series & can't discriminate cross-section, + valuation roe/pe/etc.).
+# B: stronger ExtraTrees regularization (bigger leaves, fewer feats/split).
+# C: disable DML (unstable on small samples) — no-op the adjustment.
+# ══════════════════════════════════════════════════════════════════
+_REDUCED = list(picker._BASE_SECTOR_FEATURES) + ["sector_code"]
+picker.SECTOR_FEATURES = {s: list(_REDUCED) for s in ("Semiconductors", "Cloud", "Hardware")}
+picker.ET_HP = dict(n_estimators=400, max_depth=4, min_samples_leaf=25, max_features=0.5)
+picker.apply_dml_adjustment = lambda scores, *a, **k: scores
+
+# ══════════════════════════════════════════════════════════════════
 # PICKS LOG  (separate file so US picks don't mix with TSX log)
 # ══════════════════════════════════════════════════════════════════
 
