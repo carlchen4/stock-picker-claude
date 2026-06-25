@@ -659,6 +659,35 @@ than chase more Sharpe.
 
 - **Macro / rate features — assessed, not expanding (2026-05-21)**: Asked whether to add macro/rate signals (interest rates etc.). The panel already carries 13 macro features incl. US 10Y (`rate_chg_3m`), the REAL BoC overnight rate via Valet API (`boc_rate_chg_3m`), a Canadian bond ETF (`cad_bond_mom_1m`), and inflation (`tips_mom_1m`) — rates are well covered. Decided NOT to add more, for a structural reason beyond the spec-coverage regression above: **a macro value is identical across all stocks within a month**, so it cannot discriminate *which* stock outperforms (a cross-sectional question) — it only moves timing / regime (time-series). The model's edge is cross-sectional selection (+10.6pp vs the random-score control), so extra macro is just cross-sectional noise — exactly why spec-coverage (incl. the yield-curve slope) regressed. Macro already contributes where it legitimately can: indirectly via `sector_code` splits (rates→banks/utilities, oil→energy), per the per-sector spec. Deeper "real" macro (BoC 2y/10y curve, FRED CPI, IG OAS) would hit the same cross-sectional wall.
 
+### 2026-06-25 — US picker 3-month horizon + VOO-vs-QQQM decision (US sleeve = tech exposure)
+
+**3-month training horizon (LABEL_HORIZON) ADOPTED for US** (committed). Model trains
+on the 3-month-forward compound return (less noisy than 1-month → less overfit) while
+trades stay MONTHLY (port_ret always uses 1m fwd_ret; run picker monthly as before).
+Same-environment: DSR 72.8%→77.1%, Sharpe 1.16→1.19. `LABEL_HORIZON=1` default (CA
+unchanged, smoke passes); picker_us sets 3. Implemented as a train-label swap in
+walk_forward (next to use_alpha_label) + predict_now. **Quarterly rebalance tested &
+REJECTED** (monthly +662%/Sharpe1.21/DSR77.8 vs quarterly +621%/1.20/76.1 — monthly
+re-selection catches fast tech rotation; stale quarterly picks lose ~40pp). Also added
+a top-of-report REPORT_TOP_NOTE banner (text + HTML email) reminding that the US picker
+is a ≤5-10% satellite — but see the VOO-vs-QQQM nuance below for what the bulk should be.
+
+**VOO vs QQQM for the US sleeve (55mo, blended with CA picker):**
+- Standalone: VOO +78.7% / Sharpe 0.87 / DD -23.9% / corr-to-CA -0.13;
+  QQQM +92.4% / 0.79 / -32.5% / -0.09.
+- CA70/VOO30 → Sharpe **2.20**, DD **-13.1%**; CA70/QQQM30 → 2.12, -14.3%.
+  CA60/VOO40 → 2.18, -12.4%; CA60/QQQM40 → 2.01, -14.9%.
+- **Verdict: VOO wins risk-adjusted at every weight** (higher Sharpe, shallower DD,
+  better diversifier). **QQQM wins only on absolute return** (~+9pp blended). QQQM's
+  Sharpe penalty GROWS with weight (0.08 at 30% → 0.17 at 40%).
+- **Decision rule**: the user's US sleeve is a DELIBERATE TECH bet (not diversification),
+  so VOO is not strictly required. At **≤30%** US, QQQM costs only ~0.08 Sharpe /
+  -1.2pp DD for +1.8%/yr and the tech tilt they want → defensible. **Do NOT exceed
+  ~30-35%** (QQQM penalty balloons; VOO also dilutes CA alpha). Want max Sharpe → VOO;
+  want tech tilt + return, small sleeve → QQQM. US *picker* stays an optional small
+  satellite on top of whichever passive ETF (it's WEAK/DSR77, beats random +185pp but
+  fragile; buy QQQM/VOO for reliable tech/broad beta instead of relying on it).
+
 ### 2026-06-24 — US picker overfitting attacked (tech-only, small universe) — simplified, DSR 65%→77%
 
 US picker rigor was WEAK (DSR 65.3%, PBO 34.7%, **0/20 features FDR-significant**,
