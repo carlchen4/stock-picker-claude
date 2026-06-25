@@ -393,6 +393,48 @@ def _ca_deploy_note(picks, weights, prices):
 
 REPORT_TOP_NOTE = _ca_deploy_note
 
+
+# Allocation pie chart embedded in the HTML email. REPORT_PIE_FN(picks, weights,
+# prices) -> (title, [(label, value), ...]) | None. Default = CA equal-weight;
+# picker_us.py overrides with the 1/3 picker+VOO+QQQM split. _REPORT_IMAGES is
+# populated by build_report_html and consumed by send_report_email (inline CID).
+_REPORT_IMAGES = {}
+
+
+def _ca_pie(picks, weights, prices):
+    if not picks:
+        return None
+    per = 10000.0 / len(picks)
+    return ("CA Picker — $10,000 CAD (equal weight)", [(t, per) for t in picks])
+
+
+REPORT_PIE_FN = _ca_pie
+
+
+def _render_pie_png(title, slices):
+    """Render an allocation donut chart to PNG bytes (None on any failure)."""
+    try:
+        import io
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        labels = [f"{lbl}\n${val:,.0f}" for lbl, val in slices]
+        vals = [val for _, val in slices]
+        fig, ax = plt.subplots(figsize=(6.4, 6.4))
+        ax.pie(vals, labels=labels, autopct="%1.1f%%", startangle=90,
+               colors=plt.cm.tab20.colors, pctdistance=0.78,
+               wedgeprops=dict(width=0.55, edgecolor="w"),
+               textprops={"fontsize": 9})
+        ax.set_title(title, fontsize=12, weight="bold")
+        buf = io.BytesIO()
+        plt.tight_layout()
+        plt.savefig(buf, format="png", dpi=120)
+        plt.close(fig)
+        return buf.getvalue()
+    except Exception as e:
+        print(f"  pie chart skipped: {e}")
+        return None
+
 # GitHub Pages dashboard data file (in docs/). picker_us.py overrides to
 # "data_us.json" so the two models get separate dashboards (index.html /
 # us.html) instead of overwriting each other.
@@ -4022,6 +4064,18 @@ def build_report_html(picks, weights, panel_latest, top_features, regime,
         html += (f'<div class="card" style="background:#fff8e1;border-left:5px solid #f59e0b;'
                  f'color:#7c4a02;font-size:14px;line-height:1.6;font-weight:500">{_note_html}</div>')
 
+    # Allocation pie chart (inline image via CID). Empty dict if no chart.
+    _REPORT_IMAGES.clear()
+    if REPORT_PIE_FN:
+        _pie = REPORT_PIE_FN(picks, weights, prices)
+        if _pie:
+            _png = _render_pie_png(_pie[0], _pie[1])
+            if _png:
+                _REPORT_IMAGES["allocpie"] = _png
+                html += ('<div class="card" style="text-align:center">'
+                         '<img src="cid:allocpie" alt="allocation" '
+                         'style="max-width:480px;width:100%"></div>')
+
     # ── Actions card ─────────────────────────────────────────────────────────
     def action_cells(tickers, tag_class, label):
         if not tickers:
@@ -4127,12 +4181,27 @@ def send_report_email(body, html_body=None, subject=None):
     import smtplib
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
+    from email.mime.image import MIMEImage
     if subject is None:
         subject = f"{REPORT_LABEL} Stock Picks — {datetime.now().strftime('%Y-%m-%d')}"
     if html_body:
-        msg = MIMEMultipart("alternative")
-        msg.attach(MIMEText(body, "plain", "utf-8"))
-        msg.attach(MIMEText(html_body, "html", "utf-8"))
+        # Inline images (e.g. allocation pie) → multipart/related wrapping the
+        # text/html alternative; each image referenced by cid: in the HTML.
+        if _REPORT_IMAGES:
+            msg = MIMEMultipart("related")
+            alt = MIMEMultipart("alternative")
+            alt.attach(MIMEText(body, "plain", "utf-8"))
+            alt.attach(MIMEText(html_body, "html", "utf-8"))
+            msg.attach(alt)
+            for cid, data in _REPORT_IMAGES.items():
+                img = MIMEImage(data, _subtype="png")
+                img.add_header("Content-ID", f"<{cid}>")
+                img.add_header("Content-Disposition", "inline", filename=f"{cid}.png")
+                msg.attach(img)
+        else:
+            msg = MIMEMultipart("alternative")
+            msg.attach(MIMEText(body, "plain", "utf-8"))
+            msg.attach(MIMEText(html_body, "html", "utf-8"))
     else:
         msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"], msg["From"], msg["To"] = subject, from_email, to_email

@@ -392,6 +392,18 @@ def _deploy_note(picks, weights, prices):
 
 picker.REPORT_TOP_NOTE = _deploy_note
 
+
+# Allocation pie for the US email: 1/3 picker (split across picks) + 1/3 VOO + 1/3 QQQM.
+def _us_pie(picks, weights, prices):
+    if not picks:
+        return None
+    third = 10000.0 / 3.0
+    per = third / len(picks)
+    slices = [(t, per) for t in picks] + [("VOO", third), ("QQQM", third)]
+    return ("US — $10,000 USD (1/3 picker · 1/3 VOO · 1/3 QQQM)", slices)
+
+picker.REPORT_PIE_FN = _us_pie
+
 # ══════════════════════════════════════════════════════════════════
 # PICKS LOG  (separate file so US picks don't mix with TSX log)
 # ══════════════════════════════════════════════════════════════════
