@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-06-25T01:51:53",
+  "generated_at": "2026-06-25T11:00:23",
   "as_of": "2026-06-25",
   "regime": "NEUTRAL",
   "reliability": "OK",
   "reliability_detail": "OK \u2014 all checks passed",
   "portfolio_value": 10000.0,
-  "te_estimate": 0.0887,
+  "te_estimate": 0.0882,
   "risk": {
-    "beta": 0.888,
-    "var95": -0.062,
-    "cvar95": -0.0946,
+    "beta": 0.894,
+    "var95": -0.0638,
+    "cvar95": -0.095,
     "max_position": 0.1111,
     "max_position_ticker": "MFC.TO"
   },
@@ -22,21 +22,21 @@
       "score": 0.667,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 56.79,
+      "price": 57.6,
       "shares": 19,
       "dollar_value": 1111,
       "drivers": [
         {
           "label": "52-Week High Proximity",
-          "shap": 0.007
+          "shap": 0.0079
         },
         {
           "label": "RSI (14-day)",
-          "shap": -0.007
+          "shap": -0.0068
         },
         {
-          "label": "ADV 20-day Rank",
-          "shap": -0.0063
+          "label": "Volatility 20d",
+          "shap": -0.0062
         }
       ]
     },
@@ -48,17 +48,17 @@
       "score": 0.75,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 56.45,
+      "price": 56.39,
       "shares": 19,
       "dollar_value": 1111,
       "drivers": [
         {
           "label": "Bollinger Band Z",
-          "shap": -0.0147
+          "shap": -0.0152
         },
         {
           "label": "Short-Term Reversal",
-          "shap": -0.0107
+          "shap": -0.0106
         },
         {
           "label": "Volatility 60d",
@@ -74,8 +74,8 @@
       "score": 0.667,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 122.38,
-      "shares": 9,
+      "price": 124.04,
+      "shares": 8,
       "dollar_value": 1111,
       "drivers": [
         {
@@ -88,7 +88,7 @@
         },
         {
           "label": "Volatility 20d",
-          "shap": -0.0221
+          "shap": -0.022
         }
       ]
     },
@@ -100,7 +100,7 @@
       "score": 1.0,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 30.26,
+      "price": 30.45,
       "shares": 36,
       "dollar_value": 1111,
       "drivers": [
@@ -126,7 +126,7 @@
       "score": 0.625,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 161.51,
+      "price": 162.1,
       "shares": 6,
       "dollar_value": 1111,
       "drivers": [
@@ -152,17 +152,17 @@
       "score": 0.375,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 35.19,
+      "price": 34.96,
       "shares": 31,
       "dollar_value": 1111,
       "drivers": [
         {
           "label": "Bollinger Band Z",
-          "shap": -0.0153
+          "shap": -0.0157
         },
         {
           "label": "Short-Term Reversal",
-          "shap": -0.0141
+          "shap": -0.014
         },
         {
           "label": "RSI (14-day)",
@@ -178,21 +178,21 @@
       "score": 0.333,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 246.61,
+      "price": 247.34,
       "shares": 4,
       "dollar_value": 1111,
       "drivers": [
         {
           "label": "RSI (14-day)",
-          "shap": -0.0141
+          "shap": -0.0139
         },
         {
           "label": "Short-Term Reversal",
-          "shap": -0.0124
+          "shap": -0.0122
         },
         {
           "label": "Bollinger Band Z",
-          "shap": -0.0091
+          "shap": -0.0086
         }
       ]
     },
@@ -204,7 +204,7 @@
       "score": 0.25,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 297.0,
+      "price": 300.65,
       "shares": 3,
       "dollar_value": 1111,
       "drivers": [
@@ -230,21 +230,21 @@
       "score": 0.25,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 115.97,
+      "price": 114.3,
       "shares": 9,
       "dollar_value": 1111,
       "drivers": [
         {
           "label": "Momentum PC1",
-          "shap": -0.0807
+          "shap": -0.0812
         },
         {
           "label": "Revenue Growth YoY",
-          "shap": -0.0546
+          "shap": -0.0547
         },
         {
           "label": "Volatility 20d",
-          "shap": 0.0241
+          "shap": 0.024
         }
       ]
     }
@@ -856,7 +856,7 @@
   },
   "oos": {
     "months": 2,
-    "avg_monthly": -0.0142,
+    "avg_monthly": -0.0124,
     "monthly_series": [
       {
         "date": "2026-04",
@@ -867,73 +867,73 @@
       },
       {
         "date": "2026-05",
-        "port": -0.022,
-        "bench": 0.0193,
-        "port_cum": -0.0282,
-        "bench_cum": 0.0385
+        "port": -0.0185,
+        "bench": 0.0234,
+        "port_cum": -0.0246,
+        "bench_cum": 0.0427
       }
     ],
     "latest_month": "2026-05",
     "stock_returns": [
       {
         "ticker": "BMO.TO",
-        "ret": 0.1013
+        "ret": 0.1045
       },
       {
         "ticker": "MFC.TO",
-        "ret": 0.077
+        "ret": 0.0924
       },
       {
         "ticker": "ZUT.TO",
-        "ret": 0.0161
+        "ret": 0.0225
       },
       {
         "ticker": "CP.TO",
-        "ret": -0.0058
+        "ret": 0.0076
       },
       {
         "ticker": "TRI.TO",
-        "ret": -0.0299
+        "ret": -0.0438
       },
       {
         "ticker": "FNV.TO",
-        "ret": -0.0681
+        "ret": -0.0566
       },
       {
         "ticker": "CVE.TO",
-        "ret": -0.0702
+        "ret": -0.0764
       },
       {
         "ticker": "CNQ.TO",
-        "ret": -0.0901
+        "ret": -0.091
       },
       {
         "ticker": "WPM.TO",
-        "ret": -0.1287
+        "ret": -0.1255
       }
     ],
-    "bench_return": 0.0193
+    "bench_return": 0.0234
   },
   "macro": {
     "vix": {
-      "val": 18.5,
-      "chg": 3.1
+      "val": 18.9,
+      "chg": 3.6
     },
     "oil": {
-      "val": 69.81,
-      "chg_pct": -0.2009
+      "val": 70.68,
+      "chg_pct": -0.1909
     },
     "cadusd": {
-      "val": 0.7063,
-      "chg_pct": -0.0265
+      "val": 0.7037,
+      "chg_pct": -0.03
     },
     "us10y": {
-      "val": 4.41,
-      "chg_bps": -4.3
+      "val": 4.37,
+      "chg_bps": -8.2
     },
     "tsx": {
-      "val": 34813.01,
-      "chg_pct": 0.0013
+      "val": 34985.15,
+      "chg_pct": 0.0062
     }
   }
 }
