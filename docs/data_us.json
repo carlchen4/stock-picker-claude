@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-24T21:23:35",
+  "generated_at": "2026-06-24T22:39:58",
   "as_of": "2026-06-24",
   "regime": "NEUTRAL",
   "reliability": "OK",
@@ -19,7 +19,7 @@
       "ticker": "QCOM",
       "sector": "Semiconductors",
       "style": "value",
-      "score": 0.778,
+      "score": 0.944,
       "weight": 0.1667,
       "action": "BUY",
       "price": 197.41,
@@ -27,16 +27,16 @@
       "dollar_value": 1666,
       "drivers": [
         {
+          "label": "Momentum PC2",
+          "shap": 0.0349
+        },
+        {
           "label": "Volatility 20d",
-          "shap": 0.0246
+          "shap": 0.028
         },
         {
           "label": "ADV 20-day Rank",
-          "shap": 0.0166
-        },
-        {
-          "label": "Volatility 60d",
-          "shap": 0.0165
+          "shap": 0.0268
         }
       ]
     },
@@ -45,7 +45,7 @@
       "ticker": "GOOGL",
       "sector": "Cloud",
       "style": "core",
-      "score": 0.562,
+      "score": 0.375,
       "weight": 0.1667,
       "action": "BUY",
       "price": 345.29,
@@ -54,50 +54,24 @@
       "drivers": [
         {
           "label": "Volatility 20d",
-          "shap": -0.0224
+          "shap": -0.0304
         },
         {
-          "label": "Short-Term Reversal",
-          "shap": -0.0133
+          "label": "Volatility 60d",
+          "shap": -0.0121
         },
         {
-          "label": "RSI (14-day)",
-          "shap": 0.0098
+          "label": "Bollinger Band Z",
+          "shap": -0.0102
         }
       ]
     },
     {
       "rank": 3,
-      "ticker": "ARM",
-      "sector": "Hardware",
-      "style": "growth",
-      "score": 1.0,
-      "weight": 0.1667,
-      "action": "BUY",
-      "price": 359.08,
-      "shares": 4,
-      "dollar_value": 1666,
-      "drivers": [
-        {
-          "label": "Volatility 60d",
-          "shap": 0.0492
-        },
-        {
-          "label": "Volatility 20d",
-          "shap": 0.0298
-        },
-        {
-          "label": "52-Week High Proximity",
-          "shap": -0.0266
-        }
-      ]
-    },
-    {
-      "rank": 4,
       "ticker": "INTC",
       "sector": "Hardware",
       "style": "value",
-      "score": 0.75,
+      "score": 1.0,
       "weight": 0.1667,
       "action": "BUY",
       "price": 131.65,
@@ -106,15 +80,41 @@
       "drivers": [
         {
           "label": "Volatility 60d",
-          "shap": 0.0362
+          "shap": 0.0371
         },
         {
           "label": "Volatility 20d",
-          "shap": 0.0135
+          "shap": 0.018
         },
         {
-          "label": "Bollinger Band Z",
-          "shap": -0.0133
+          "label": "RSI (14-day)",
+          "shap": 0.016
+        }
+      ]
+    },
+    {
+      "rank": 4,
+      "ticker": "ARM",
+      "sector": "Hardware",
+      "style": "growth",
+      "score": 0.75,
+      "weight": 0.1667,
+      "action": "BUY",
+      "price": 359.08,
+      "shares": 4,
+      "dollar_value": 1666,
+      "drivers": [
+        {
+          "label": "Volatility 60d",
+          "shap": 0.0521
+        },
+        {
+          "label": "52-Week High Proximity",
+          "shap": -0.045
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": 0.0367
         }
       ]
     },
@@ -123,7 +123,7 @@
       "ticker": "TXN",
       "sector": "Semiconductors",
       "style": "value",
-      "score": 0.333,
+      "score": 0.389,
       "weight": 0.1667,
       "action": "BUY",
       "price": 303.11,
@@ -132,15 +132,15 @@
       "drivers": [
         {
           "label": "ADV 20-day Rank",
-          "shap": -0.0371
+          "shap": -0.0555
         },
         {
           "label": "Volatility 20d",
-          "shap": -0.0175
+          "shap": -0.0301
         },
         {
-          "label": "Volatility 60d",
-          "shap": -0.0098
+          "label": "Momentum PC2",
+          "shap": 0.0251
         }
       ]
     },
@@ -158,15 +158,15 @@
       "drivers": [
         {
           "label": "Volatility 20d",
-          "shap": -0.03
-        },
-        {
-          "label": "Volatility 60d",
-          "shap": -0.0189
+          "shap": -0.0404
         },
         {
           "label": "Short-Term Reversal",
-          "shap": -0.0155
+          "shap": -0.0153
+        },
+        {
+          "label": "Volatility 60d",
+          "shap": -0.0152
         }
       ]
     }
@@ -176,8 +176,8 @@
     "buy": [
       "QCOM",
       "GOOGL",
-      "ARM",
       "INTC",
+      "ARM",
       "TXN",
       "AMZN"
     ],
