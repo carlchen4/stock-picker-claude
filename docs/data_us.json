@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-06-24T11:01:16",
+  "generated_at": "2026-06-24T21:23:35",
   "as_of": "2026-06-24",
   "regime": "NEUTRAL",
-  "reliability": "CAUTION",
-  "reliability_detail": "CAUTION \u2014 1 warning \u2014 Feature drift: 1 regime-shifted (|z|>3): ps_ratio_ttm(z=10.2)",
+  "reliability": "OK",
+  "reliability_detail": "OK \u2014 all checks passed",
   "portfolio_value": 10000.0,
-  "te_estimate": 0.2183,
+  "te_estimate": 0.2185,
   "risk": {
-    "beta": 1.462,
+    "beta": 1.465,
     "var95": -0.1364,
     "cvar95": -0.1897,
     "max_position": 0.1667,
@@ -19,24 +19,24 @@
       "ticker": "QCOM",
       "sector": "Semiconductors",
       "style": "value",
-      "score": 1.091,
+      "score": 0.778,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 204.13,
+      "price": 197.41,
       "shares": 8,
       "dollar_value": 1666,
       "drivers": [
         {
           "label": "Volatility 20d",
-          "shap": 0.0296
+          "shap": 0.0246
         },
         {
           "label": "ADV 20-day Rank",
-          "shap": 0.0188
+          "shap": 0.0166
         },
         {
           "label": "Volatility 60d",
-          "shap": 0.0167
+          "shap": 0.0165
         }
       ]
     },
@@ -45,24 +45,24 @@
       "ticker": "GOOGL",
       "sector": "Cloud",
       "style": "core",
-      "score": 0.427,
+      "score": 0.562,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 346.13,
+      "price": 345.29,
       "shares": 4,
       "dollar_value": 1666,
       "drivers": [
         {
           "label": "Volatility 20d",
-          "shap": -0.0296
+          "shap": -0.0224
         },
         {
           "label": "Short-Term Reversal",
-          "shap": -0.024
+          "shap": -0.0133
         },
         {
-          "label": "Momentum PC2",
-          "shap": -0.0111
+          "label": "RSI (14-day)",
+          "shap": 0.0098
         }
       ]
     },
@@ -71,24 +71,24 @@
       "ticker": "ARM",
       "sector": "Hardware",
       "style": "growth",
-      "score": 1.288,
+      "score": 1.0,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 366.39,
+      "price": 359.08,
       "shares": 4,
       "dollar_value": 1666,
       "drivers": [
         {
           "label": "Volatility 60d",
-          "shap": 0.0635
+          "shap": 0.0492
         },
         {
           "label": "Volatility 20d",
-          "shap": 0.0314
+          "shap": 0.0298
         },
         {
-          "label": "ADV 20-day Rank",
-          "shap": 0.0284
+          "label": "52-Week High Proximity",
+          "shap": -0.0266
         }
       ]
     },
@@ -97,24 +97,24 @@
       "ticker": "INTC",
       "sector": "Hardware",
       "style": "value",
-      "score": 0.86,
+      "score": 0.75,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 132.28,
+      "price": 131.65,
       "shares": 12,
       "dollar_value": 1666,
       "drivers": [
         {
           "label": "Volatility 60d",
-          "shap": 0.0437
+          "shap": 0.0362
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": 0.0135
         },
         {
           "label": "Bollinger Band Z",
-          "shap": -0.0338
-        },
-        {
-          "label": "Momentum PC1",
-          "shap": -0.0171
+          "shap": -0.0133
         }
       ]
     },
@@ -123,24 +123,24 @@
       "ticker": "TXN",
       "sector": "Semiconductors",
       "style": "value",
-      "score": 0.561,
+      "score": 0.333,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 304.36,
+      "price": 303.11,
       "shares": 5,
       "dollar_value": 1666,
       "drivers": [
         {
           "label": "ADV 20-day Rank",
-          "shap": -0.0477
+          "shap": -0.0371
         },
         {
           "label": "Volatility 20d",
-          "shap": -0.0205
+          "shap": -0.0175
         },
         {
           "label": "Volatility 60d",
-          "shap": -0.0164
+          "shap": -0.0098
         }
       ]
     },
@@ -149,24 +149,24 @@
       "ticker": "AMZN",
       "sector": "Cloud",
       "style": "core",
-      "score": 0.272,
+      "score": 0.125,
       "weight": 0.1667,
       "action": "BUY",
-      "price": 234.11,
+      "price": 234.27,
       "shares": 7,
       "dollar_value": 1666,
       "drivers": [
         {
           "label": "Volatility 20d",
-          "shap": -0.0453
-        },
-        {
-          "label": "Short-Term Reversal",
-          "shap": -0.0318
+          "shap": -0.03
         },
         {
           "label": "Volatility 60d",
-          "shap": -0.0208
+          "shap": -0.0189
+        },
+        {
+          "label": "Short-Term Reversal",
+          "shap": -0.0155
         }
       ]
     }
@@ -773,7 +773,7 @@
   },
   "oos": {
     "months": 2,
-    "avg_monthly": 0.0977,
+    "avg_monthly": 0.0928,
     "monthly_series": [
       {
         "date": "2026-04",
@@ -784,53 +784,53 @@
       },
       {
         "date": "2026-05",
-        "port": -0.037,
-        "bench": -0.0323,
-        "port_cum": 0.1867,
-        "bench_cum": 0.0699
+        "port": -0.0468,
+        "bench": -0.0364,
+        "port_cum": 0.1747,
+        "bench_cum": 0.0654
       }
     ],
     "latest_month": "2026-05",
     "stock_returns": [
       {
         "ticker": "INTC",
-        "ret": 0.1535
+        "ret": 0.148
       },
       {
         "ticker": "ARM",
-        "ret": 0.0371
+        "ret": 0.0164
       },
       {
         "ticker": "TXN",
-        "ret": -0.0043
+        "ret": -0.0084
       },
       {
         "ticker": "GOOGL",
-        "ret": -0.0894
+        "ret": -0.0916
       },
       {
         "ticker": "AMZN",
-        "ret": -0.135
+        "ret": -0.1344
       },
       {
         "ticker": "QCOM",
-        "ret": -0.1838
+        "ret": -0.2107
       }
     ],
-    "bench_return": -0.0323
+    "bench_return": -0.0364
   },
   "macro": {
     "vix": {
-      "val": 19.5,
-      "chg": 4.2
+      "val": 18.6,
+      "chg": 3.3
     },
     "oil": {
-      "val": 72.56,
-      "chg_pct": -0.1694
+      "val": 70.02,
+      "chg_pct": -0.1985
     },
     "us10y": {
-      "val": 4.49,
-      "chg_bps": 4.0
+      "val": 4.4,
+      "chg_bps": -5.1
     }
   }
 }
