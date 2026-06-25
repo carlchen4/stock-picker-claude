@@ -659,6 +659,36 @@ than chase more Sharpe.
 
 - **Macro / rate features — assessed, not expanding (2026-05-21)**: Asked whether to add macro/rate signals (interest rates etc.). The panel already carries 13 macro features incl. US 10Y (`rate_chg_3m`), the REAL BoC overnight rate via Valet API (`boc_rate_chg_3m`), a Canadian bond ETF (`cad_bond_mom_1m`), and inflation (`tips_mom_1m`) — rates are well covered. Decided NOT to add more, for a structural reason beyond the spec-coverage regression above: **a macro value is identical across all stocks within a month**, so it cannot discriminate *which* stock outperforms (a cross-sectional question) — it only moves timing / regime (time-series). The model's edge is cross-sectional selection (+10.6pp vs the random-score control), so extra macro is just cross-sectional noise — exactly why spec-coverage (incl. the yield-curve slope) regressed. Macro already contributes where it legitimately can: indirectly via `sector_code` splits (rates→banks/utilities, oil→energy), per the per-sector spec. Deeper "real" macro (BoC 2y/10y curve, FRED CPI, IG OAS) would hit the same cross-sectional wall.
 
+### 2026-06-24 — US picker overfitting attacked (tech-only, small universe) — simplified, DSR 65%→77%
+
+US picker rigor was WEAK (DSR 65.3%, PBO 34.7%, **0/20 features FDR-significant**,
+verdict "likely overfitting"). User constraints: **tech-only** (no sector
+diversification) AND **small universe** (no expansion). That rules out the two
+structural fixes (multi-sector like CA; more names). Two diagnostics framed the fix:
+- **Model vs random selection** (same universe): US model beats random by +185pp /
+  +0.21 Sharpe (CA: +101pp / +0.44). So US has a real but THIN momentum tilt —
+  fragile, not noise.
+- **Universe expansion 22→39 (fundamentally screened tech) did NOTHING**: DSR 65%→65%,
+  0/20→0/20, Sharpe flat. Proves the problem is NOT sample size — tech names are too
+  correlated (no cross-sectional dispersion) + features lack predictive power.
+  Reverted (also honored the small-universe wish).
+
+Conclusion: can't add data or dispersion → only lever is **reduce model complexity**.
+Adopted A+B+C (all in `picker_us.py`, picker.py untouched):
+- **A** features 20→10: cross-sectional momentum/technical core only
+  (`_BASE_SECTOR_FEATURES` + sector_code); dropped macro (time-series → can't
+  discriminate cross-section, same lesson as CA) + valuation (roe/pe/div/debt/ps).
+- **B** `ET_HP` regularization: min_samples_leaf 10→25, max_features 0.7→0.5, depth 5→4.
+- **C** disabled DML (`apply_dml_adjustment` no-op) — unstable on small samples.
+
+Result: **DSR 65→77%, PBO 35→23%, CPCV positive paths 87→93%, worst path -0.79→-0.51,
+Sharpe 1.12→1.15 (held)**. Bonus: dropping ps_ratio_ttm cleared the recurring CAUTION
+feature-drift warning (signal reliability CAUTION→OK). Still **WEAK** (DSR<95%, 0/10
+features individually significant) — the ceiling for tech-only/small/efficient-market.
+US picker stays a ≤5-10% speculative satellite; diversification comes from CA picker
+(5 low-corr sectors) + VOO (broad, -0.13 corr to CA). Do NOT use the US picker for
+core US exposure — buy VOO/SPYM (S&P, not QQQM) for that.
+
 ### 2026-06-24 — ETF sleeve silently dropped by stock filters (Utilities/ZUT empty) — FIXED
 
 Third instance of the "filter false-positive silently empties a sleeve" class
