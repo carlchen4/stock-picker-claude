@@ -42,6 +42,7 @@ picker.COMPANY_NAMES = {
     "MU": "Micron Technology", "LRCX": "Lam Research",
     "TSM": "Taiwan Semiconductor (TSMC)",
     "AAPL": "Apple", "TSLA": "Tesla", "ARM": "Arm Holdings", "INTC": "Intel",
+    "CSCO": "Cisco Systems",
     "QQQ": "Invesco QQQ (NASDAQ-100 ETF)",
 }
 
@@ -55,8 +56,8 @@ picker.TSX_UNIVERSE = [
     "MSFT", "AMZN", "META", "GOOGL", "ANET", "PLTR", "NET", "SNOW",
     # Semiconductors (9)
     "NVDA", "AMD", "AVGO", "QCOM", "TXN", "AMAT", "MU", "LRCX", "TSM",
-    # Hardware / Mixed (4)
-    "AAPL", "TSLA", "ARM", "INTC",
+    # Hardware / Mixed (5)
+    "AAPL", "TSLA", "ARM", "INTC", "CSCO",
 ]
 
 # ══════════════════════════════════════════════════════════════════
@@ -94,6 +95,7 @@ picker.STOCK_PROFILE = {
     "TSLA":  ("Hardware", "growth", "ev"),              # 🟡 PE ~160, high vol
     "ARM":   ("Hardware", "growth", "cpu_ip"),          # 🔴 bubble valuation: PE~489 / PS~88
     "INTC":  ("Hardware", "value",  "cpu"),             # 🔴 losing money (margin -6%), fwd PE~90, turnaround risk
+    "CSCO":  ("Hardware", "value",  "networking_hw"),   # 🟢 added 2026-06-26: fwdPE 24, margin 20%, ROE 25%
     # Benchmark
     "QQQ":   ("Unknown", "etf",    "benchmark"),
 }
