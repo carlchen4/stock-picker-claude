@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-06-26T20:59:49",
-  "as_of": "2026-06-26",
+  "generated_at": "2026-06-27T11:00:21",
+  "as_of": "2026-06-27",
   "regime": "NEUTRAL",
   "reliability": "OK",
   "reliability_detail": "OK \u2014 all checks passed",
   "portfolio_value": 10000.0,
-  "te_estimate": 0.0885,
+  "te_estimate": 0.0886,
   "risk": {
     "beta": 0.893,
     "var95": -0.0638,
@@ -19,117 +19,234 @@
       "ticker": "MFC.TO",
       "sector": "Financials",
       "style": "value",
-      "score": 0.667,
+      "score": 0.7,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 57.24,
+      "price": 57.19,
       "shares": 19,
       "dollar_value": 1111,
-      "drivers": []
+      "drivers": [
+        {
+          "label": "Volatility 60d",
+          "shap": 0.0082
+        },
+        {
+          "label": "RSI (14-day)",
+          "shap": -0.0081
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": 0.0069
+        }
+      ]
     },
     {
       "rank": 2,
       "ticker": "CNQ.TO",
       "sector": "Energy",
       "style": "core",
-      "score": 0.75,
+      "score": 0.588,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 56.29,
+      "price": 56.02,
       "shares": 19,
       "dollar_value": 1111,
-      "drivers": []
+      "drivers": [
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.0125
+        },
+        {
+          "label": "Short-Term Reversal",
+          "shap": -0.0098
+        },
+        {
+          "label": "Volatility 60d",
+          "shap": 0.0086
+        }
+      ]
     },
     {
       "rank": 3,
       "ticker": "CP.TO",
       "sector": "Industrials",
       "style": "core",
-      "score": 0.667,
+      "score": 0.587,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 123.3,
-      "shares": 9,
+      "price": 124.43,
+      "shares": 8,
       "dollar_value": 1111,
-      "drivers": []
+      "drivers": [
+        {
+          "label": "Momentum PC1",
+          "shap": -0.0303
+        },
+        {
+          "label": "Momentum PC2",
+          "shap": -0.0232
+        },
+        {
+          "label": "Volatility 20d",
+          "shap": -0.023
+        }
+      ]
     },
     {
       "rank": 4,
       "ticker": "ZUT.TO",
       "sector": "Utilities",
       "style": "core",
-      "score": 1.0,
+      "score": 0.884,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 30.51,
+      "price": 30.52,
       "shares": 36,
       "dollar_value": 1111,
-      "drivers": []
+      "drivers": [
+        {
+          "label": "Short-Term Reversal",
+          "shap": -0.0833
+        },
+        {
+          "label": "ADV 20-day Rank",
+          "shap": -0.0298
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": 0.0252
+        }
+      ]
     },
     {
       "rank": 5,
       "ticker": "WPM.TO",
       "sector": "Materials",
       "style": "growth",
-      "score": 0.625,
+      "score": 0.817,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 162.04,
+      "price": 160.71,
       "shares": 6,
       "dollar_value": 1111,
-      "drivers": []
+      "drivers": [
+        {
+          "label": "ADV 20-day Rank",
+          "shap": -0.0283
+        },
+        {
+          "label": "52-Week High Proximity",
+          "shap": 0.0183
+        },
+        {
+          "label": "Short-Term Reversal",
+          "shap": 0.0134
+        }
+      ]
     },
     {
       "rank": 6,
-      "ticker": "CVE.TO",
-      "sector": "Energy",
-      "style": "value",
-      "score": 0.375,
-      "weight": 0.1111,
-      "action": "BUY",
-      "price": 34.93,
-      "shares": 31,
-      "dollar_value": 1111,
-      "drivers": []
-    },
-    {
-      "rank": 7,
-      "ticker": "BMO.TO",
-      "sector": "Financials",
-      "style": "core",
-      "score": 0.333,
-      "weight": 0.1111,
-      "action": "BUY",
-      "price": 246.7,
-      "shares": 4,
-      "dollar_value": 1111,
-      "drivers": []
-    },
-    {
-      "rank": 8,
       "ticker": "FNV.TO",
       "sector": "Materials",
       "style": "growth",
-      "score": 0.25,
+      "score": 0.504,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 305.11,
+      "price": 305.32,
       "shares": 3,
       "dollar_value": 1111,
-      "drivers": []
+      "drivers": [
+        {
+          "label": "ADV 20-day Rank",
+          "shap": -0.0403
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.0135
+        },
+        {
+          "label": "Momentum PC1",
+          "shap": 0.0114
+        }
+      ]
     },
     {
-      "rank": 9,
+      "rank": 7,
       "ticker": "TRI.TO",
       "sector": "Industrials",
       "style": "core",
-      "score": 0.25,
+      "score": 0.374,
       "weight": 0.1111,
       "action": "BUY",
-      "price": 118.74,
+      "price": 119.04,
       "shares": 9,
       "dollar_value": 1111,
-      "drivers": []
+      "drivers": [
+        {
+          "label": "Revenue Growth YoY",
+          "shap": -0.069
+        },
+        {
+          "label": "Momentum PC1",
+          "shap": -0.0586
+        },
+        {
+          "label": "Short-Term Reversal",
+          "shap": -0.0211
+        }
+      ]
+    },
+    {
+      "rank": 8,
+      "ticker": "CVE.TO",
+      "sector": "Energy",
+      "style": "value",
+      "score": 0.218,
+      "weight": 0.1111,
+      "action": "BUY",
+      "price": 35.17,
+      "shares": 31,
+      "dollar_value": 1111,
+      "drivers": [
+        {
+          "label": "Short-Term Reversal",
+          "shap": -0.0139
+        },
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.0138
+        },
+        {
+          "label": "RSI (14-day)",
+          "shap": -0.0135
+        }
+      ]
+    },
+    {
+      "rank": 9,
+      "ticker": "BMO.TO",
+      "sector": "Financials",
+      "style": "core",
+      "score": 0.157,
+      "weight": 0.1111,
+      "action": "BUY",
+      "price": 248.66,
+      "shares": 4,
+      "dollar_value": 1111,
+      "drivers": [
+        {
+          "label": "Bollinger Band Z",
+          "shap": -0.0161
+        },
+        {
+          "label": "Short-Term Reversal",
+          "shap": -0.0153
+        },
+        {
+          "label": "RSI (14-day)",
+          "shap": -0.0039
+        }
+      ]
     }
   ],
   "actions": {
@@ -140,10 +257,10 @@
       "CP.TO",
       "ZUT.TO",
       "WPM.TO",
-      "CVE.TO",
-      "BMO.TO",
       "FNV.TO",
-      "TRI.TO"
+      "TRI.TO",
+      "CVE.TO",
+      "BMO.TO"
     ],
     "hold": []
   },
@@ -739,7 +856,7 @@
   },
   "oos": {
     "months": 2,
-    "avg_monthly": -0.0104,
+    "avg_monthly": -0.0095,
     "monthly_series": [
       {
         "date": "2026-04",
@@ -750,73 +867,73 @@
       },
       {
         "date": "2026-05",
-        "port": -0.0146,
-        "bench": 0.0214,
-        "port_cum": -0.0208,
-        "bench_cum": 0.0407
+        "port": -0.0127,
+        "bench": 0.0216,
+        "port_cum": -0.0189,
+        "bench_cum": 0.0409
       }
     ],
     "latest_month": "2026-05",
     "stock_returns": [
       {
         "ticker": "BMO.TO",
-        "ret": 0.1017
+        "ret": 0.1104
       },
       {
         "ticker": "MFC.TO",
-        "ret": 0.0855
+        "ret": 0.0846
       },
       {
         "ticker": "ZUT.TO",
-        "ret": 0.0245
+        "ret": 0.0248
       },
       {
         "ticker": "CP.TO",
-        "ret": 0.0016
+        "ret": 0.013
       },
       {
         "ticker": "TRI.TO",
-        "ret": -0.0067
+        "ret": -0.0042
       },
       {
         "ticker": "FNV.TO",
-        "ret": -0.0426
+        "ret": -0.0419
       },
       {
         "ticker": "CVE.TO",
-        "ret": -0.0771
+        "ret": -0.0708
       },
       {
         "ticker": "CNQ.TO",
-        "ret": -0.0926
+        "ret": -0.097
       },
       {
         "ticker": "WPM.TO",
-        "ret": -0.1258
+        "ret": -0.133
       }
     ],
-    "bench_return": 0.0214
+    "bench_return": 0.0216
   },
   "macro": {
     "vix": {
-      "val": 19.4,
-      "chg": 4.1
+      "val": 18.4,
+      "chg": 3.1
     },
     "oil": {
-      "val": 69.1,
-      "chg_pct": -0.209
+      "val": 69.23,
+      "chg_pct": -0.2075
     },
     "cadusd": {
-      "val": 0.7042,
-      "chg_pct": -0.0294
+      "val": 0.7045,
+      "chg_pct": -0.029
     },
     "us10y": {
-      "val": 4.38,
-      "chg_bps": -7.7
+      "val": 4.45,
+      "chg_bps": -0.2
     },
     "tsx": {
-      "val": 34974.11,
-      "chg_pct": 0.0059
+      "val": 34980.0,
+      "chg_pct": 0.0061
     }
   }
 }
