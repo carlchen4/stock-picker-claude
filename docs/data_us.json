@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-06-26T20:55:27",
+  "generated_at": "2026-06-26T20:57:39",
   "as_of": "2026-06-26",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
   "reliability_detail": "CAUTION \u2014 1 warning \u2014 Feature drift: 1 regime-shifted (|z|>3): mom_pc1(z=3.0)",
-  "portfolio_value": 10000.0,
+  "portfolio_value": 2000.0,
   "te_estimate": 0.2185,
   "risk": {
     "beta": 1.462,
@@ -23,8 +23,8 @@
       "weight": 0.1667,
       "action": "BUY",
       "price": 204.6,
-      "shares": 8,
-      "dollar_value": 1666,
+      "shares": 1,
+      "dollar_value": 333,
       "drivers": []
     },
     {
@@ -36,8 +36,8 @@
       "weight": 0.1667,
       "action": "BUY",
       "price": 341.12,
-      "shares": 4,
-      "dollar_value": 1666,
+      "shares": 1,
+      "dollar_value": 333,
       "drivers": []
     },
     {
@@ -49,8 +49,8 @@
       "weight": 0.1667,
       "action": "BUY",
       "price": 128.83,
-      "shares": 12,
-      "dollar_value": 1666,
+      "shares": 2,
+      "dollar_value": 333,
       "drivers": []
     },
     {
@@ -62,8 +62,8 @@
       "weight": 0.1667,
       "action": "BUY",
       "price": 333.28,
-      "shares": 5,
-      "dollar_value": 1666,
+      "shares": 1,
+      "dollar_value": 333,
       "drivers": []
     },
     {
@@ -75,8 +75,8 @@
       "weight": 0.1667,
       "action": "BUY",
       "price": 302.93,
-      "shares": 5,
-      "dollar_value": 1666,
+      "shares": 1,
+      "dollar_value": 333,
       "drivers": []
     },
     {
@@ -88,8 +88,8 @@
       "weight": 0.1667,
       "action": "BUY",
       "price": 230.9,
-      "shares": 7,
-      "dollar_value": 1666,
+      "shares": 1,
+      "dollar_value": 333,
       "drivers": []
     }
   ],
