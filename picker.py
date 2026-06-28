@@ -4141,11 +4141,14 @@ def build_report_html(picks, weights, panel_latest, top_features, regime,
             news_td = f'<td style="font-size:11px">{news_html}</td>'
 
         company = COMPANY_NAMES.get(ticker, ticker)
+        display_ticker = "CUT(WS)" if ticker == "XUT.TO" else ticker
+        if ticker == "XUT.TO":
+            company = "CUT Portfolio (WS)"
         rows_html += f"""
         <tr>
           <td>
             <div style="font-weight:700;color:#1a252f">{company}</div>
-            <div style="font-size:11px;color:#888">{ticker}</div>
+            <div style="font-size:11px;color:#888">{display_ticker}</div>
           </td>
           <td>{profile[0]}</td>
           <td style="text-align:right">{price_html}</td>
