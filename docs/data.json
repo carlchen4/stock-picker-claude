@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-06-27T11:00:21",
-  "as_of": "2026-06-27",
+  "generated_at": "2026-06-28T11:00:52",
+  "as_of": "2026-06-28",
   "regime": "NEUTRAL",
   "reliability": "OK",
   "reliability_detail": "OK \u2014 all checks passed",
@@ -924,12 +924,12 @@
       "chg_pct": -0.2075
     },
     "cadusd": {
-      "val": 0.7045,
-      "chg_pct": -0.029
+      "val": 0.7047,
+      "chg_pct": -0.0287
     },
     "us10y": {
-      "val": 4.45,
-      "chg_bps": -0.2
+      "val": 4.37,
+      "chg_bps": -8.1
     },
     "tsx": {
       "val": 34980.0,
