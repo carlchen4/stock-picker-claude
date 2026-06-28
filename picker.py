@@ -382,18 +382,19 @@ REPORT_LABEL = "TSX"
 def _ca_deploy_note(picks, weights, prices):
     if not picks:
         return ""
-    per = 10000.0 / len(picks)
-    out = [f"💵 $10,000 CAD 怎么买(等权,每只 ~${per:,.0f},按当前价):"]
+    out = ["💵 $10,000 CAD 怎么买 (Fuzzy 4:2:1 加权, 按当前价):"]
     for t in picks:
+        w = weights.get(t, 1.0 / len(picks))
+        dollar = 10000.0 * w
         if t == "XUT.TO":
-            out.append(f"   CUT(WS): 在 WS Automated Investing 按 CUT 配置持有")
+            out.append(f"   CUT(WS) {w:.1%}: 在 WS Automated Investing 按 CUT 配置持有 (${dollar:,.0f})")
             continue
         p = (prices or {}).get(t)
         if p and p > 0:
-            shares = max(1, int(per // p))
-            out.append(f"   {t}: {shares} 股 @ ${p:.2f}")
+            shares = max(1, int(dollar // p))
+            out.append(f"   {t} {w:.1%}: {shares} 股 @ ${p:.2f}  (${dollar:,.0f})")
         else:
-            out.append(f"   {t}: (无价)")
+            out.append(f"   {t} {w:.1%}: (无价)")
     return "\n".join(out)
 
 
@@ -3640,10 +3641,21 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
         legacy_sectors=legacy_sectors,
     )
 
-    # Position sizing: equal weight matches backtest assumptions and maximises IR
-    # (walk-forward experiment: equal IR 1.58 vs inv-vol IR 0.91).
-    n_picks = max(len(final_picks), 1)
-    weights = {t: 1.0 / n_picks for t in final_picks}
+    # Position sizing: Fuzzy 4:2:1 (walk-forward IR 2.46 vs equal-weight 2.22).
+    # Sort picks by model score; top-third gets 4 units, mid-third 2, bottom-third 1.
+    # XUT.TO (CUT sleeve) is a fixed allocation — exclude from scoring, assign mid-tier.
+    sbt_all = dict(zip(latest_df["ticker"], latest_df["score"]))
+    active_picks = [t for t in final_picks if t != "XUT.TO"]
+    scored_picks = sorted(active_picks, key=lambda t: sbt_all.get(t, 0), reverse=True)
+    n = max(len(scored_picks), 1)
+    n_top = max(1, int(np.ceil(n / 3)))
+    n_bot = max(1, int(np.floor(n / 3)))
+    tier = {t: (4.0 if i < n_top else 1.0 if i >= n - n_bot else 2.0)
+            for i, t in enumerate(scored_picks)}
+    if "XUT.TO" in final_picks:
+        tier["XUT.TO"] = 2.0  # CUT sleeve: fixed mid-tier (not model-scored)
+    total_units = sum(tier.values())
+    weights = {t: tier[t] / total_units for t in final_picks}
 
     # OOS track record: log this month's picks, then backfill any prior
     # months whose realized returns have now matured (see functions).
