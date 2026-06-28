@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-06-28T17:41:46",
+  "generated_at": "2026-06-28T18:56:24",
   "as_of": "2026-06-28",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
   "reliability_detail": "CAUTION \u2014 1 warning \u2014 Sector coverage: trained 4/5 sectors (missing: ['Utilities'])",
   "portfolio_value": 10000.0,
-  "te_estimate": 0.0891,
+  "te_estimate": 0.123,
   "risk": {
-    "beta": 0.88,
-    "var95": -0.0645,
-    "cvar95": -0.0937,
-    "max_position": 0.1111,
-    "max_position_ticker": "MFC.TO"
+    "beta": 0.755,
+    "var95": -0.0723,
+    "cvar95": -0.0967,
+    "max_position": 0.1905,
+    "max_position_ticker": "CNQ.TO"
   },
   "picks": [
     {
@@ -20,11 +20,11 @@
       "sector": "Financials",
       "style": "value",
       "score": 0.635,
-      "weight": 0.1111,
+      "weight": 0.0952,
       "action": "BUY",
       "price": 57.19,
-      "shares": 19,
-      "dollar_value": 1111,
+      "shares": 16,
+      "dollar_value": 952,
       "drivers": []
     },
     {
@@ -33,11 +33,11 @@
       "sector": "Energy",
       "style": "core",
       "score": 0.789,
-      "weight": 0.1111,
+      "weight": 0.1905,
       "action": "BUY",
       "price": 56.02,
-      "shares": 19,
-      "dollar_value": 1111,
+      "shares": 34,
+      "dollar_value": 1904,
       "drivers": []
     },
     {
@@ -46,11 +46,11 @@
       "sector": "Industrials",
       "style": "core",
       "score": 0.638,
-      "weight": 0.1111,
+      "weight": 0.1905,
       "action": "BUY",
       "price": 124.43,
-      "shares": 8,
-      "dollar_value": 1111,
+      "shares": 15,
+      "dollar_value": 1904,
       "drivers": []
     },
     {
@@ -59,11 +59,11 @@
       "sector": "Utilities",
       "style": "core",
       "score": -0.13,
-      "weight": 0.1111,
+      "weight": 0.0476,
       "action": "BUY",
       "price": 37.3,
-      "shares": 29,
-      "dollar_value": 1111,
+      "shares": 12,
+      "dollar_value": 476,
       "drivers": []
     },
     {
@@ -72,11 +72,11 @@
       "sector": "Materials",
       "style": "growth",
       "score": 0.627,
-      "weight": 0.1111,
+      "weight": 0.0952,
       "action": "BUY",
       "price": 160.71,
-      "shares": 6,
-      "dollar_value": 1111,
+      "shares": 5,
+      "dollar_value": 952,
       "drivers": []
     },
     {
@@ -85,11 +85,11 @@
       "sector": "Energy",
       "style": "value",
       "score": 0.737,
-      "weight": 0.1111,
+      "weight": 0.1905,
       "action": "BUY",
       "price": 35.17,
-      "shares": 31,
-      "dollar_value": 1111,
+      "shares": 54,
+      "dollar_value": 1904,
       "drivers": []
     },
     {
@@ -98,11 +98,11 @@
       "sector": "Financials",
       "style": "core",
       "score": 0.569,
-      "weight": 0.1111,
+      "weight": 0.0952,
       "action": "BUY",
       "price": 248.66,
-      "shares": 4,
-      "dollar_value": 1111,
+      "shares": 3,
+      "dollar_value": 952,
       "drivers": []
     },
     {
@@ -111,11 +111,11 @@
       "sector": "Materials",
       "style": "growth",
       "score": 0.177,
-      "weight": 0.1111,
+      "weight": 0.0476,
       "action": "BUY",
       "price": 305.32,
-      "shares": 3,
-      "dollar_value": 1111,
+      "shares": 1,
+      "dollar_value": 476,
       "drivers": []
     },
     {
@@ -124,11 +124,11 @@
       "sector": "Industrials",
       "style": "core",
       "score": -0.07,
-      "weight": 0.1111,
+      "weight": 0.0476,
       "action": "BUY",
       "price": 119.04,
-      "shares": 9,
-      "dollar_value": 1111,
+      "shares": 4,
+      "dollar_value": 476,
       "drivers": []
     }
   ],
@@ -731,15 +731,15 @@
   },
   "label": "TSX",
   "sector_weights": {
-    "Financials": 0.222,
-    "Energy": 0.222,
-    "Industrials": 0.222,
-    "Utilities": 0.111,
-    "Materials": 0.222
+    "Financials": 0.19,
+    "Energy": 0.381,
+    "Industrials": 0.238,
+    "Utilities": 0.048,
+    "Materials": 0.143
   },
   "oos": {
     "months": 2,
-    "avg_monthly": -0.009,
+    "avg_monthly": -0.0152,
     "monthly_series": [
       {
         "date": "2026-04",
@@ -750,9 +750,9 @@
       },
       {
         "date": "2026-05",
-        "port": -0.0118,
+        "port": -0.0242,
         "bench": 0.0216,
-        "port_cum": -0.018,
+        "port_cum": -0.0303,
         "bench_cum": 0.0409
       }
     ],
