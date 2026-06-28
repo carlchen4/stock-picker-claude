@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-06-28T17:10:51",
+  "generated_at": "2026-06-28T17:17:08",
   "as_of": "2026-06-28",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
   "reliability_detail": "CAUTION \u2014 1 warning \u2014 Sector coverage: trained 4/5 sectors (missing: ['Utilities'])",
-  "portfolio_value": 50000.0,
+  "portfolio_value": 10000.0,
   "te_estimate": 0.0891,
   "risk": {
     "beta": 0.88,
@@ -23,8 +23,8 @@
       "weight": 0.1111,
       "action": "BUY",
       "price": 57.19,
-      "shares": 97,
-      "dollar_value": 5555,
+      "shares": 19,
+      "dollar_value": 1111,
       "drivers": []
     },
     {
@@ -36,8 +36,8 @@
       "weight": 0.1111,
       "action": "BUY",
       "price": 56.02,
-      "shares": 99,
-      "dollar_value": 5555,
+      "shares": 19,
+      "dollar_value": 1111,
       "drivers": []
     },
     {
@@ -49,8 +49,8 @@
       "weight": 0.1111,
       "action": "BUY",
       "price": 124.43,
-      "shares": 44,
-      "dollar_value": 5555,
+      "shares": 8,
+      "dollar_value": 1111,
       "drivers": []
     },
     {
@@ -62,8 +62,8 @@
       "weight": 0.1111,
       "action": "BUY",
       "price": 37.3,
-      "shares": 148,
-      "dollar_value": 5555,
+      "shares": 29,
+      "dollar_value": 1111,
       "drivers": []
     },
     {
@@ -75,8 +75,8 @@
       "weight": 0.1111,
       "action": "BUY",
       "price": 160.71,
-      "shares": 34,
-      "dollar_value": 5555,
+      "shares": 6,
+      "dollar_value": 1111,
       "drivers": []
     },
     {
@@ -88,8 +88,8 @@
       "weight": 0.1111,
       "action": "BUY",
       "price": 35.17,
-      "shares": 157,
-      "dollar_value": 5555,
+      "shares": 31,
+      "dollar_value": 1111,
       "drivers": []
     },
     {
@@ -101,8 +101,8 @@
       "weight": 0.1111,
       "action": "BUY",
       "price": 248.66,
-      "shares": 22,
-      "dollar_value": 5555,
+      "shares": 4,
+      "dollar_value": 1111,
       "drivers": []
     },
     {
@@ -114,8 +114,8 @@
       "weight": 0.1111,
       "action": "BUY",
       "price": 305.32,
-      "shares": 18,
-      "dollar_value": 5555,
+      "shares": 3,
+      "dollar_value": 1111,
       "drivers": []
     },
     {
@@ -127,8 +127,8 @@
       "weight": 0.1111,
       "action": "BUY",
       "price": 119.04,
-      "shares": 46,
-      "dollar_value": 5555,
+      "shares": 9,
+      "dollar_value": 1111,
       "drivers": []
     }
   ],
