@@ -385,9 +385,15 @@ def _ca_deploy_note(picks, weights, prices):
     per = 10000.0 / len(picks)
     out = [f"💵 $10,000 CAD 怎么买(等权,每只 ~${per:,.0f},按当前价):"]
     for t in picks:
+        if t == "XUT.TO":
+            out.append(f"   CUT(WS): 在 WS Automated Investing 按 CUT 配置持有")
+            continue
         p = (prices or {}).get(t)
-        out.append(f"   {t}: {int(per // p)} 股 @ ${p:.2f}" if (p and p > 0)
-                   else f"   {t}: (无价)")
+        if p and p > 0:
+            shares = max(1, int(per // p))
+            out.append(f"   {t}: {shares} 股 @ ${p:.2f}")
+        else:
+            out.append(f"   {t}: (无价)")
     return "\n".join(out)
 
 
@@ -450,17 +456,14 @@ TSX_UNIVERSE = [
     "RY.TO", "TD.TO", "BMO.TO", "CM.TO", "BNS.TO",
     "NA.TO", "EQB.TO",
     "MFC.TO", "SLF.TO", "FFH.TO", "BAM.TO", "BN.TO",
-    # Energy (8)
-    "CNQ.TO", "SU.TO", "CVE.TO", "ARX.TO", "TOU.TO",
-    "ENB.TO", "TRP.TO", "IMO.TO",
+    # Energy (6) — ENB/TRP removed 2026-06-28: pipeline收过路费模式更像公用事业，
+    # 已纳入 CUT (WS Automated Investing) 作为长期基础设施持仓，避免重叠。
+    "CNQ.TO", "SU.TO", "CVE.TO", "ARX.TO", "TOU.TO", "IMO.TO",
     # Industrials (6)
     "CNR.TO", "CP.TO", "WSP.TO", "TRI.TO", "WCN.TO", "CLS.TO",
-    # Utilities (1 ETF) — ETF-ized 2026-06-16. The model had NEGATIVE selection
-    # IC here (-0.088: picking individual utilities was worse than random), so
-    # holding ZUT.TO (BMO Equal Weight Utilities) beats stock-picking the sleeve:
-    # IR 1.69->2.10, drawdown -11.3%->-8.2%, DSR 99.7% STRONG. ZUT is the holding;
-    # XUT.TO stays as the DML treatment (no conflict). Banks left as-is for now.
-    "ZUT.TO",
+    # Utilities — fixed sleeve, not model-scored. CUT portfolio held in WS Automated
+    # Investing replaces this ETF in practice. XUT.TO kept as sector benchmark/placeholder.
+    "XUT.TO",
     # Materials — gold sleeve (4): senior producers + royalty/streamers.
     # Added 2026-06-01 as a diversification experiment — gold is the only
     # TSX sector near-orthogonal to the other four (avg monthly corr +0.14;
@@ -563,12 +566,16 @@ STOCK_PROFILE = {
     # Communication
     "BCE.TO": ("Communication", "value", "telecom"), "T.TO": ("Communication", "value", "telecom"),
     "RCI-B.TO": ("Communication", "core", "telecom"),
-    # Utilities — sleeve ETF-ized 2026-06-16 (ZUT.TO holds the slot; individual
-    # names kept here so they still resolve if held as legacy).
+    # Utilities — CUT individual stocks 2026-06-28. XUT/ZUT kept for legacy only.
+    "XUT.TO": ("Utilities", "core", "util_etf"),
     "ZUT.TO": ("Utilities", "core", "util_etf"),
     "FTS.TO": ("Utilities", "value", "utility"), "EMA.TO": ("Utilities", "value", "utility"),
     "AQN.TO": ("Utilities", "value", "utility"), "CU.TO": ("Utilities", "value", "utility"),
     "H.TO": ("Utilities", "value", "utility"),
+    "ACO-X.TO": ("Utilities", "core", "utility"), "ALA.TO": ("Utilities", "core", "utility"),
+    "BLX.TO": ("Utilities", "growth", "utility"), "TA.TO": ("Utilities", "value", "utility"),
+    "BEP-UN.TO": ("Utilities", "growth", "utility"), "NPI.TO": ("Utilities", "growth", "utility"),
+    "BIP-UN.TO": ("Utilities", "core", "utility"), "CPX.TO": ("Utilities", "value", "utility"),
     # REITs
     "REI-UN.TO": ("RealEstate", "value", "reit"), "HR-UN.TO": ("RealEstate", "value", "reit"),
     "CAR-UN.TO": ("RealEstate", "growth", "reit"), "AP-UN.TO": ("RealEstate", "core", "reit"),
@@ -3804,14 +3811,15 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
                      f"(trigger at {profit_take['threshold']:.0%}).")
 
     sell, buy, hold = diff_holdings(picks, holdings)
-    bw = ", ".join(f"{t} {weights.get(t, 0):.0%}" for t in buy)
+    def _label(t): return "CUT(WS)" if t == "XUT.TO" else t
+    bw = ", ".join(f"{_label(t)} {weights.get(t, 0):.0%}" for t in buy)
     if holdings:
         lines += [
             "",
             "ACTIONS (vs current holdings):",
-            f"  SELL ({len(sell)}): {', '.join(sell) if sell else '—'}",
+            f"  SELL ({len(sell)}): {', '.join(_label(t) for t in sell) if sell else '—'}",
             f"  BUY  ({len(buy)}): {bw if buy else '—'}",
-            f"  HOLD ({len(hold)}): {', '.join(hold) if hold else '—'}",
+            f"  HOLD ({len(hold)}): {', '.join(_label(t) for t in hold) if hold else '—'}",
         ]
     else:
         lines += [
@@ -3865,6 +3873,11 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
         row = panel_latest[panel_latest["ticker"] == ticker]
         score = row["score"].iloc[0] if len(row) > 0 else 0
         held = "  (already held as legacy — model concurs)" if (legacy and ticker in legacy) else ""
+        if ticker == "XUT.TO":
+            lines.append(f"  {i}. {'CUT portfolio':<10} {'Utilities':<14} {'sleeve':<8} (WS Automated Investing — 15只基础设施个股，见 ~/quant/CUT_portfolio.md)")
+            if portfolio_value > 0:
+                lines.append(f"     {w:.1%} of ${portfolio_value:,.0f} = ${portfolio_value*w:,.0f}  →  在 WS 账户按 CUT 配置持有")
+            continue
         lines.append(f"  {i}. {ticker:<10} {profile[0]:<14} {profile[1]:<8} Score: {score:.3f}{held}")
         if prices:
             price = prices.get(ticker)
@@ -4377,8 +4390,9 @@ def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
                     drivers.append({"label": label, "shap": round(float(v), 4)})
 
         action = "BUY" if ticker in buy else ("SELL" if ticker in sell else "HOLD")
+        display_ticker = "CUT(WS)" if ticker == "XUT.TO" else ticker
         picks_data.append({
-            "rank": i, "ticker": ticker,
+            "rank": i, "ticker": display_ticker,
             "sector": profile[0], "style": profile[1],
             "score": round(score, 3), "weight": round(w, 4), "action": action,
             "price": round(price, 2) if price else None,
@@ -4438,7 +4452,8 @@ def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
                 latest = picks_f[picks_f["as_of"] == latest_dt].copy()
                 oos_summary["latest_month"] = latest_dt.strftime("%Y-%m")
                 oos_summary["stock_returns"] = [
-                    {"ticker": row["ticker"], "ret": round(float(row["fwd_realized"]), 4)}
+                    {"ticker": "CUT(WS)" if row["ticker"] == "XUT.TO" else row["ticker"],
+                     "ret": round(float(row["fwd_realized"]), 4)}
                     for _, row in latest.sort_values("fwd_realized", ascending=False).iterrows()
                 ]
                 bret = bench_f.get(latest_dt)
@@ -4456,7 +4471,9 @@ def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
         "te_estimate": round(float(te_estimate), 4) if te_estimate and not np.isnan(te_estimate) else None,
         "risk": estimate_portfolio_risk(picks, weights, price_df) if price_df is not None else {},
         "picks": picks_data,
-        "actions": {"sell": list(sell), "buy": list(buy), "hold": list(hold)},
+        "actions": {"sell": ["CUT(WS)" if t == "XUT.TO" else t for t in sell],
+                    "buy":  ["CUT(WS)" if t == "XUT.TO" else t for t in buy],
+                    "hold": ["CUT(WS)" if t == "XUT.TO" else t for t in hold]},
         "top_features": [
             {"name": _FEAT_LABELS.get(f.replace("_norm", ""), f.replace("_norm", "").replace("_", " ").title()),
              "importance": round(float(v), 4)}
@@ -5983,13 +6000,14 @@ def main():
         save_perm_importance(importance)
 
     if mode in ("pick", "both"):
-        # Prompt for portfolio value (default $10,000 CAD)
-        portfolio_value = 10_000.0
+        # Prompt for portfolio value (default $10,000; overridable via DEFAULT_PORTFOLIO_VALUE)
+        _default_pv = globals().get("DEFAULT_PORTFOLIO_VALUE", 10_000.0)
+        portfolio_value = _default_pv
         try:
-            raw = input("\n  Enter total portfolio value (CAD $, default $10,000): ").strip()
-            portfolio_value = float(raw.replace(",", "")) if raw else 10_000.0
+            raw = input(f"\n  Enter total portfolio value (default ${_default_pv:,.0f}): ").strip()
+            portfolio_value = float(raw.replace(",", "")) if raw else _default_pv
         except (ValueError, EOFError):
-            portfolio_value = 10_000.0
+            portfolio_value = _default_pv
 
         print("\n  [5/5] Generating current picks...")
         holdings = list(CURRENT_HOLDINGS)
