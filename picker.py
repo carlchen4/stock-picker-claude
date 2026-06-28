@@ -411,7 +411,8 @@ def _ca_pie(picks, weights, prices):
     if not picks:
         return None
     per = 10000.0 / len(picks)
-    return ("CA Picker — $10,000 CAD (equal weight)", [(t, per) for t in picks])
+    label = lambda t: "CUT(WS)" if t == "XUT.TO" else t
+    return ("CA Picker — $10,000 CAD (equal weight)", [(label(t), per) for t in picks])
 
 
 REPORT_PIE_FN = _ca_pie
@@ -4511,7 +4512,7 @@ def _push_dashboard(as_of):
         if r.returncode != 0:
             print(f"  Dashboard push: {cmd[1]} failed — {r.stderr.strip()[:100]}")
             return
-    print("  Dashboard: pushed to GitHub → Vercel will auto-deploy")
+    print("  Dashboard: pushed to GitHub Pages")
 
 
 def compute_vif(panel, feature_cols):
