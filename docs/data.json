@@ -1,16 +1,16 @@
 {
-  "generated_at": "2026-06-28T18:57:04",
+  "generated_at": "2026-06-28T18:58:02",
   "as_of": "2026-06-28",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
   "reliability_detail": "CAUTION \u2014 1 warning \u2014 Sector coverage: trained 4/5 sectors (missing: ['Utilities'])",
   "portfolio_value": 10000.0,
-  "te_estimate": 0.123,
+  "te_estimate": 0.1188,
   "risk": {
-    "beta": 0.755,
-    "var95": -0.0723,
-    "cvar95": -0.0967,
-    "max_position": 0.1905,
+    "beta": 0.727,
+    "var95": -0.0697,
+    "cvar95": -0.0918,
+    "max_position": 0.1818,
     "max_position_ticker": "CNQ.TO"
   },
   "picks": [
@@ -20,11 +20,11 @@
       "sector": "Financials",
       "style": "value",
       "score": 0.635,
-      "weight": 0.0952,
+      "weight": 0.0909,
       "action": "BUY",
       "price": 57.19,
-      "shares": 16,
-      "dollar_value": 952,
+      "shares": 15,
+      "dollar_value": 909,
       "drivers": []
     },
     {
@@ -33,11 +33,11 @@
       "sector": "Energy",
       "style": "core",
       "score": 0.789,
-      "weight": 0.1905,
+      "weight": 0.1818,
       "action": "BUY",
       "price": 56.02,
-      "shares": 34,
-      "dollar_value": 1904,
+      "shares": 32,
+      "dollar_value": 1818,
       "drivers": []
     },
     {
@@ -46,11 +46,11 @@
       "sector": "Industrials",
       "style": "core",
       "score": 0.638,
-      "weight": 0.1905,
+      "weight": 0.1818,
       "action": "BUY",
       "price": 124.43,
-      "shares": 15,
-      "dollar_value": 1904,
+      "shares": 14,
+      "dollar_value": 1818,
       "drivers": []
     },
     {
@@ -59,11 +59,11 @@
       "sector": "Utilities",
       "style": "core",
       "score": -0.13,
-      "weight": 0.0476,
+      "weight": 0.0909,
       "action": "BUY",
       "price": 37.3,
-      "shares": 12,
-      "dollar_value": 476,
+      "shares": 24,
+      "dollar_value": 909,
       "drivers": []
     },
     {
@@ -72,11 +72,11 @@
       "sector": "Materials",
       "style": "growth",
       "score": 0.627,
-      "weight": 0.0952,
+      "weight": 0.0909,
       "action": "BUY",
       "price": 160.71,
       "shares": 5,
-      "dollar_value": 952,
+      "dollar_value": 909,
       "drivers": []
     },
     {
@@ -85,11 +85,11 @@
       "sector": "Energy",
       "style": "value",
       "score": 0.737,
-      "weight": 0.1905,
+      "weight": 0.1818,
       "action": "BUY",
       "price": 35.17,
-      "shares": 54,
-      "dollar_value": 1904,
+      "shares": 51,
+      "dollar_value": 1818,
       "drivers": []
     },
     {
@@ -98,11 +98,11 @@
       "sector": "Financials",
       "style": "core",
       "score": 0.569,
-      "weight": 0.0952,
+      "weight": 0.0909,
       "action": "BUY",
       "price": 248.66,
       "shares": 3,
-      "dollar_value": 952,
+      "dollar_value": 909,
       "drivers": []
     },
     {
@@ -111,11 +111,11 @@
       "sector": "Materials",
       "style": "growth",
       "score": 0.177,
-      "weight": 0.0476,
+      "weight": 0.0455,
       "action": "BUY",
       "price": 305.32,
       "shares": 1,
-      "dollar_value": 476,
+      "dollar_value": 454,
       "drivers": []
     },
     {
@@ -124,11 +124,11 @@
       "sector": "Industrials",
       "style": "core",
       "score": -0.07,
-      "weight": 0.0476,
+      "weight": 0.0455,
       "action": "BUY",
       "price": 119.04,
-      "shares": 4,
-      "dollar_value": 476,
+      "shares": 3,
+      "dollar_value": 454,
       "drivers": []
     }
   ],
@@ -731,15 +731,15 @@
   },
   "label": "TSX",
   "sector_weights": {
-    "Financials": 0.19,
-    "Energy": 0.381,
-    "Industrials": 0.238,
-    "Utilities": 0.048,
-    "Materials": 0.143
+    "Financials": 0.182,
+    "Energy": 0.364,
+    "Industrials": 0.227,
+    "Utilities": 0.091,
+    "Materials": 0.136
   },
   "oos": {
     "months": 2,
-    "avg_monthly": -0.0152,
+    "avg_monthly": -0.014,
     "monthly_series": [
       {
         "date": "2026-04",
@@ -750,9 +750,9 @@
       },
       {
         "date": "2026-05",
-        "port": -0.0242,
+        "port": -0.0216,
         "bench": 0.0216,
-        "port_cum": -0.0303,
+        "port_cum": -0.0278,
         "bench_cum": 0.0409
       }
     ],
