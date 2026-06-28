@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-28T17:08:30",
+  "generated_at": "2026-06-28T17:09:54",
   "as_of": "2026-06-28",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
@@ -55,7 +55,7 @@
     },
     {
       "rank": 4,
-      "ticker": "XUT.TO",
+      "ticker": "CUT(WS)",
       "sector": "Utilities",
       "style": "core",
       "score": -0.13,
