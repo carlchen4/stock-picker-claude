@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-28T17:09:54",
+  "generated_at": "2026-06-28T17:10:20",
   "as_of": "2026-06-28",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
@@ -138,7 +138,7 @@
       "MFC.TO",
       "CNQ.TO",
       "CP.TO",
-      "XUT.TO",
+      "CUT(WS)",
       "WPM.TO",
       "CVE.TO",
       "BMO.TO",
