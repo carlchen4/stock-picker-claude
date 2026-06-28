@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-06-27T11:00:39",
-  "as_of": "2026-06-27",
+  "generated_at": "2026-06-28T11:01:40",
+  "as_of": "2026-06-28",
   "regime": "NEUTRAL",
   "reliability": "OK",
   "reliability_detail": "OK \u2014 all checks passed",
@@ -829,8 +829,8 @@
       "chg_pct": -0.2075
     },
     "us10y": {
-      "val": 4.45,
-      "chg_bps": -0.2
+      "val": 4.37,
+      "chg_bps": -8.1
     }
   }
 }
