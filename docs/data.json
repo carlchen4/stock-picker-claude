@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-28T22:45:33",
+  "generated_at": "2026-06-28T23:01:23",
   "as_of": "2026-06-28",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
@@ -16,7 +16,7 @@
   "picks": [
     {
       "rank": 1,
-      "ticker": "FIN(WS)",
+      "ticker": "FIN",
       "sector": "Financials",
       "style": "core",
       "score": 0.134,
@@ -122,7 +122,7 @@
   "actions": {
     "sell": [],
     "buy": [
-      "FIN(WS)",
+      "FIN",
       "CVE.TO",
       "CP.TO",
       "CUT(WS)",
@@ -745,7 +745,7 @@
     "latest_month": "2026-05",
     "stock_returns": [
       {
-        "ticker": "FIN(WS)",
+        "ticker": "FIN",
         "ret": 0.0784
       },
       {
