@@ -454,10 +454,12 @@ DASHBOARD_URL = "https://carlchen4.github.io/stock-picker-claude/"
 
 TSX_UNIVERSE = [
     "XIU.TO",  # TSX 60 ETF (benchmark)
-    # Financials (12) — includes NA.TO and EQB.TO (held but were missing)
+    # Financials (13) — added GWO.TO 2026-06-28: third-largest CA life insurer
+    # via Power Corp; Empower (US 401k #2) growth engine; lowest beta (0.70) and
+    # lowest 3yr MaxDD (-12%) in peer group; only 0.45 corr with MFC.
     "RY.TO", "TD.TO", "BMO.TO", "CM.TO", "BNS.TO",
     "NA.TO", "EQB.TO",
-    "MFC.TO", "SLF.TO", "FFH.TO", "BAM.TO", "BN.TO",
+    "MFC.TO", "SLF.TO", "FFH.TO", "BAM.TO", "BN.TO", "GWO.TO",
     # Energy (6) — ENB/TRP removed 2026-06-28: pipeline收过路费模式更像公用事业，
     # 已纳入 CUT (WS Automated Investing) 作为长期基础设施持仓，避免重叠。
     "CNQ.TO", "SU.TO", "CVE.TO", "ARX.TO", "TOU.TO", "IMO.TO",
@@ -606,7 +608,7 @@ COMPANY_NAMES = {
     "NA.TO": "National Bank of Canada", "EQB.TO": "EQB (Equitable Bank)",
     "MFC.TO": "Manulife Financial", "SLF.TO": "Sun Life Financial",
     "FFH.TO": "Fairfax Financial", "BAM.TO": "Brookfield Asset Management",
-    "BN.TO": "Brookfield Corporation",
+    "BN.TO": "Brookfield Corporation", "GWO.TO": "Great-West Lifeco",
     "CNQ.TO": "Canadian Natural Resources", "SU.TO": "Suncor Energy",
     "CVE.TO": "Cenovus Energy", "ARX.TO": "ARC Resources",
     "TOU.TO": "Tourmaline Oil", "ENB.TO": "Enbridge", "TRP.TO": "TC Energy",
