@@ -1,43 +1,43 @@
 {
-  "generated_at": "2026-06-28T22:35:52",
+  "generated_at": "2026-06-28T22:45:06",
   "as_of": "2026-06-28",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
-  "reliability_detail": "CAUTION \u2014 1 warning \u2014 Sector coverage: trained 4/5 sectors (missing: ['Utilities'])",
+  "reliability_detail": "CAUTION \u2014 1 warning \u2014 Sector coverage: trained 3/5 sectors (missing: ['Financials', 'Utilities'])",
   "portfolio_value": 10000.0,
-  "te_estimate": 0.0939,
+  "te_estimate": 0.1395,
   "risk": {
-    "beta": 0.78,
-    "var95": -0.0635,
-    "cvar95": -0.0834,
-    "max_position": 0.1818,
-    "max_position_ticker": "MFC.TO"
+    "beta": 0.682,
+    "var95": -0.0847,
+    "cvar95": -0.1024,
+    "max_position": 0.2222,
+    "max_position_ticker": "CVE.TO"
   },
   "picks": [
     {
       "rank": 1,
-      "ticker": "MFC.TO",
+      "ticker": "FIN(WS)",
       "sector": "Financials",
-      "style": "value",
-      "score": 0.691,
-      "weight": 0.1818,
+      "style": "core",
+      "score": 0.134,
+      "weight": 0.1111,
       "action": "BUY",
-      "price": 57.19,
-      "shares": 31,
-      "dollar_value": 1818,
+      "price": 93.72,
+      "shares": 11,
+      "dollar_value": 1111,
       "drivers": []
     },
     {
       "rank": 2,
-      "ticker": "CNQ.TO",
+      "ticker": "CVE.TO",
       "sector": "Energy",
-      "style": "core",
-      "score": 0.581,
-      "weight": 0.1818,
+      "style": "value",
+      "score": 1.1,
+      "weight": 0.2222,
       "action": "BUY",
-      "price": 56.02,
-      "shares": 32,
-      "dollar_value": 1818,
+      "price": 35.17,
+      "shares": 63,
+      "dollar_value": 2222,
       "drivers": []
     },
     {
@@ -45,12 +45,12 @@
       "ticker": "CP.TO",
       "sector": "Industrials",
       "style": "core",
-      "score": 0.724,
-      "weight": 0.1818,
+      "score": 0.703,
+      "weight": 0.1111,
       "action": "BUY",
       "price": 124.43,
-      "shares": 14,
-      "dollar_value": 1818,
+      "shares": 8,
+      "dollar_value": 1111,
       "drivers": []
     },
     {
@@ -58,12 +58,12 @@
       "ticker": "CUT(WS)",
       "sector": "Utilities",
       "style": "core",
-      "score": -0.051,
-      "weight": 0.0909,
+      "score": -0.068,
+      "weight": 0.1111,
       "action": "BUY",
       "price": 37.3,
-      "shares": 24,
-      "dollar_value": 909,
+      "shares": 29,
+      "dollar_value": 1111,
       "drivers": []
     },
     {
@@ -71,77 +71,63 @@
       "ticker": "WPM.TO",
       "sector": "Materials",
       "style": "growth",
-      "score": 0.576,
-      "weight": 0.0909,
+      "score": 0.532,
+      "weight": 0.1111,
       "action": "BUY",
       "price": 160.71,
-      "shares": 5,
-      "dollar_value": 909,
+      "shares": 6,
+      "dollar_value": 1111,
       "drivers": []
     },
     {
       "rank": 6,
-      "ticker": "CVE.TO",
+      "ticker": "CNQ.TO",
       "sector": "Energy",
-      "style": "value",
-      "score": 0.472,
-      "weight": 0.0909,
+      "style": "core",
+      "score": 0.763,
+      "weight": 0.2222,
       "action": "BUY",
-      "price": 35.17,
-      "shares": 25,
-      "dollar_value": 909,
+      "price": 56.02,
+      "shares": 39,
+      "dollar_value": 2222,
       "drivers": []
     },
     {
       "rank": 7,
-      "ticker": "BMO.TO",
-      "sector": "Financials",
-      "style": "core",
-      "score": 0.326,
-      "weight": 0.0909,
+      "ticker": "FNV.TO",
+      "sector": "Materials",
+      "style": "growth",
+      "score": 0.278,
+      "weight": 0.0556,
       "action": "BUY",
-      "price": 248.66,
-      "shares": 3,
-      "dollar_value": 909,
+      "price": 305.32,
+      "shares": 1,
+      "dollar_value": 555,
       "drivers": []
     },
     {
       "rank": 8,
-      "ticker": "FNV.TO",
-      "sector": "Materials",
-      "style": "growth",
-      "score": 0.32,
-      "weight": 0.0455,
-      "action": "BUY",
-      "price": 305.32,
-      "shares": 1,
-      "dollar_value": 454,
-      "drivers": []
-    },
-    {
-      "rank": 9,
       "ticker": "TRI.TO",
       "sector": "Industrials",
       "style": "core",
-      "score": 0.17,
-      "weight": 0.0455,
+      "score": -0.123,
+      "weight": 0.0556,
       "action": "BUY",
       "price": 119.04,
-      "shares": 3,
-      "dollar_value": 454,
+      "shares": 4,
+      "dollar_value": 555,
       "drivers": []
     }
   ],
   "actions": {
     "sell": [],
     "buy": [
-      "MFC.TO",
-      "CNQ.TO",
+      "FIN(WS)",
+      "CVE.TO",
       "CP.TO",
       "CUT(WS)",
       "WPM.TO",
-      "CVE.TO",
-      "BMO.TO",
+      "CNQ.TO",
       "FNV.TO",
       "TRI.TO"
     ],
@@ -731,15 +717,15 @@
   },
   "label": "TSX",
   "sector_weights": {
-    "Financials": 0.273,
-    "Energy": 0.273,
-    "Industrials": 0.227,
-    "Utilities": 0.091,
-    "Materials": 0.136
+    "Financials": 0.111,
+    "Energy": 0.444,
+    "Industrials": 0.167,
+    "Utilities": 0.111,
+    "Materials": 0.167
   },
   "oos": {
     "months": 2,
-    "avg_monthly": -0.0069,
+    "avg_monthly": -0.0236,
     "monthly_series": [
       {
         "date": "2026-04",
@@ -750,21 +736,17 @@
       },
       {
         "date": "2026-05",
-        "port": -0.0075,
+        "port": -0.0408,
         "bench": 0.0216,
-        "port_cum": -0.0137,
+        "port_cum": -0.0469,
         "bench_cum": 0.0409
       }
     ],
     "latest_month": "2026-05",
     "stock_returns": [
       {
-        "ticker": "BMO.TO",
-        "ret": 0.1104
-      },
-      {
-        "ticker": "MFC.TO",
-        "ret": 0.0846
+        "ticker": "FIN(WS)",
+        "ret": 0.0784
       },
       {
         "ticker": "CUT(WS)",
@@ -803,12 +785,12 @@
       "chg": 3.1
     },
     "oil": {
-      "val": 70.01,
-      "chg_pct": -0.1986
+      "val": 69.91,
+      "chg_pct": -0.1997
     },
     "cadusd": {
-      "val": 0.705,
-      "chg_pct": -0.0283
+      "val": 0.7047,
+      "chg_pct": -0.0287
     },
     "us10y": {
       "val": 4.37,
