@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-29T11:00:21",
+  "generated_at": "2026-06-29T11:23:51",
   "as_of": "2026-06-29",
   "regime": "NEUTRAL",
   "reliability": "CAUTION",
@@ -38,20 +38,7 @@
       "price": 35.17,
       "shares": 63,
       "dollar_value": 2222,
-      "drivers": [
-        {
-          "label": "Short-Term Reversal",
-          "shap": -0.0207
-        },
-        {
-          "label": "Volatility 60d",
-          "shap": 0.012
-        },
-        {
-          "label": "Momentum PC1",
-          "shap": -0.011
-        }
-      ]
+      "drivers": []
     },
     {
       "rank": 3,
@@ -64,20 +51,7 @@
       "price": 124.43,
       "shares": 8,
       "dollar_value": 1111,
-      "drivers": [
-        {
-          "label": "Momentum PC1",
-          "shap": -0.04
-        },
-        {
-          "label": "Volatility 60d",
-          "shap": -0.0305
-        },
-        {
-          "label": "Volatility 20d",
-          "shap": -0.0146
-        }
-      ]
+      "drivers": []
     },
     {
       "rank": 4,
@@ -103,20 +77,7 @@
       "price": 160.71,
       "shares": 6,
       "dollar_value": 1111,
-      "drivers": [
-        {
-          "label": "ADV 20-day Rank",
-          "shap": -0.0308
-        },
-        {
-          "label": "52-Week High Proximity",
-          "shap": 0.0269
-        },
-        {
-          "label": "Bollinger Band Z",
-          "shap": -0.0236
-        }
-      ]
+      "drivers": []
     },
     {
       "rank": 6,
@@ -129,20 +90,7 @@
       "price": 56.02,
       "shares": 39,
       "dollar_value": 2222,
-      "drivers": [
-        {
-          "label": "ADV 20-day Rank",
-          "shap": -0.0234
-        },
-        {
-          "label": "Short-Term Reversal",
-          "shap": -0.0113
-        },
-        {
-          "label": "RSI (14-day)",
-          "shap": -0.0083
-        }
-      ]
+      "drivers": []
     },
     {
       "rank": 7,
@@ -155,20 +103,7 @@
       "price": 305.32,
       "shares": 1,
       "dollar_value": 555,
-      "drivers": [
-        {
-          "label": "ADV 20-day Rank",
-          "shap": -0.0375
-        },
-        {
-          "label": "Bollinger Band Z",
-          "shap": -0.0189
-        },
-        {
-          "label": "52-Week High Proximity",
-          "shap": 0.0099
-        }
-      ]
+      "drivers": []
     },
     {
       "rank": 8,
@@ -181,20 +116,7 @@
       "price": 119.04,
       "shares": 4,
       "dollar_value": 555,
-      "drivers": [
-        {
-          "label": "Momentum PC1",
-          "shap": -0.078
-        },
-        {
-          "label": "Revenue Growth YoY",
-          "shap": -0.0602
-        },
-        {
-          "label": "Volatility 60d",
-          "shap": -0.0209
-        }
-      ]
+      "drivers": []
     }
   ],
   "actions": {
