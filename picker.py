@@ -380,7 +380,7 @@ REPORT_LABEL = "TSX"
 # sector. Placeholder ticker → (display label, sleeve description).
 SLEEVE_TICKERS = {
     "XUT.TO": ("CUT(WS)", "在 WS Automated Investing 按 CUT 配置持有"),
-    "XFN.TO": ("FIN(WS)", "在 WS Automated Investing 按 13只金融等权篮子持有"),
+    "XFN.TO": ("FIN", "在 WS Automated Investing 按 13只金融等权篮子持有"),
 }
 
 def is_sleeve(ticker):
@@ -467,7 +467,7 @@ DASHBOARD_URL = "https://carlchen4.github.io/stock-picker-claude/"
 
 TSX_UNIVERSE = [
     "XIU.TO",  # TSX 60 ETF (benchmark)
-    # Financials — fixed sleeve, not model-scored (2026-06-28). FIN(WS) basket
+    # Financials — fixed sleeve, not model-scored (2026-06-28). FIN basket
     # of 13 equal-weight Financials held in WS Automated Investing replaces
     # picker stock selection. Walk-forward: ZEB IR 2.07, equal-weight basket
     # IR 2.02 vs picker IR 2.22 — but TFSA tax-free + WS 0 commission means
@@ -584,7 +584,7 @@ STOCK_PROFILE = {
     # Communication
     "BCE.TO": ("Communication", "value", "telecom"), "T.TO": ("Communication", "value", "telecom"),
     "RCI-B.TO": ("Communication", "core", "telecom"),
-    # Financials — FIN(WS) basket 2026-06-28. XFN kept as sector placeholder.
+    # Financials — FIN basket 2026-06-28. XFN kept as sector placeholder.
     "XFN.TO": ("Financials", "core", "fin_etf"),
     # Utilities — CUT individual stocks 2026-06-28. XUT/ZUT kept for legacy only.
     "XUT.TO": ("Utilities", "core", "util_etf"),
@@ -625,7 +625,7 @@ COMPANY_NAMES = {
     "MFC.TO": "Manulife Financial", "SLF.TO": "Sun Life Financial",
     "FFH.TO": "Fairfax Financial", "BAM.TO": "Brookfield Asset Management",
     "BN.TO": "Brookfield Corporation", "GWO.TO": "Great-West Lifeco",
-    "XFN.TO": "FIN(WS) — 13-stock equal-weight Financials basket",
+    "XFN.TO": "FIN — 13-stock equal-weight Financials basket",
     "CNQ.TO": "Canadian Natural Resources", "SU.TO": "Suncor Energy",
     "CVE.TO": "Cenovus Energy", "ARX.TO": "ARC Resources",
     "TOU.TO": "Tourmaline Oil", "ENB.TO": "Enbridge", "TRP.TO": "TC Energy",
@@ -3662,7 +3662,7 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
 
     # Position sizing: Fuzzy 4:2:1 (walk-forward IR 2.46 vs equal-weight 2.22).
     # Sort picks by model score; top-third gets 4 units, mid-third 2, bottom-third 1.
-    # Sleeves (CUT/FIN(WS)) are fixed allocations — exclude from scoring, assign mid-tier.
+    # Sleeves (CUT/FIN) are fixed allocations — exclude from scoring, assign mid-tier.
     sbt_all = dict(zip(latest_df["ticker"], latest_df["score"]))
     active_picks = [t for t in final_picks if not is_sleeve(t)]
     scored_picks = sorted(active_picks, key=lambda t: sbt_all.get(t, 0), reverse=True)
