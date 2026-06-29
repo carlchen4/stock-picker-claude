@@ -376,6 +376,19 @@ BENCHMARK_TICKER = "XIU.TO"
 # picker_us.py overrides this to "US Tech" etc.
 REPORT_LABEL = "TSX"
 
+# Fixed WS Automated Investing sleeves — these replace stock selection in their
+# sector. Placeholder ticker → (display label, sleeve description).
+SLEEVE_TICKERS = {
+    "XUT.TO": ("CUT(WS)", "在 WS Automated Investing 按 CUT 配置持有"),
+    "XFN.TO": ("FIN(WS)", "在 WS Automated Investing 按 13只金融等权篮子持有"),
+}
+
+def is_sleeve(ticker):
+    return ticker in SLEEVE_TICKERS
+
+def sleeve_label(ticker):
+    return SLEEVE_TICKERS.get(ticker, (ticker, ""))[0]
+
 # Deployment guide shown atop every report (stdout + email). Default = CA picker's
 # "$10,000 CAD equal-weight across the picks, with live share counts". picker_us.py
 # overrides this with the US 1/3 picker+VOO+QQQM version. Callable(picks, weights, prices).
@@ -386,8 +399,9 @@ def _ca_deploy_note(picks, weights, prices):
     for t in picks:
         w = weights.get(t, 1.0 / len(picks))
         dollar = 10000.0 * w
-        if t == "XUT.TO":
-            out.append(f"   CUT(WS) {w:.1%}: 在 WS Automated Investing 按 CUT 配置持有 (${dollar:,.0f})")
+        if is_sleeve(t):
+            label, desc = SLEEVE_TICKERS[t]
+            out.append(f"   {label} {w:.1%}: {desc} (${dollar:,.0f})")
             continue
         p = (prices or {}).get(t)
         if p and p > 0:
@@ -411,9 +425,8 @@ _REPORT_IMAGES = {}
 def _ca_pie(picks, weights, prices):
     if not picks:
         return None
-    per = 10000.0 / len(picks)
-    label = lambda t: "CUT(WS)" if t == "XUT.TO" else t
-    return ("CA Picker — $10,000 CAD (equal weight)", [(label(t), per) for t in picks])
+    return ("CA Picker — $10,000 CAD (Fuzzy 4:2:1)",
+            [(sleeve_label(t), weights.get(t, 1.0/len(picks)) * 10000) for t in picks])
 
 
 REPORT_PIE_FN = _ca_pie
@@ -454,12 +467,13 @@ DASHBOARD_URL = "https://carlchen4.github.io/stock-picker-claude/"
 
 TSX_UNIVERSE = [
     "XIU.TO",  # TSX 60 ETF (benchmark)
-    # Financials (13) — added GWO.TO 2026-06-28: third-largest CA life insurer
-    # via Power Corp; Empower (US 401k #2) growth engine; lowest beta (0.70) and
-    # lowest 3yr MaxDD (-12%) in peer group; only 0.45 corr with MFC.
-    "RY.TO", "TD.TO", "BMO.TO", "CM.TO", "BNS.TO",
-    "NA.TO", "EQB.TO",
-    "MFC.TO", "SLF.TO", "FFH.TO", "BAM.TO", "BN.TO", "GWO.TO",
+    # Financials — fixed sleeve, not model-scored (2026-06-28). FIN(WS) basket
+    # of 13 equal-weight Financials held in WS Automated Investing replaces
+    # picker stock selection. Walk-forward: ZEB IR 2.07, equal-weight basket
+    # IR 2.02 vs picker IR 2.22 — but TFSA tax-free + WS 0 commission means
+    # operational simplicity wins for ~0.20 IR difference. XFN.TO kept as
+    # sector benchmark/placeholder (market-cap weighted, MER 0.61%).
+    "XFN.TO",
     # Energy (6) — ENB/TRP removed 2026-06-28: pipeline收过路费模式更像公用事业，
     # 已纳入 CUT (WS Automated Investing) 作为长期基础设施持仓，避免重叠。
     "CNQ.TO", "SU.TO", "CVE.TO", "ARX.TO", "TOU.TO", "IMO.TO",
@@ -570,6 +584,8 @@ STOCK_PROFILE = {
     # Communication
     "BCE.TO": ("Communication", "value", "telecom"), "T.TO": ("Communication", "value", "telecom"),
     "RCI-B.TO": ("Communication", "core", "telecom"),
+    # Financials — FIN(WS) basket 2026-06-28. XFN kept as sector placeholder.
+    "XFN.TO": ("Financials", "core", "fin_etf"),
     # Utilities — CUT individual stocks 2026-06-28. XUT/ZUT kept for legacy only.
     "XUT.TO": ("Utilities", "core", "util_etf"),
     "ZUT.TO": ("Utilities", "core", "util_etf"),
@@ -609,6 +625,7 @@ COMPANY_NAMES = {
     "MFC.TO": "Manulife Financial", "SLF.TO": "Sun Life Financial",
     "FFH.TO": "Fairfax Financial", "BAM.TO": "Brookfield Asset Management",
     "BN.TO": "Brookfield Corporation", "GWO.TO": "Great-West Lifeco",
+    "XFN.TO": "FIN(WS) — 13-stock equal-weight Financials basket",
     "CNQ.TO": "Canadian Natural Resources", "SU.TO": "Suncor Energy",
     "CVE.TO": "Cenovus Energy", "ARX.TO": "ARC Resources",
     "TOU.TO": "Tourmaline Oil", "ENB.TO": "Enbridge", "TRP.TO": "TC Energy",
@@ -3645,17 +3662,18 @@ def predict_now(panel, feature_cols, price_df, macro_df, current_holdings=None):
 
     # Position sizing: Fuzzy 4:2:1 (walk-forward IR 2.46 vs equal-weight 2.22).
     # Sort picks by model score; top-third gets 4 units, mid-third 2, bottom-third 1.
-    # XUT.TO (CUT sleeve) is a fixed allocation — exclude from scoring, assign mid-tier.
+    # Sleeves (CUT/FIN(WS)) are fixed allocations — exclude from scoring, assign mid-tier.
     sbt_all = dict(zip(latest_df["ticker"], latest_df["score"]))
-    active_picks = [t for t in final_picks if t != "XUT.TO"]
+    active_picks = [t for t in final_picks if not is_sleeve(t)]
     scored_picks = sorted(active_picks, key=lambda t: sbt_all.get(t, 0), reverse=True)
     n = max(len(scored_picks), 1)
     n_top = max(1, int(np.ceil(n / 3)))
     n_bot = max(1, int(np.floor(n / 3)))
     tier = {t: (4.0 if i < n_top else 1.0 if i >= n - n_bot else 2.0)
             for i, t in enumerate(scored_picks)}
-    if "XUT.TO" in final_picks:
-        tier["XUT.TO"] = 2.0  # CUT sleeve: fixed mid-tier (not model-scored)
+    for t in final_picks:
+        if is_sleeve(t):
+            tier[t] = 2.0  # sleeve: fixed mid-tier (not model-scored)
     total_units = sum(tier.values())
     weights = {t: tier[t] / total_units for t in final_picks}
 
@@ -3826,7 +3844,7 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
                      f"(trigger at {profit_take['threshold']:.0%}).")
 
     sell, buy, hold = diff_holdings(picks, holdings)
-    def _label(t): return "CUT(WS)" if t == "XUT.TO" else t
+    def _label(t): return sleeve_label(t)
     bw = ", ".join(f"{_label(t)} {weights.get(t, 0):.0%}" for t in buy)
     if holdings:
         lines += [
@@ -3888,10 +3906,17 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
         row = panel_latest[panel_latest["ticker"] == ticker]
         score = row["score"].iloc[0] if len(row) > 0 else 0
         held = "  (already held as legacy — model concurs)" if (legacy and ticker in legacy) else ""
-        if ticker == "XUT.TO":
-            lines.append(f"  {i}. {'CUT portfolio':<10} {'Utilities':<14} {'sleeve':<8} (WS Automated Investing — 15只基础设施个股，见 ~/quant/CUT_portfolio.md)")
+        if is_sleeve(ticker):
+            label, desc = SLEEVE_TICKERS[ticker]
+            sector = STOCK_PROFILE.get(ticker, ("?",))[0]
+            extra = ""
+            if ticker == "XUT.TO":
+                extra = "15只基础设施个股，见 ~/quant/CUT_portfolio.md"
+            elif ticker == "XFN.TO":
+                extra = "13只金融等权篮子 (6银行+保险+资管+GWO)"
+            lines.append(f"  {i}. {label:<10} {sector:<14} {'sleeve':<8} (WS Automated Investing — {extra})")
             if portfolio_value > 0:
-                lines.append(f"     {w:.1%} of ${portfolio_value:,.0f} = ${portfolio_value*w:,.0f}  →  在 WS 账户按 CUT 配置持有")
+                lines.append(f"     {w:.1%} of ${portfolio_value:,.0f} = ${portfolio_value*w:,.0f}  →  {desc}")
             continue
         lines.append(f"  {i}. {ticker:<10} {profile[0]:<14} {profile[1]:<8} Score: {score:.3f}{held}")
         if prices:
@@ -4155,9 +4180,11 @@ def build_report_html(picks, weights, panel_latest, top_features, regime,
             news_td = f'<td style="font-size:11px">{news_html}</td>'
 
         company = COMPANY_NAMES.get(ticker, ticker)
-        display_ticker = "CUT(WS)" if ticker == "XUT.TO" else ticker
+        display_ticker = sleeve_label(ticker)
         if ticker == "XUT.TO":
             company = "CUT Portfolio (WS)"
+        elif ticker == "XFN.TO":
+            company = "FIN Basket (WS) — 13-stock equal-weight"
         rows_html += f"""
         <tr>
           <td>
@@ -4408,7 +4435,7 @@ def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
                     drivers.append({"label": label, "shap": round(float(v), 4)})
 
         action = "BUY" if ticker in buy else ("SELL" if ticker in sell else "HOLD")
-        display_ticker = "CUT(WS)" if ticker == "XUT.TO" else ticker
+        display_ticker = sleeve_label(ticker)
         picks_data.append({
             "rank": i, "ticker": display_ticker,
             "sector": profile[0], "style": profile[1],
@@ -4470,7 +4497,7 @@ def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
                 latest = picks_f[picks_f["as_of"] == latest_dt].copy()
                 oos_summary["latest_month"] = latest_dt.strftime("%Y-%m")
                 oos_summary["stock_returns"] = [
-                    {"ticker": "CUT(WS)" if row["ticker"] == "XUT.TO" else row["ticker"],
+                    {"ticker": sleeve_label(row["ticker"]),
                      "ret": round(float(row["fwd_realized"]), 4)}
                     for _, row in latest.sort_values("fwd_realized", ascending=False).iterrows()
                 ]
@@ -4489,9 +4516,9 @@ def write_dashboard_data(picks, weights, panel_latest, top_features, regime,
         "te_estimate": round(float(te_estimate), 4) if te_estimate and not np.isnan(te_estimate) else None,
         "risk": estimate_portfolio_risk(picks, weights, price_df) if price_df is not None else {},
         "picks": picks_data,
-        "actions": {"sell": ["CUT(WS)" if t == "XUT.TO" else t for t in sell],
-                    "buy":  ["CUT(WS)" if t == "XUT.TO" else t for t in buy],
-                    "hold": ["CUT(WS)" if t == "XUT.TO" else t for t in hold]},
+        "actions": {"sell": [sleeve_label(t) for t in sell],
+                    "buy":  [sleeve_label(t) for t in buy],
+                    "hold": [sleeve_label(t) for t in hold]},
         "top_features": [
             {"name": _FEAT_LABELS.get(f.replace("_norm", ""), f.replace("_norm", "").replace("_", " ").title()),
              "importance": round(float(v), 4)}
