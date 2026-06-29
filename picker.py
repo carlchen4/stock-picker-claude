@@ -380,7 +380,7 @@ REPORT_LABEL = "TSX"
 # sector. Placeholder ticker → (display label, sleeve description).
 SLEEVE_TICKERS = {
     "XUT.TO": ("CUT(WS)", "在 WS Automated Investing 按 CUT 配置持有"),
-    "XFN.TO": ("FIN", "在 WS Automated Investing 按 13只金融等权篮子持有"),
+    "XFN.TO": ("FIN", "在 WS Automated Investing 按 FIN 11只金融配置持有 (5大行50% + 多元金融50%, 见 ~/quant/FIN_portfolio.md)"),
 }
 
 def is_sleeve(ticker):
@@ -3913,7 +3913,7 @@ def _format_report(picks, weights, panel_latest, top_features, regime,
             if ticker == "XUT.TO":
                 extra = "15只基础设施个股，见 ~/quant/CUT_portfolio.md"
             elif ticker == "XFN.TO":
-                extra = "13只金融等权篮子 (6银行+保险+资管+GWO)"
+                extra = "FIN 11只配置 (5大行50% + 多元金融50%, 见 ~/quant/FIN_portfolio.md)"
             lines.append(f"  {i}. {label:<10} {sector:<14} {'sleeve':<8} (WS Automated Investing — {extra})")
             if portfolio_value > 0:
                 lines.append(f"     {w:.1%} of ${portfolio_value:,.0f} = ${portfolio_value*w:,.0f}  →  {desc}")
@@ -4184,7 +4184,7 @@ def build_report_html(picks, weights, panel_latest, top_features, regime,
         if ticker == "XUT.TO":
             company = "CUT Portfolio (WS)"
         elif ticker == "XFN.TO":
-            company = "FIN Basket (WS) — 13-stock equal-weight"
+            company = "FIN (WS) — 11-stock Plan 2 配置"
         rows_html += f"""
         <tr>
           <td>
